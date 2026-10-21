@@ -1,0 +1,4 @@
+.settings .card p+p{margin-top:6px}
+.settings .facts dt{color:var(--muted);font-size:13px}
+.settings .facts dd{margin:0}
+.settings pre{white-space:pre-wrap;overflow-wrap:anywhere;padding-right:64px}

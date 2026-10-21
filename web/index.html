@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kantor Claude</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='2' y='5' width='12' height='10' fill='%23F59A3C'/%3E%3Crect x='0' y='3' width='16' height='3' fill='%231F1628'/%3E%3Crect x='4' y='8' width='3' height='3' fill='%23FFFCF7'/%3E%3Crect x='9' y='8' width='3' height='3' fill='%23FFFCF7'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Silkscreen:wght@400;700&display=swap">
+<link rel="stylesheet" href="/vendor/xterm.css">
+<link rel="stylesheet" href="/app.css">
+<link rel="stylesheet" href="/css/drawer.css">
+<link rel="stylesheet" href="/css/board.css">
+<link rel="stylesheet" href="/css/notes.css">
+<link rel="stylesheet" href="/css/wiki.css">
+<link rel="stylesheet" href="/css/meetings.css">
+<link rel="stylesheet" href="/css/payroll.css">
+<link rel="stylesheet" href="/css/roles.css">
+<link rel="stylesheet" href="/css/settings.css">
+</head>
+<body>
+<div class="app">
+  <header class="top"><div class="top-in">
+    <a class="brand" href="#/"><span class="logo" aria-hidden="true"></span>Kantor Claude</a>
+    <nav class="crumbs" id="crumbs" aria-label="Lokasi"></nav>
+    <div class="top-right">
+      <span class="conn" id="conn" title="Koneksi ke daemon">menyambung…</span>
+      <a class="pill" id="inboxPill" href="#/" title="Kotak masuk izin gabungan">Izin <b id="inboxCount">0</b></a>
+      <a class="icon-link" href="#/pengaturan" title="Pengaturan" aria-label="Pengaturan">⚙</a>
+    </div>
+  </div></header>
+  <main id="view"></main>
+</div>
+<div id="scrim" class="scrim" data-act="close-drawer" hidden></div>
+<aside id="drawer" class="drawer" aria-label="Panel" hidden></aside>
+<div id="modal" class="modal" hidden><div class="modal-card" id="modalCard" role="dialog" aria-modal="true"></div></div>
+<div id="toasts" class="toasts" aria-live="polite"></div>
+<script src="/vendor/xterm.js"></script>
+<script src="/vendor/addon-fit.js"></script>
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

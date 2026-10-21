@@ -1,0 +1,88 @@
+.drawer .termbox{flex:1 1 0;min-height:300px;overflow:hidden}
+.drawer .termbox .xt{flex:1 1 0;min-height:0;overflow:hidden}
+.drawer .xterm-viewport{background:transparent!important}
+.drawer .quick input{flex:1;min-width:0}
+.drawer .sess-actions .btn kbd{font-size:11px}
+.drawer .hist{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13.5px}
+.drawer .hist li{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px}
+.drawer .hist li>span:first-child{font:600 12px var(--f-mono);color:var(--muted)}
+.drawer textarea#drNotes{width:100%;resize:vertical}
+.drawer [data-slot="ended"]{background:var(--warn-soft);color:var(--ink)}
+@media (max-width:480px){.drawer .facts{grid-template-columns:1fr}.drawer .hist li{grid-template-columns:1fr;gap:0}}
+.tr-head{font-size:13.5px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.tr-head code{color:var(--ink)}
+.tr-box{flex:1;min-height:320px;max-height:none;overflow-y:auto;background:#1F1628;color:#E9E2DA;border-radius:10px;padding:12px 14px;font:12.5px/1.6 var(--f-mono);display:grid;gap:6px;align-content:start}
+.tr-user{color:#F5B76C;white-space:pre-wrap;overflow-wrap:anywhere}
+.tr-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.tr-tool{color:#8EC0F0}
+.tr-res{color:#8C8296;padding-left:14px}
+.tr-res.err{color:#F08A7A}
+.tr-empty{color:#8C8296;margin:0}
+/* terminal + input always fit the panel: no scrolling to reach the input */
+.drawer .dr-body:has(> .termbox),.drawer .dr-body:has(> .tr-box){overflow:hidden}
+.drawer .termbox{flex:1 1 0;min-height:160px}
+.drawer .tr-box{flex:1 1 0;min-height:140px}
+.drawer #drQuick{flex:none}
+.drawer .sess-actions{flex:none}
+/* panel layar penuh */
+#drawer.full,body.kantor-full #drawer.full{top:0!important;right:0!important;bottom:0!important;left:0!important;width:auto!important;z-index:60;border-radius:0;border-left:0}
+#drawer.full .dr-body{padding:16px 24px}
+/* compact panel, like a terminal harness */
+.dr-head.compact{padding:10px 14px;gap:10px}
+.dr-head.compact .dr-ava{width:38px;height:44px;border-radius:8px}
+.dr-head.compact .dr-ava svg{width:24px;height:39px}
+.dr-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dr-head.compact .dr-name{font:700 17px var(--f-body);letter-spacing:-.01em}
+.dr-head.compact .dr-title{font:500 11.5px var(--f-mono);color:var(--muted)}
+.dr-head.compact .icon-btn{width:30px;height:30px;font-size:14px}
+.drawer .dr-tabs{padding-top:2px}
+.drawer .dr-body:has(> .termbox){gap:8px;padding:10px 14px 12px}
+.ctl-row{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
+.ctl-l{font:500 10.5px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.btn.halt{background:#E6765F;border-color:#E6765F;color:#2A0F08}
+.more{position:relative}
+.more summary{list-style:none;cursor:pointer}
+.more summary::-webkit-details-marker{display:none}
+.more-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;display:grid;min-width:230px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:var(--shadow)}
+.more-menu button{border:0;background:none;text-align:left;padding:7px 10px;border-radius:7px;font-size:13.5px;color:var(--ink)}
+.more-menu button:hover{background:var(--surface-2)}
+.more-menu button.danger{color:var(--bad)}
+.more-menu code{font-size:11px}
+.term-bar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex:none;font:500 11px var(--f-mono);color:var(--muted)}
+.term-bar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:4px}
+.term-bar .fs{display:inline-flex;align-items:center;gap:4px}
+.term-bar .fs button{width:24px;height:22px;border:1px solid var(--line);background:var(--surface);border-radius:6px;font:600 13px var(--f-mono);line-height:1;color:var(--ink)}
+.drawer .termbox{padding:6px;border-radius:10px}
+.msgbox{flex:none;display:grid;gap:6px}
+.msgbox textarea{resize:none;min-height:54px;max-height:30vh;border-radius:10px;font-size:14px}
+.msg-actions{display:flex;justify-content:flex-end}
+/* v3: terminal gets the room */
+.drawer:has(> .dr-main){flex-direction:row}
+.dr-main{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+.dr-switch{display:none}
+.drawer .dr-head.compact{padding:8px 12px}
+.drawer .dr-tabs{padding:0 10px}
+.drawer .dr-tabs button{padding:7px 10px;font-size:10.5px}
+.drawer .dr-body:has(> .termbox){gap:6px;padding:8px 10px 10px}
+.term-bar{flex-wrap:wrap;row-gap:4px}
+.tb-live{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.tb-ctl{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;margin-left:auto}
+.tb-ctl .btn.sm{padding:3px 9px;font-size:12.5px}
+.msgbox{display:flex;align-items:flex-end;gap:8px}
+.msgbox textarea{flex:1;min-height:38px;height:38px;max-height:160px;resize:none;padding:8px 11px;line-height:1.4}
+.msgbox .btn{height:38px}
+/* fokus: agent switcher on the left, terminal everywhere else */
+#drawer.full .dr-switch{display:flex;flex-direction:column;gap:6px;width:260px;flex:none;padding:12px;border-right:1px solid var(--line);background:var(--surface-2);overflow-y:auto}
+#drawer.full .dr-switch .btn{justify-content:center;margin-bottom:6px}
+.sw-row{display:grid;grid-template-columns:30px minmax(0,1fr) 10px;gap:8px;align-items:center;text-align:left;border:1px solid transparent;background:none;border-radius:10px;padding:6px 8px;color:var(--ink)}
+.sw-row:hover{background:var(--surface)}
+.sw-row.cur{background:var(--surface);border-color:var(--accent)}
+.sw-ava{width:30px;height:36px;display:grid;place-items:center}
+.sw-b{display:grid;min-width:0}
+.sw-b b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw-b span{font:500 11px var(--f-mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw-st{width:8px;height:8px;border-radius:50%;background:var(--muted-2)}
+.sw-st.bekerja{background:var(--ok)}
+.sw-st.izin{background:var(--accent)}
+#drawer.full .dr-body:has(> .termbox){padding:10px 16px 14px}
+.drawer .dr-body .msgbox textarea{min-height:38px}

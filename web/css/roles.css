@@ -1,0 +1,51 @@
+.rl-rooms{margin-top:28px}
+.rl-arch{margin-top:14px}
+.rcard h3 .chip{font-size:10.5px;vertical-align:middle}
+.rf-fields .field label,.rf-fields>label{font-weight:600;font-size:13.5px}
+.rf-fields textarea{width:100%;resize:vertical}
+#modalCard .role-form{grid-template-columns:130px minmax(0,1fr)}
+#modalCard .swatches .sw{cursor:pointer}
+.bd-toolbar select,.bd-toolbar input[type=search]{min-width:0}
+@media (max-width:560px){#modalCard .role-form{grid-template-columns:1fr}.rl-rooms .tbl td:last-child .btn-row{flex-wrap:wrap!important}}
+/* add room: folder browser + floor plan preview */
+.modal-card:has(.rm-add){max-width:min(1100px,96vw)}
+.rm-add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:18px;align-items:start}
+.rm-left{display:grid;gap:12px;min-width:0}
+.rf-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fb{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.fb-crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:8px 10px;border-bottom:1px solid var(--line);background:var(--surface-2);font:500 12px var(--f-mono)}
+.fb-crumbs button{border:0;background:none;padding:2px 5px;border-radius:5px;color:var(--ink);cursor:pointer;font:inherit}
+.fb-crumbs button:hover{background:var(--accent-soft)}
+.fb-crumbs button:last-child{font-weight:700}
+.fb-crumbs span{color:var(--muted-2)}
+.fb-list{list-style:none;margin:0;padding:4px;max-height:300px;overflow:auto}
+.fb-row{display:grid;grid-template-columns:18px minmax(0,auto) 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:7px 8px;border-radius:8px;cursor:pointer;color:var(--ink);font:500 13.5px var(--f-body)}
+.fb-row:hover,.fb-row:focus-visible{background:var(--surface-2);outline:none}
+.fb-row.used{color:var(--muted)}
+.fb-row.up{grid-template-columns:18px 1fr}
+.fb-ic{color:var(--accent);font-size:11px;text-align:center}
+.fb-nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fb-bs{display:flex;gap:4px;flex-wrap:nowrap;overflow:hidden;justify-content:flex-start}
+.fb-b{font:500 10px var(--f-mono);font-style:normal;padding:1px 5px;border-radius:4px;background:var(--surface-2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.fb-b.git{color:var(--accent-text);background:var(--accent-soft);border-color:transparent}
+.fb-b.md{color:var(--teal);background:var(--teal-soft);border-color:transparent}
+.fb-b.used{color:var(--muted-2);background:none}
+.fb-go{color:var(--muted-2);font-size:16px}
+.fb-empty{padding:12px;color:var(--muted);font-size:13px}
+.fb-foot{display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--line);flex-wrap:wrap}
+.fb-new{display:flex;gap:10px;align-items:center;padding:0 10px 10px}
+.fb-new input{flex:1}
+.warn-t{color:var(--warn)}
+.rm-right{display:grid;gap:12px;min-width:0}
+.rm-pv{position:relative;height:300px;border-radius:12px;overflow:hidden;background:var(--stage);border:1px solid var(--line)}
+.rm-pv-stage{position:absolute;inset:0}
+.rm-pv-stage canvas{display:block;width:100%;height:100%}
+.rm-pv-tools{position:absolute;right:8px;bottom:8px;display:flex;gap:4px;background:color-mix(in srgb,var(--surface) 92%,transparent);padding:3px;border-radius:9px;border:1px solid var(--line)}
+.rm-pv-tools button{border:0;background:none;padding:4px 9px;border-radius:6px;font:600 11px var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);cursor:pointer}
+.rm-pv-tools button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.rm-pv-info h3{font:700 17px var(--f-body);margin:0}
+.pv-dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0;font-size:13px}
+.pv-dl dt{color:var(--muted);font:500 11px var(--f-mono);text-transform:uppercase;letter-spacing:.08em;padding-top:2px}
+.pv-dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.pv-moved{font-size:13px;background:var(--accent-soft);border-radius:8px;padding:8px 10px;margin:0 0 8px}
+@media (max-width:820px){.rm-add{grid-template-columns:minmax(0,1fr)}.rm-pv{height:220px}}

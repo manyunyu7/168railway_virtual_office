@@ -1,0 +1,29 @@
+{
+  "name": "kantor-claude",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kantor visual untuk sesi Claude Code: denah pixel, terminal tmux, board, role, rapat, payroll, notes, wiki.",
+  "bin": {
+    "kantor": "bin/kantor.js"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/",
+    "postinstall": "node scripts/fix-pty.js",
+    "open": "node bin/kantor.js open"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "node-pty": "^1.1.0",
+    "ws": "^8.22.0"
+  },
+  "allowScripts": {
+    "node-pty@1.1.0": true
+  }
+}
