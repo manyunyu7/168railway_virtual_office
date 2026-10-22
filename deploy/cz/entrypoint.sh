@@ -25,6 +25,8 @@ git config --global user.name >/dev/null 2>&1 || git config --global user.name "
 git config --global user.email >/dev/null 2>&1 || git config --global user.email "kantor-cz@tentrem.space"
 (
   for i in $(seq 1 60); do [ -f "$K/server.json" ] && break; sleep 1; done
+  # reinstall so the hook path follows $APP (image or bind mount)
+  node "$APP/bin/kantor.js" hooks uninstall >/dev/null 2>&1 || true
   node "$APP/bin/kantor.js" hooks install >/dev/null 2>&1 || echo "hooks belum terpasang"
   claude mcp remove -s user kantor >/dev/null 2>&1 || true
   claude mcp add -s user kantor -- /usr/local/bin/node "$APP/server/mcp-stdio.js" >/dev/null 2>&1 || echo "mcp belum terpasang"
