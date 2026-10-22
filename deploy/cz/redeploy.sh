@@ -20,7 +20,7 @@ TAG=kantor-cz:$(date +%Y%m%d%H%M)
 nice -n 10 docker build -q -t "$TAG" -t kantor-cz:latest -f deploy/cz/Dockerfile . >/dev/null
 docker rm -f kantor-cz >/dev/null 2>&1 || true
 docker run -d --name kantor-cz --hostname kantor-cz --network kantor-cz --restart unless-stopped \
-  --memory 12g --memory-swap 12g --cpus 3 --pids-limit 4096 --cap-drop ALL --security-opt no-new-privileges \
+  --memory 12g --memory-swap 12g --cpus 3 --pids-limit 4096 --shm-size 1g --cap-drop ALL --security-opt no-new-privileges \
   -p 127.0.0.1:4317:4317 -e KANTOR_APP=/app-src \
   -v /srv/kantor-cz/app:/app-src:ro -v /srv/kantor-cz/home:/home/kantor -v /srv/kantor-cz/work:/work kantor-cz:latest >/dev/null
 echo "jalan: $TAG"

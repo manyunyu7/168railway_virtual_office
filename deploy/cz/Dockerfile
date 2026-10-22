@@ -11,6 +11,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ARG CLAUDE_VERSION=2.1.308
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_VERSION} && npm cache clean --force
 
+# Playwright Chromium for e2e tests and screenshots; must match the project's @playwright/test (EnviOps: 1.62.1)
+ARG PLAYWRIGHT_VERSION=1.62.1
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx -y playwright@${PLAYWRIGHT_VERSION} install --with-deps chromium \
+    && apt-get install -y --no-install-recommends fonts-noto-color-emoji \
+    && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/* /root/.npm
+
 # a uid that is nobody on the host, so the bind mounts belong to no real host user
 RUN groupadd -g 10501 kantor && useradd -m -u 10501 -g 10501 -s /bin/bash kantor
 
