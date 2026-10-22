@@ -1,10 +1,10 @@
 // Akun page (#/akun): your own account, the member list (admins), and the audit log (Riwayat).
 // Members only see their own rows in Riwayat; the server enforces that, this page just hides the person filter.
-import { $, esc, short, api, post, patch, toast, modal, confirmDo, ago } from './util.js';
+import { $, esc, short, api, post, patch, del, toast, modal, confirmDo, ago } from './util.js';
 import { refreshState } from './main.js';
 
 let root = null, ctx = null, tab = 'riwayat';
-let members = [], rows = [], more = false, filter = { actor: '', kind: '', office: '', q: '' };
+let members = [], tokens = [], rows = [], more = false, filter = { actor: '', kind: '', office: '', q: '' };
 
 const me = () => ctx.st?.me || null;
 const isAdmin = () => me()?.role === 'admin';
@@ -23,6 +23,7 @@ export function unmount() { if (root) root.onclick = root.onsubmit = root.onchan
 async function load() {
   try {
     if (isAdmin()) members = (await api('/api/akun/anggota')).members;
+    if (tab === 'saya' && me()?.kind === 'member') tokens = (await api('/api/akun/token')).tokens;
     if (tab === 'riwayat') await loadRows(false);
   } catch (e) { toast(e.message, 'bad'); }
   draw();
@@ -68,7 +69,11 @@ function drawMe() {
         <div class="field"><label for="akNew2">Ulangi password baru</label><input id="akNew2" type="password" autocomplete="new-password" minlength="10" required></div>
         <div class="field"><label for="akCode">Kode 2FA</label><input id="akCode" inputmode="numeric" autocomplete="one-time-code" maxlength="7" required placeholder="000000"></div>
         <p class="hint" style="grid-column:1/-1">Perangkat lain yang masuk dengan akunmu akan dikeluarkan.</p>
-        <div class="btn-row" style="grid-column:1/-1"><button class="btn primary" type="submit">Simpan password</button></div></form></section>`;
+        <div class="btn-row" style="grid-column:1/-1"><button class="btn primary" type="submit">Simpan password</button></div></form></section>
+    <section class="card"><h2>Token aplikasi</h2>
+      <p class="hint">Untuk aplikasi yang tidak bisa login lewat browser, misalnya Ghina di HP. Isi alamat <code>${esc(location.origin)}</code> dan tokennya di pengaturan Kantor aplikasi itu. Token bertindak atas namamu (tercatat di Riwayat), berlaku 1 tahun, dan langsung mati kalau dicabut, akunmu direset, atau dinonaktifkan. Simpan seperti password.</p>
+      <div class="tbl-wrap" style="margin-top:12px"><table class="tbl"><thead><tr><th>Nama</th><th>Dibuat</th><th>Terakhir dipakai</th><th>Berlaku sampai</th><th></th></tr></thead><tbody>${tokens.length ? tokens.map(t => `<tr><td><b>${esc(t.label)}</b></td><td>${esc(ago(t.createdAt))}</td><td>${t.lastUsed ? esc(ago(t.lastUsed)) : '<span class="hint">belum</span>'}</td><td>${t.until ? esc(new Date(t.until).toLocaleDateString('id-ID')) : 'tanpa batas'}</td><td><button class="btn sm danger" data-act="ak-tok-del" data-id="${esc(t.id)}" data-label="${esc(t.label)}">Cabut</button></td></tr>`).join('') : '<tr><td colspan="5" class="empty-line">Belum ada token.</td></tr>'}</tbody></table></div>
+      ${m.via === 'token' ? '<p class="hint" style="margin-top:10px">Token baru hanya bisa dibuat dari browser.</p>' : `<form id="akTok" class="grid2" style="margin-top:12px" autocomplete="off"><div class="field"><label for="akTl">Nama token</label><input id="akTl" maxlength="60" required placeholder="Ghina di HP"></div><div class="btn-row" style="align-self:end"><button class="btn primary" type="submit">Buat token</button></div></form>`}</section>`;
 }
 
 function drawMembers() {
@@ -124,6 +129,9 @@ async function onClick(e) {
   const act = t.dataset.act, m = members.find(x => x.id === t.dataset.id);
   try {
     if (act === 'ak-tab') { tab = t.dataset.tab; history.replaceState(null, '', `#/akun/${tab}`); await load(); }
+    else if (act === 'ak-tok-del') confirmDo(`Cabut token "${t.dataset.label}"?`, 'Aplikasi yang memakai token ini langsung tidak bisa masuk lagi.', 'Cabut', async () => {
+      try { await del(`/api/akun/token/${t.dataset.id}`); toast('Token dicabut', 'ok'); await load(); } catch (err) { toast(err.message, 'bad'); }
+    });
     else if (act === 'ak-more') { await loadRows(true); draw(); }
     else if (act === 'ak-logout') { await fetch('/keluar', { method: 'POST', credentials: 'same-origin' }); location.href = '/masuk'; }
     else if (act === 'ak-verify') { const v = await api('/api/audit/verify'); v.ok ? toast(`Rantai audit utuh (${v.count} catatan)`, 'ok') : modal({ title: 'Rantai audit rusak', body: `Catatan #${v.brokenAt}: ${esc(v.why)}. ${v.count} catatan sebelumnya utuh. Seseorang mengubah file audit.db di luar kantor.` }); }
@@ -152,6 +160,15 @@ async function onSubmit(e) {
     if (f.id === 'akAdd') {
       const r = await post('/api/akun/anggota', { username: $('#akU', f).value.trim().toLowerCase(), name: $('#akN', f).value.trim(), role: $('#akR', f).value });
       inviteModal(r); await load();
+    } else if (f.id === 'akTok') {
+      const r = await post('/api/akun/token', { label: $('#akTl', f).value.trim() });
+      modal({
+        title: `Token "${r.label}"`,
+        body: 'Salin sekarang: token ini hanya ditampilkan sekali.',
+        html: `<p class="hint">Alamat</p><pre style="white-space:pre-wrap;word-break:break-all">${esc(location.origin)}</pre><p class="hint">Token</p><pre style="white-space:pre-wrap;word-break:break-all">${esc(r.token)}</pre>`,
+        actions: [{ label: 'Salin token', kind: 'primary', fn: () => { navigator.clipboard.writeText(r.token).then(() => toast('Token tersalin', 'ok'), () => toast('Gagal menyalin, blok teksnya lalu salin manual', 'warn')); return false; } }, { label: 'Selesai' }],
+      });
+      await load();
     } else if (f.id === 'akPass') {
       if ($('#akNew', f).value !== $('#akNew2', f).value) return toast('Kedua password baru tidak sama', 'warn');
       await post('/api/akun/password', { current: $('#akCur', f).value, next: $('#akNew', f).value, code: $('#akCode', f).value });

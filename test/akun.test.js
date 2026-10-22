@@ -242,8 +242,27 @@ test('http: sign-in flow, roles, origin check, audit visibility', async () => {
   assert.match(await csv.text(), /mengaktifkan akun dari undangan/);
   assert.equal((await (await sys('/api/audit/verify')).json()).ok, true);
 
-  // sign out ends that session
+  // app tokens (Ghina): made from the browser, act as the member from anywhere, cannot mint more, die when revoked
   budi = cookieFrom(again);
+  const tok = await (await req('/api/akun/token', { method: 'POST', cookie: budi, headers: { Origin: BASE }, body: { label: 'Ghina di HP' } })).json();
+  assert.match(tok.token, /^kcm_/);
+  const bearer = { Authorization: `Bearer ${tok.token}`, 'X-Forwarded-For': '5.6.7.8' };
+  const viaTok = await (await req('/api/state', { headers: bearer })).json();
+  assert.deepEqual([viaTok.me.name, viaTok.me.via], ['Budi', 'token'], 'works through a proxy, unlike the config token');
+  assert.equal((await req('/api/akun/token', { method: 'POST', headers: bearer, body: { label: 'lagi' } })).status, 403);
+  assert.equal((await req('/api/settings', { method: 'POST', headers: bearer, body: {} })).status, 403, 'still only a member');
+  assert.equal((await req('/api/state', { headers: { Authorization: 'Bearer kcm_palsu' } })).status, 401);
+  const listed = await (await req('/api/akun/token', { cookie: budi })).json();
+  assert.equal(listed.tokens.length, 1);
+  assert.ok(listed.tokens[0].lastUsed);
+  assert.equal(JSON.stringify(listed).includes(tok.token), false, 'the token itself is never listed');
+  assert.equal((await req(`/api/akun/token/${tok.id}`, { method: 'DELETE', cookie: budi, headers: { Origin: BASE } })).status, 200);
+  assert.equal((await req('/api/state', { headers: bearer })).status, 401, 'revoked');
+  const all = await (await sys('/api/audit?limit=300')).json();
+  assert.ok(all.rows.some(r => r.text === 'membuat token aplikasi "Ghina di HP"' && r.actor === 'Budi'));
+  assert.ok(!JSON.stringify(all).includes(tok.token), 'the token never lands in the audit log');
+
+  // sign out ends that session
   assert.equal((await req('/keluar', { method: 'POST', cookie: budi, headers: { Origin: BASE } })).headers.get('location'), '/masuk');
   assert.equal((await req('/api/state', { cookie: budi })).status, 401);
 });

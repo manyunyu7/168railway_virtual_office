@@ -14,6 +14,9 @@ const MIGRATIONS = [
      invite TEXT, invite_until TEXT, created_at TEXT, created_by TEXT, last_login TEXT);
    CREATE TABLE member_sessions (id TEXT PRIMARY KEY, member TEXT NOT NULL, created_at TEXT, seen_at TEXT, until TEXT, ip TEXT, ua TEXT);
    CREATE INDEX member_sessions_member ON member_sessions(member);`,
+  // app tokens (Ghina and other clients): a Bearer that acts as the member; only the hash is kept
+  `CREATE TABLE member_tokens (id TEXT PRIMARY KEY, member TEXT NOT NULL, label TEXT, hash TEXT NOT NULL UNIQUE, created_at TEXT, last_used TEXT, until TEXT);
+   CREATE INDEX member_tokens_member ON member_tokens(member);`,
 ];
 
 let db = null;
@@ -225,8 +228,36 @@ export function memberForCookie(cookie) {
   if (Date.now() - Date.parse(s.seen_at) > 60e3) kdb().prepare('UPDATE member_sessions SET seen_at = ? WHERE id = ?').run(nowIso(), id);
   return { id: m.id, username: m.username, name: m.name, role: m.role };
 }
+/* ---------------- app tokens ---------------- */
+// for apps that cannot do the browser login (Ghina): created while signed in with 2FA, shown once, revocable
+export const TOKEN_PREFIX = 'kcm_';
+const MAX_TOKENS = 10;
+export function createToken(memberId, { label = '', days = 365 } = {}) {
+  if (!row(memberId)) throw fail('Anggota tidak ditemukan.', 404);
+  if (kdb().prepare('SELECT COUNT(*) n FROM member_tokens WHERE member = ?').get(memberId).n >= MAX_TOKENS) throw fail(`Maksimal ${MAX_TOKENS} token per anggota. Cabut yang tidak dipakai dulu.`, 409);
+  const token = TOKEN_PREFIX + randomToken(), id = 't' + crypto.randomBytes(5).toString('hex');
+  const until = days ? new Date(Date.now() + days * 86400e3).toISOString() : null;
+  kdb().prepare('INSERT INTO member_tokens (id, member, label, hash, created_at, until) VALUES (?, ?, ?, ?, ?, ?)').run(id, memberId, String(label || 'Aplikasi').trim().slice(0, 60), sha(token), nowIso(), until);
+  return { id, token, label: String(label || 'Aplikasi').trim().slice(0, 60), until };
+}
+export const listTokens = memberId => kdb().prepare('SELECT id, label, created_at createdAt, last_used lastUsed, until FROM member_tokens WHERE member = ? ORDER BY created_at DESC').all(memberId);
+export function revokeToken(memberId, id) {
+  const r = kdb().prepare('DELETE FROM member_tokens WHERE id = ? AND member = ?').run(id, memberId);
+  if (!r.changes) throw fail('Token tidak ditemukan.', 404);
+}
+/** The member behind an app token, or null. Same checks as a session: active, not disabled, not expired. */
+export function memberForToken(token) {
+  if (!token || !String(token).startsWith(TOKEN_PREFIX)) return null;
+  const t = kdb().prepare('SELECT * FROM member_tokens WHERE hash = ?').get(sha(token));
+  if (!t || (t.until && t.until <= nowIso())) return null;
+  const m = row(t.member);
+  if (!m || m.disabled || !m.active) return null;
+  if (!t.last_used || Date.now() - Date.parse(t.last_used) > 60e3) kdb().prepare('UPDATE member_tokens SET last_used = ? WHERE id = ?').run(nowIso(), t.id);
+  return { id: m.id, username: m.username, name: m.name, role: m.role, token: t.id };
+}
+
 export function logout(cookie) { if (cookie) kdb().prepare('DELETE FROM member_sessions WHERE id = ?').run(sha(cookie)); }
-export function revokeSessions(memberId) { kdb().prepare('DELETE FROM member_sessions WHERE member = ?').run(memberId); }
+export function revokeSessions(memberId) { kdb().prepare('DELETE FROM member_sessions WHERE member = ?').run(memberId); kdb().prepare('DELETE FROM member_tokens WHERE member = ?').run(memberId); }
 export const sessionsOf = memberId => kdb().prepare('SELECT created_at, seen_at, until, ip, ua FROM member_sessions WHERE member = ? AND until > ? ORDER BY seen_at DESC').all(memberId, nowIso());
 
 /** Change your own password: needs the current one and a fresh code. Other sessions are signed out. */

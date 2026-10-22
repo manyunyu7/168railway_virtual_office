@@ -93,6 +93,8 @@ function identify(req) {
   const ip = clientIp(req);
   const h = req.headers.authorization || '';
   if (h.startsWith('Bearer ')) {
+    // akun mode: a member's app token (Ghina) acts as that member, from anywhere
+    if (akunOn() && h.startsWith('Bearer ' + akun.TOKEN_PREFIX)) { const m = akun.memberForToken(h.slice(7)); return m ? { kind: 'member', ...m, via: 'token', ip } : null; }
     if (h.slice(7) !== cfg.token) return null;
     if (!akunOn()) return { ...LOCAL, ip };
     return fromLoopback(req) ? { ...SYSTEM, ip } : null;
@@ -561,7 +563,7 @@ route('POST', '/api/agent/call', async req => {
 /* ---------------- akun: members, sign-in pages ---------------- */
 function meView() {
   const a = actor();
-  return a ? { kind: a.kind, id: a.id || null, name: a.name, username: a.username || null, role: a.role } : null;
+  return a ? { kind: a.kind, id: a.id || null, name: a.name, username: a.username || null, role: a.role, via: a.via || 'browser' } : null;
 }
 const memberActor = (m, ip) => ({ kind: 'member', id: m.id, username: m.username, name: m.name, role: m.role, ip });
 // from the CLI (loopback) the link points at the public name, not 127.0.0.1
@@ -641,6 +643,15 @@ route('POST', '/api/akun/password', async req => {
   await akun.changePassword(m.id, { current: b.current, next: b.next, code: b.code, keepCookie: cookieOf(req, 'kc_sesi') });
   return { ok: true };
 });
+route('GET', '/api/akun/token', () => ({ tokens: akun.listTokens(signedIn().id) }));
+route('POST', '/api/akun/token', async req => {
+  const m = signedIn();
+  // a token cannot mint more tokens: only a browser login (password + 2FA) can
+  if (m.via === 'token') throw Object.assign(new Error('Token baru hanya bisa dibuat dari browser.'), { code: 403 });
+  const b = await body(req);
+  return akun.createToken(m.id, { label: b.label, days: b.days === 0 ? 0 : Number(b.days) || 365 });
+});
+route('DELETE', '/api/akun/token/:tid', (req, res, p) => { akun.revokeToken(signedIn().id, p.tid); return { ok: true }; });
 route('GET', '/api/akun/anggota', () => ({ members: akun.listMembers() }));
 route('POST', '/api/akun/anggota', async req => {
   const r = akun.createMember(await body(req), actor()?.name || null);
@@ -709,6 +720,8 @@ const DESCRIBE = {
   'PATCH /api/akun/anggota/:mid': (p, b) => `mengubah akun ${memberName(p.mid)}${b.disabled === true ? ': dinonaktifkan' : b.disabled === false ? ': diaktifkan lagi' : ''}${b.role ? `, peran ${b.role}` : ''}`,
   'POST /api/akun/anggota/:mid/reset': p => `mereset password dan 2FA ${memberName(p.mid)} (undangan baru)`,
   'POST /api/akun/password': () => 'mengganti password sendiri',
+  'POST /api/akun/token': (p, b) => `membuat token aplikasi "${short(b.label || 'Aplikasi', 40)}"`,
+  'DELETE /api/akun/token/:tid': p => `mencabut token aplikasi ${p.tid}`,
 };
 // frequent, cosmetic, or already covered elsewhere
 const AUDIT_SKIP = [
