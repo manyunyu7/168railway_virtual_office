@@ -3,7 +3,7 @@
 FROM node:24-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      tmux git openssh-client lsof procps python3 make g++ ca-certificates curl jq ripgrep less postgresql-client \
+      zsh tmux git openssh-client lsof procps python3 make g++ ca-certificates curl jq ripgrep less postgresql-client \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/lsof /usr/sbin/lsof
 

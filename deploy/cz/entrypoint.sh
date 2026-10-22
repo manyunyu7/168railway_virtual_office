@@ -11,6 +11,7 @@ if [ ! -f "$K/config.json" ]; then
   "roots": ["/work"],
   "defaultPermissionMode": "default",
   "musicDir": "/work/.musik",
+  "sysmon": { "enabled": false },
   "akun": { "enabled": true, "names": ["${KANTOR_NAME:-cz.tentrem.space}"], "trustProxy": true, "sessionDays": 14 }
 }
 JSON
