@@ -6,7 +6,7 @@ import { mergeOrder, defaultOrder } from './tab-order.js';
 const LS = 'kantor.tabOrder';
 let saved = null;
 try { saved = JSON.parse(localStorage.getItem(LS) || 'null'); } catch {}
-let mounted = null; // { nav, opts }
+let mounted = null; // { nav, opts, hidden: tab yang dipindah ke menu }
 const fetched = api('/api/settings/tabs').then(r => { if (JSON.stringify(r.order) !== JSON.stringify(saved)) { setLocal(r.order); repaint(); } }).catch(() => {});
 
 function setLocal(order) { saved = order; try { order ? localStorage.setItem(LS, JSON.stringify(order)) : localStorage.removeItem(LS); } catch {} }
@@ -18,21 +18,71 @@ export const orderTabs = known => mergeOrder(saved, known);
 
 function repaint() {
   if (!mounted || !mounted.nav.isConnected) return;
-  const { nav, opts } = mounted, sl = nav.scrollLeft;
+  const { nav, opts } = mounted;
+  closeMenu();
   nav.innerHTML = orderTabs(opts.tabs).map(k => `<a role="tab" draggable="false" data-tab="${esc(k)}" href="${esc(opts.href(k))}" aria-selected="${opts.current === k}">${esc(opts.labels[k] || k)}</a>`).join('')
-    + (opts.reorder === false ? '' : `<button type="button" class="tab-cfg" aria-label="Atur urutan tab" title="Atur tab">⋯</button>`);
-  nav.scrollLeft = sl;
+    + `<button type="button" class="tab-more" aria-haspopup="menu" aria-expanded="false" title="Tab lainnya"></button>`;
+  fit();
   if ($('#tabOrderList')) paintDialog();
 }
 
+/* ---- muat-sebisanya: tab yang tidak muat pindah ke menu "Lainnya" (tab yang terbuka selalu terlihat) ---- */
+function fit() {
+  if (!mounted || !mounted.nav.isConnected) return;
+  const { nav, opts } = mounted, more = nav.querySelector('.tab-more'), tabs = [...nav.querySelectorAll('a[data-tab]')];
+  tabs.forEach(a => { a.hidden = false; });
+  more.hidden = true;
+  const over = () => nav.scrollWidth > nav.clientWidth + 1;
+  const hidden = [];
+  if (over()) {
+    more.hidden = false; more.textContent = 'Lainnya ▾';
+    for (const a of [...tabs].reverse()) {
+      if (!over()) break;
+      if (a.getAttribute('aria-selected') === 'true') continue;
+      a.hidden = true; hidden.unshift(a);
+    }
+  }
+  mounted.hidden = hidden;
+  if (!hidden.length) { more.hidden = opts.reorder === false; more.textContent = '⋯'; }
+  more.classList.toggle('dot', hidden.some(a => { const b = a.querySelector('.tab-badge'); return b && !b.hidden; }));
+  nav.scrollLeft = 0;
+}
+/** Hitung ulang (mis. setelah lencana tab berubah lebar). */
+export const refitTabBar = () => fit();
+
+function closeMenu() { const m = $('#tabMoreMenu'); if (!m) return; m.remove(); mounted?.nav.querySelector('.tab-more')?.setAttribute('aria-expanded', 'false'); }
+function openMenu(btn) {
+  if ($('#tabMoreMenu')) { closeMenu(); return; }
+  const m = document.createElement('div');
+  m.id = 'tabMoreMenu'; m.className = 'tab-more-menu'; m.setAttribute('role', 'menu');
+  m.innerHTML = (mounted.hidden || []).map(a => `<a role="menuitem" href="${esc(a.getAttribute('href'))}">${a.innerHTML}</a>`).join('')
+    + (mounted.opts.reorder === false ? '' : `${mounted.hidden?.length ? '<hr>' : ''}<button type="button" role="menuitem" data-tcfg>Atur urutan tab…</button>`);
+  document.body.appendChild(m);
+  const r = btn.getBoundingClientRect();
+  m.style.top = `${r.bottom + 6}px`;
+  m.style.left = `${Math.max(8, Math.min(r.right - m.offsetWidth, innerWidth - m.offsetWidth - 8))}px`;
+  btn.setAttribute('aria-expanded', 'true');
+  m.addEventListener('click', e => { if (e.target.closest('[data-tcfg]')) { closeMenu(); openDialog(); } else if (e.target.closest('a')) closeMenu(); });
+  m.querySelector('a,button')?.focus();
+}
+document.addEventListener('pointerdown', e => { if (!e.target.closest('#tabMoreMenu,.tab-more')) closeMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#tabMoreMenu')) { closeMenu(); mounted?.nav.querySelector('.tab-more')?.focus(); } });
+addEventListener('resize', () => closeMenu());
+let ro = null;
+
 // opts: { tabs:[ids], labels:{id:label}, href:id=>url, current, reorder }
 export function mountTabBar(nav, opts) {
-  mounted = { nav, opts };
+  mounted = { nav, opts, hidden: [] };
   repaint();
-  if (opts.reorder === false || nav.dataset.reorderBound) return;
+  // lebar yang tersedia berubah (jendela, panel samping, ikon header): atur ulang mana yang muat
+  ro?.disconnect();
+  ro = new ResizeObserver(() => requestAnimationFrame(fit));
+  ro.observe(nav.parentElement || nav);
+  document.fonts?.ready.then(() => fit());
+  if (nav.dataset.reorderBound) return;
   nav.dataset.reorderBound = '1';
-  nav.addEventListener('click', e => { if (e.target.closest('.tab-cfg')) openDialog(); });
-  bindDrag(nav);
+  nav.addEventListener('click', e => { const b = e.target.closest('.tab-more'); if (b) openMenu(b); });
+  if (opts.reorder !== false) bindDrag(nav);
 }
 
 /* ---- seret ---- */

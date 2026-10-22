@@ -28,7 +28,7 @@ import { openLayoutEditor } from './layout-editor.js';
 import { bindDmCard, paintDmCard, dmLive } from './dm.js';
 import { minionCardHTML, paintMinionCard, showMinionMenu, closeMinionMenu } from './minions-ui.js';
 import { kunciCardHTML, paintKunciCard, kunciLive } from './kunci-ui.js';
-import { mountTabBar } from './tab-bar.js';
+import { mountTabBar, refitTabBar } from './tab-bar.js';
 
 export const ctx = { st: null, office: null, stage: null, view: null, route: null };
 const view = $('#view');
@@ -295,8 +295,6 @@ async function renderOffice(r, prev) {
   $('#crumbs').insertAdjacentHTML('beforeend', tabNav('top-tabs'));
   mountTabBar($('.top-tabs'), { tabs, labels: TABS, current: r.tab, href: k => r.id === '_kompleks' ? `#/kompleks/${k}` : `#/o/${o.id}/${k}`, reorder: r.id !== '_kompleks' });
   if (r.id !== '_kompleks') pratinjau.badge(r.id).then(n => paintPvBadge(r.id, n));
-  // on a phone the tab bar scrolls: keep the open tab in view
-  { const bar = $('.top-tabs'), cur = bar?.querySelector('[aria-selected="true"]'); if (cur) bar.scrollLeft = cur.offsetLeft - (bar.clientWidth - cur.offsetWidth) / 2; }
   if (sameOffice && prev.tab === r.tab) { ctx.view?.route?.(r); return; }
   if (r.tab === 'kantor' && r.id !== '_kompleks') {
     ctx.view = kantorView;
@@ -321,6 +319,7 @@ function paintPvBadge(office, n) {
     if (!b) { b = document.createElement('b'); b.className = 'tab-badge'; a.appendChild(b); }
     b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n);
   }
+  refitTabBar();
 }
 document.addEventListener('kantor:pratinjau-count', e => paintPvBadge(e.detail.office, e.detail.n));
 function updateSub() {
