@@ -205,6 +205,8 @@ test('http: sign-in flow, roles, origin check, audit visibility', async () => {
   assert.match(page, /<svg/);
 
   assert.equal((await req('/undangan', { method: 'POST', headers: { ...FORM, Origin: 'http://evil.test' }, body: form({ k, password: 'kalimat yang panjang', password2: 'kalimat yang panjang', code: code(secret) }) })).status, 403, 'cross-site form refused');
+  assert.equal((await req('/undangan', { method: 'POST', headers: { ...FORM, Origin: 'null', 'Sec-Fetch-Site': 'cross-site' }, body: form({ k, password: 'kalimat yang panjang', password2: 'kalimat yang panjang', code: code(secret) }) })).status, 403, 'opaque origin from another site refused');
+  assert.equal((await req('/undangan', { method: 'POST', headers: { ...FORM, Origin: 'null', 'Sec-Fetch-Site': 'same-origin' }, body: form({ k, password: 'kalimat yang panjang', password2: 'beda sekali ya', code: code(secret) }) })).status, 400, 'Origin null from the same origin passes the check (then fails on the mismatch)');
   assert.equal((await req('/undangan', { method: 'POST', headers: FORM, body: form({ k, password: 'kalimat yang panjang', password2: 'beda sekali ya', code: code(secret) }) })).status, 400);
   const accepted = await req('/undangan', { method: 'POST', headers: FORM, body: form({ k, password: 'kalimat yang panjang', password2: 'kalimat yang panjang', code: code(secret) }) });
   assert.equal(accepted.status, 303);

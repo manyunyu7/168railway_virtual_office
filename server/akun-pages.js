@@ -18,7 +18,7 @@ button{min-height:48px;border:0;border-radius:12px;background:var(--acc);color:v
 .secret{font:14px ui-monospace,Menlo,monospace;word-break:break-all;background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:10px;text-align:center;color:var(--ink)}
 ol{margin:0;padding-left:20px;color:var(--sub);font-size:14px}a{color:inherit}`;
 
-const shell = (title, inner) => `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${esc(title)}</title><style>${STYLE}</style></head><body>${inner}</body></html>`;
+const shell = (title, inner) => `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="same-origin"><title>${esc(title)}</title><style>${STYLE}</style></head><body>${inner}</body></html>`;
 
 export function loginHtml({ error = '', username = '', next = '' } = {}) {
   return shell('Masuk · Kantor Claude', `<form method="post" action="/masuk" autocomplete="on">

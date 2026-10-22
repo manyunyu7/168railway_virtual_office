@@ -104,8 +104,10 @@ function identify(req) {
 const authed = req => !!identify(req);
 /** Browsers send Origin on every POST and WebSocket; it has to be this office (blocks cross-site requests riding a cookie). */
 function originOk(req) {
-  const o = req.headers.origin;
-  if (!o) return !['cross-site', 'same-site'].includes(String(req.headers['sec-fetch-site'] || ''));
+  const o = req.headers.origin, site = String(req.headers['sec-fetch-site'] || '');
+  // a page with a strict referrer policy posts with "Origin: null"; the browser still says where it came from
+  if (o === 'null') return site === 'same-origin';
+  if (!o) return !['cross-site', 'same-site'].includes(site);
   try { return allowedHosts().has(new URL(o).host); } catch { return false; }
 }
 // in akun mode: what only the daemon's own clients may call, and what only admins may change
@@ -570,7 +572,7 @@ function inviteLink(req, token) {
 }
 const sessCookie = (req, value, maxAge) => `kc_sesi=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isSecure(req) ? '; Secure' : ''}`;
 function page(res, status, html, extra = {}) {
-  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': PAGE_CSP, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', ...extra });
+  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': PAGE_CSP, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'same-origin', ...extra });
   res.end(html);
 }
 async function formBody(req) {
