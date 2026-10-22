@@ -24,3 +24,6 @@ docker run -d --name kantor-cz --hostname kantor-cz --network kantor-cz --restar
   -p 127.0.0.1:4317:4317 -e KANTOR_APP=/app-src \
   -v /srv/kantor-cz/app:/app-src:ro -v /srv/kantor-cz/home:/home/kantor -v /srv/kantor-cz/work:/work kantor-cz:latest >/dev/null
 echo "jalan: $TAG"
+# keep the newest two dated images (current + one to roll back to)
+docker images kantor-cz --format "{{.Tag}}" | grep -E "^[0-9]{12}$" | sort -r | tail -n +3 | sed "s/^/kantor-cz:/" | xargs -r docker rmi >/dev/null 2>&1 || true
+docker image prune -f >/dev/null 2>&1 || true
