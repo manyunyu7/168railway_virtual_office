@@ -3,9 +3,19 @@
 FROM node:24-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      zsh tmux git openssh-client lsof procps python3 make g++ ca-certificates curl jq ripgrep less postgresql-client \
+      zsh tmux git openssh-client lsof procps python3 make g++ ca-certificates curl jq ripgrep less \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/lsof /usr/sbin/lsof
+
+# EnviOps tooling: weasyprint (npm run buku), poppler (look at generated PDFs), fonts for Indonesian PDFs,
+# and psql/pg_dump 18 to match the dev database (Debian ships 15)
+RUN install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+      weasyprint poppler-utils zip unzip sqlite3 fonts-noto-core fonts-liberation postgresql-client-18 \
+    && apt-get purge -y postgresql-client-15 || true \
+    && rm -rf /var/lib/apt/lists/*
 
 # same version as the owner's Mac; the agents' user cannot upgrade it (installed as root)
 ARG CLAUDE_VERSION=2.1.308
