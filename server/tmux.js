@@ -12,6 +12,7 @@ import { typeInto, claudePid } from './termapp.js';
 import { recordOutgoing } from './outbox.js';
 import { rulesBlock } from './aturan.js';
 import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, readCodexSettings } from './codex.js';
+import { who as actorName } from './actor.js';
 
 const which = bin => {
   for (const p of ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', path.join(process.env.HOME, '.local/bin'), path.join(process.env.HOME, '.claude/local')]) {
@@ -426,7 +427,7 @@ export async function sessionAction(sid, action, text) {
   if (!tty) throw new Error('Terminal sesi ini belum diketahui. Kirim satu perintah dari jendelanya dulu, lalu coba lagi.');
   if (s?.host === 'vscode' && action !== 'kill') throw new Error('Sesi ini jalan di terminal VS Code, dan kantor tidak bisa mengetik ke sana. Pakai "Pindahkan ke kantor" supaya bisa dikendalikan dari sini.');
   switch (action) {
-    case 'text': { const app = await typeInto(tty, text); recordOutgoing(sid, text); logOffice(s?.office, 'Kamu', `mengirim perintah ke ${who} lewat ${app}`, 'prompt'); return { via: app }; }
+    case 'text': { const app = await typeInto(tty, text); recordOutgoing(sid, text); logOffice(s?.office, actorName(), `mengirim perintah ke ${who} lewat ${app}`, 'prompt'); return { via: app }; }
     case 'compact': return { via: await typeInto(tty, '/compact') };
     case 'clear': return { via: await typeInto(tty, '/clear') };
     case 'exit': return { via: await typeInto(tty, '/exit') };

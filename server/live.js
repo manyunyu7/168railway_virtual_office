@@ -7,6 +7,7 @@ import { sessionHealth } from './health.js';
 import { subagentTokens } from './subtokens.js';
 import * as gitinfo from './gitinfo.js';
 import { codexHealth, normalizeHook, engineOf, readCodexSettings } from './codex.js';
+import { who as actorName } from './actor.js';
 
 export const bus = new EventEmitter();
 bus.setMaxListeners(100);
@@ -387,7 +388,7 @@ export function answerAsk(id, answers) {
   run(globalDb(), "UPDATE inbox SET status = 'allowed', decided_at = ? WHERE id = ?", nowIso(), id);
   bus.emit('msg', { t: 'inbox-update', id, status: 'allowed' });
   const s = live.get(row.sid);
-  if (s) { s.waiting = null; s.status = 'working'; emitSession(s); logOffice(s.office, 'Kamu', `menjawab pertanyaan ${whoOf(s)}`, 'perm'); }
+  if (s) { s.waiting = null; s.status = 'working'; emitSession(s); logOffice(s.office, actorName(), `menjawab pertanyaan ${whoOf(s)}`, 'perm'); }
   fn({ behavior: 'allow', updatedInput });
 }
 
@@ -422,7 +423,7 @@ export function decide(id, behavior, message, interrupt = false) {
   run(globalDb(), 'UPDATE inbox SET status = ?, decided_at = ? WHERE id = ?', status, nowIso(), id);
   bus.emit('msg', { t: 'inbox-update', id, status });
   const s = live.get(row.sid);
-  if (s) { s.waiting = null; s.status = 'working'; emitSession(s); logOffice(s.office, 'Kamu', `${behavior === 'allow' ? 'mengizinkan' : 'menolak'} ${row.tool} untuk ${whoOf(s)}`, 'perm'); }
+  if (s) { s.waiting = null; s.status = 'working'; emitSession(s); logOffice(s.office, actorName(), `${behavior === 'allow' ? 'mengizinkan' : 'menolak'} ${row.tool} untuk ${whoOf(s)}`, 'perm'); }
   fn({ behavior, message, interrupt });
 }
 

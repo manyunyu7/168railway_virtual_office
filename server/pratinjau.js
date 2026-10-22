@@ -18,6 +18,7 @@ import * as dm from './dm.js';
 import { sessionAction } from './tmux.js';
 import { parseRange, saveFromFile, mediaMarkdown } from './media.js';
 import { thumbFile, safeName } from './attachments.js';
+import { who as actorName } from './actor.js';
 
 const execFileP = promisify(execFile);
 const err = (code, message) => Object.assign(new Error(message), { code });
@@ -686,7 +687,7 @@ export function prepareMedia(office, id) {
 }
 
 /** A wiki page that embeds the snapshot (files copied into the office media store, so the page outlives the item). */
-export async function toWiki(office, id, { judul } = {}, by = 'Kamu') {
+export async function toWiki(office, id, { judul } = {}, by = actorName()) {
   const r = rowOf(office, id); if (!r) throw err(404, 'Pratinjau tidak ditemukan');
   const d = j(r.data, {});
   const title = clip(judul || `Pratinjau: ${d.title}`, 140);

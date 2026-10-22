@@ -48,6 +48,10 @@ import { listRules, setRule } from './aturan.js';
 import { listLocks } from './locks.js';
 import { startTailWatch } from './tailwatch.js';
 import { validateTabOrder } from './tab-order.js';
+import { withActor, actor, who, LOCAL, SYSTEM } from './actor.js';
+import * as audit from './audit.js';
+import * as akun from './akun.js';
+import { loginHtml, inviteHtml, PAGE_CSP } from './akun-pages.js';
 
 const cfg = loadConfig();
 const WEB = path.join(ROOT_DIR, 'web');
@@ -55,15 +59,68 @@ const VENDOR = { '/vendor/xterm.js': '@xterm/xterm/lib/xterm.js', '/vendor/xterm
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.ico': 'image/x-icon' };
 
 /* ---------------- auth ---------------- */
+// Two modes. Single user (default): one token from config.json, as a Bearer header or the kc_token cookie.
+// Akun (cfg.akun.enabled, a shared server): members sign in at /masuk and carry the kc_sesi cookie;
+// the config token is then only accepted from loopback, for hooks and MCP on the same machine.
+const akunOn = () => !!cfg.akun?.enabled;
 const allowedHosts = () => new Set([
   ...['127.0.0.1', 'localhost', ...cfg.extraHosts].flatMap(h => [h, `${h}:${cfg.port}`]),
   ...(cfg.tls ? [cfg.tls.host, ...(cfg.tls.names || [])].flatMap(h => [h, `${h}:${cfg.tls.port || 443}`]) : []),
+  ...(akunOn() ? cfg.akun.names || [] : []),
 ]);
+const cookieOf = (req, name) => { const c = new RegExp(`(?:^|;\\s*)${name}=([^;]+)`).exec(req.headers.cookie || ''); return c ? decodeURIComponent(c[1]) : null; };
 function tokenOf(req) {
   const h = req.headers.authorization || '';
   if (h.startsWith('Bearer ')) return h.slice(7);
-  const c = /(?:^|;\s*)kc_token=([^;]+)/.exec(req.headers.cookie || '');
-  return c ? decodeURIComponent(c[1]) : null;
+  return cookieOf(req, 'kc_token');
+}
+const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
+// a request relayed by a reverse proxy also arrives from loopback, so forwarded headers disqualify it
+const fromLoopback = req => LOOPBACK.has(req.socket.remoteAddress) && !req.headers['x-forwarded-for'] && !req.headers['x-real-ip'];
+function clientIp(req) {
+  if (cfg.akun?.trustProxy) {
+    const real = req.headers['x-real-ip'];
+    if (real) return String(real);
+    const fwd = String(req.headers['x-forwarded-for'] || '').split(',').pop().trim();
+    if (fwd) return fwd;
+  }
+  return req.socket.remoteAddress || null;
+}
+const isSecure = req => !!req.socket.encrypted || (!!cfg.akun?.trustProxy && String(req.headers['x-forwarded-proto'] || '') === 'https');
+/** Who sent this request (an actor for actor.js), or null. */
+function identify(req) {
+  if (!allowedHosts().has(req.headers.host)) return null;
+  const ip = clientIp(req);
+  const h = req.headers.authorization || '';
+  if (h.startsWith('Bearer ')) {
+    if (h.slice(7) !== cfg.token) return null;
+    if (!akunOn()) return { ...LOCAL, ip };
+    return fromLoopback(req) ? { ...SYSTEM, ip } : null;
+  }
+  if (!akunOn()) return cookieOf(req, 'kc_token') === cfg.token ? { ...LOCAL, ip } : null;
+  const m = akun.memberForCookie(cookieOf(req, 'kc_sesi'));
+  return m ? { kind: 'member', ...m, ip } : null;
+}
+const authed = req => !!identify(req);
+/** Browsers send Origin on every POST and WebSocket; it has to be this office (blocks cross-site requests riding a cookie). */
+function originOk(req) {
+  const o = req.headers.origin;
+  if (!o) return !['cross-site', 'same-site'].includes(String(req.headers['sec-fetch-site'] || ''));
+  try { return allowedHosts().has(new URL(o).host); } catch { return false; }
+}
+// in akun mode: what only the daemon's own clients may call, and what only admins may change
+const SYSTEM_ONLY = [/^POST \/api\/hook$/, /^(GET|POST) \/api\/agent\//, /^POST \/api\/usage\/limits\/claude$/];
+const ADMIN_ONLY = [
+  /^\w+ \/api\/akun\/anggota/, /^GET \/api\/audit\/verify$/,
+  /^POST \/api\/wizard\//, /^GET \/api\/(wizard\/folders|candidates)$/, /^POST \/api\/offices$/, /^POST \/api\/offices\/[^/]+\/(hide|open-local|budget)$/,
+  /^GET \/api\/offices\/[^/]+\/browse$/, /^(POST|PATCH) \/api\/offices\/[^/]+\/rooms(\/[^/]+)?$/,
+  /^POST \/api\/settings$/, /^POST \/api\/hooks\//, /^PUT \/api\/offices\/[^/]+\/(aturan|autopilot)$/, /^(PUT|POST) \/api\/pratinjau\/(storage|cleanup)$/,
+];
+function policy(a, sig) {
+  if (!akunOn()) return null;
+  if (SYSTEM_ONLY.some(re => re.test(sig))) return a.kind === 'system' ? null : 'Hanya untuk hooks dan MCP di server ini.';
+  if (a.kind === 'member' && a.role !== 'admin' && ADMIN_ONLY.some(re => re.test(sig))) return 'Hanya admin yang boleh melakukan ini.';
+  return null;
 }
 /** Framing is limited to the office itself (the app is native, nothing else embeds it); merged into any CSP a handler sets. */
 function guardFraming(res) {
@@ -75,22 +132,19 @@ function guardFraming(res) {
     return wh.call(this, code, a, b);
   };
 }
-function authed(req) {
-  if (!allowedHosts().has(req.headers.host)) return false;
-  return tokenOf(req) === cfg.token;
-}
-
 /* ---------------- tiny router ---------------- */
 const routes = [];
 const route = (method, pattern, fn) => {
   const keys = [];
   const re = new RegExp('^' + pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '([^/]+)'; }) + '$');
-  routes.push({ method, re, keys, fn });
+  routes.push({ method, pattern, re, keys, fn });
 };
 async function body(req) {
   let s = '';
   for await (const c of req) { s += c; if (s.length > 5e6) throw new Error('Body terlalu besar'); }
-  return s ? JSON.parse(s) : {};
+  const v = s ? JSON.parse(s) : {};
+  req._body = v;
+  return v;
 }
 function send(res, code, data) {
   const s = JSON.stringify(data ?? null);
@@ -120,7 +174,7 @@ route('GET', '/api/state', () => {
   });
   // sessions outside every office (e.g. claude started in ~/Developer itself)
   const loose = [...live.values()].filter(s => !s.office && s.status !== 'ended').map(s => ({ sid: s.sid, status: s.status, title: s.title, cwd: s.cwd, tool: s.tool, waiting: s.waiting, lastSeen: s.lastSeen, tty: s.tty || null, host: s.host || null }));
-  return { loose, offices, repoDir: ROOT_DIR, inbox: openInbox(), hooks: globalHooksInstalled(), tmux: !!bins().tmux, claude: !!bins().claude, settings: { approvals: cfg.approvals, roots: cfg.roots, extraHosts: cfg.extraHosts, defaultPermissionMode: cfg.defaultPermissionMode || '', musicDir: cfg.musicDir, ghinaNotify: { enabled: cfg.ghinaNotify?.enabled !== false, ready: !!(cfg.ghinaNotify?.url && cfg.ghinaNotify?.token), events: cfg.ghinaNotify?.events || [] } } };
+  return { me: meView(), akun: akunOn(), loose, offices, repoDir: ROOT_DIR, inbox: openInbox(), hooks: globalHooksInstalled(), tmux: !!bins().tmux, claude: !!bins().claude, settings: { approvals: cfg.approvals, roots: cfg.roots, extraHosts: cfg.extraHosts, defaultPermissionMode: cfg.defaultPermissionMode || '', musicDir: cfg.musicDir, ghinaNotify: { enabled: cfg.ghinaNotify?.enabled !== false, ready: !!(cfg.ghinaNotify?.url && cfg.ghinaNotify?.token), events: cfg.ghinaNotify?.events || [] } } };
 });
 route('GET', '/api/candidates', () => candidateFolders());
 route('GET', '/api/wizard/folders', () => wizardFolders());
@@ -180,7 +234,7 @@ route('GET', '/api/offices/:id/owner', (req, res, p) => getOwner(O(p.id)));
 route('PUT', '/api/offices/:id/owner', async (req, res, p) => putOwner(O(p.id), await body(req)));
 /* Magang: NPC kosmetik (0 token); config per kantor, simulasi di klien */
 route('GET', '/api/offices/:id/aturan', (req, res, p, q) => listRules(O(p.id), { riwayat: q.get('riwayat') === '1' }));
-route('PUT', '/api/offices/:id/aturan', async (req, res, p) => { const b = await body(req); return setRule(O(p.id), { kategori: b.kategori, isi: b.isi, alasan: b.alasan, by: 'Kamu', versiDasar: b.versi_dasar }); });
+route('PUT', '/api/offices/:id/aturan', async (req, res, p) => { const b = await body(req); return setRule(O(p.id), { kategori: b.kategori, isi: b.isi, alasan: b.alasan, by: who(), versiDasar: b.versi_dasar }); });
 route('GET', '/api/offices/:id/kunci', (req, res, p) => ({ kunci: listLocks(O(p.id)) }));
 route('GET', '/api/offices/:id/minions', (req, res, p) => getMinions(O(p.id)));
 route('PUT', '/api/offices/:id/minions', async (req, res, p) => putMinions(O(p.id), await body(req)));
@@ -219,8 +273,8 @@ route('DELETE', '/api/offices/:id/boards/:bid', (req, res, p, q) => bd.deleteBoa
 route('GET', '/api/offices/:id/labels', (req, res, p) => st.listLabels(O(p.id)));
 route('POST', '/api/offices/:id/labels', async (req, res, p) => st.saveLabel(O(p.id), await body(req)));
 route('DELETE', '/api/offices/:id/labels/:lid', (req, res, p) => { st.deleteLabel(O(p.id), p.lid); return { ok: true }; });
-route('POST', '/api/offices/:id/cards/:cid/attach', async (req, res, p) => st.attachToCard(O(p.id), p.cid, (await body(req)).media, 'Kamu'));
-route('DELETE', '/api/offices/:id/cards/:cid/attach/:mid', (req, res, p) => st.attachToCard(O(p.id), p.cid, p.mid, 'Kamu', false));
+route('POST', '/api/offices/:id/cards/:cid/attach', async (req, res, p) => st.attachToCard(O(p.id), p.cid, (await body(req)).media, who()));
+route('DELETE', '/api/offices/:id/cards/:cid/attach/:mid', (req, res, p) => st.attachToCard(O(p.id), p.cid, p.mid, who(), false));
 /* pratinjau: previews agents send for the owner to decide on (files themselves are served under /pv, see handle) */
 route('GET', '/api/offices/:id/pratinjau', (req, res, p, q) => pv.listItems(O(p.id), { status: q.get('status') || 'semua', limit: q.get('limit'), sid: q.get('sid'), role: q.get('role') }));
 route('GET', '/api/offices/:id/pratinjau/usage', (req, res, p) => pv.usage(O(p.id)));
@@ -240,17 +294,17 @@ route('POST', '/api/offices/:id/pratinjau/:pid/wiki', async (req, res, p) => pv.
 
 /* media: images and attachments for wiki and cards, stored as files */
 route('GET', '/api/offices/:id/media', (req, res, p) => listMedia(O(p.id)));
-route('POST', '/api/offices/:id/media', async (req, res, p, q) => saveUpload(O(p.id), q.get('name') || 'file', req, 'Kamu'));
+route('POST', '/api/offices/:id/media', async (req, res, p, q) => saveUpload(O(p.id), q.get('name') || 'file', req, who()));
 route('GET', '/api/offices/:id/media/:mid', (req, res, p, q) => { sendMedia(O(p.id), p.mid, res, q.get('dl') === '1', req.headers.range); });
 route('GET', '/api/offices/:id/cards/:cid', (req, res, p) => st.getCard(O(p.id), p.cid));
-route('POST', '/api/offices/:id/cards', async (req, res, p) => st.createCard(O(p.id), await body(req), 'Kamu'));
-route('PATCH', '/api/offices/:id/cards/:cid', async (req, res, p) => { const b = await body(req); if (b.who) b.whoName = st.getRole(p.id, b.who)?.name; return st.updateCard(O(p.id), p.cid, b, 'Kamu'); });
-route('DELETE', '/api/offices/:id/cards/:cid', (req, res, p) => { st.archiveCard(O(p.id), p.cid, 'Kamu'); return { ok: true }; });
+route('POST', '/api/offices/:id/cards', async (req, res, p) => st.createCard(O(p.id), await body(req), who()));
+route('PATCH', '/api/offices/:id/cards/:cid', async (req, res, p) => { const b = await body(req); if (b.who) b.whoName = st.getRole(p.id, b.who)?.name; return st.updateCard(O(p.id), p.cid, b, who()); });
+route('DELETE', '/api/offices/:id/cards/:cid', (req, res, p) => { st.archiveCard(O(p.id), p.cid, who()); return { ok: true }; });
 route('POST', '/api/offices/:id/cards/:cid/checks-order', async (req, res, p) => st.orderChecks(O(p.id), p.cid, (await body(req)).order));
-route('POST', '/api/offices/:id/cards/:cid/check', async (req, res, p) => st.checkItem(O(p.id), p.cid, await body(req), 'Kamu'));
+route('POST', '/api/offices/:id/cards/:cid/check', async (req, res, p) => st.checkItem(O(p.id), p.cid, await body(req), who()));
 route('POST', '/api/offices/:id/cards/:cid/comment', async (req, res, p) => {
   const b = await body(req);
-  const c = st.commentCard(O(p.id), p.cid, b.text, 'Kamu');
+  const c = st.commentCard(O(p.id), p.cid, b.text, who());
   // forward the comment to the assignee's running session, if any
   if (b.notify && c.who) {
     const s = [...live.values()].find(x => x.office === p.id && x.role === c.who && x.status !== 'ended' && (x.tmux || x.tty));
@@ -263,7 +317,7 @@ route('POST', '/api/offices/:id/cards/:cid/split', async (req, res, p) => {
   const b = await body(req);
   const parts = (b.parts?.length ? b.parts : c.checklist.filter(x => !x.done).map(x => x.text)).slice(0, 8);
   if (!parts.length) throw new Error('Tidak ada bagian untuk dipecah. Isi checklist dulu.');
-  for (const t of parts) st.createCard(p.id, { title: t, who: c.who, repo: c.repo, prio: c.prio, epicId: c.id }, 'Kamu');
+  for (const t of parts) st.createCard(p.id, { title: t, who: c.who, repo: c.repo, prio: c.prio, epicId: c.id }, who());
   return st.getCard(p.id, c.id);
 });
 
@@ -275,10 +329,11 @@ route('PATCH', '/api/offices/:id/roles/:rid', async (req, res, p) => { const r =
 route('POST', '/api/offices/:id/roles/:rid/start', async (req, res, p) => {
   const b = await body(req);
   const r = startShift(O(p.id), p.rid, { task: b.task, cardId: b.cardId, worktree: !!b.worktree, resumeSid: b.resumeSid, permissionMode: b.permissionMode, engine: b.engine, model: b.model, effort: b.effort });
-  if (b.cardId) { const c = st.getCard(p.id, b.cardId); if (c.colKind !== 'dikerjakan') st.updateCard(p.id, b.cardId, { col: 'dikerjakan' }, 'Kamu'); }
+  if (b.task) audit.markTyping(r.tmux, actor());
+  if (b.cardId) { const c = st.getCard(p.id, b.cardId); if (c.colKind !== 'dikerjakan') st.updateCard(p.id, b.cardId, { col: 'dikerjakan' }, who()); }
   return r;
 });
-route('POST', '/api/sessions/:sid/action', async (req, res, p) => { const b = await body(req); return { ok: true, ...(await sessionAction(p.sid, b.action, b.text)) }; });
+route('POST', '/api/sessions/:sid/action', async (req, res, p) => { const b = await body(req); if (['text', 'compact', 'clear'].includes(b.action)) audit.markTyping(live.get(p.sid)?.tmux, actor()); return { ok: true, ...(await sessionAction(p.sid, b.action, b.text)) }; });
 // sessions whose terminal was closed recently: they can be picked up again in the office
 route('GET', '/api/sessions/recent-ended', () => {
   const rows = all(globalDb(), `SELECT s.sid, s.office, s.role, s.room, s.title, s.first_prompt, s.cwd, s.ended_at, s.last_seen, s.transcript, o.name office_name
@@ -336,7 +391,7 @@ route('POST', '/api/inbox/:iid', async (req, res, p) => { const b = await body(r
 
 /* notes */
 route('GET', '/api/offices/:id/notes', (req, res, p, q) => ({ notes: st.listNotes(O(p.id), { q: q.get('q') || '', tag: q.get('tag') || '', view: q.get('view') || 'aktif' }), tags: st.noteTags(p.id) }));
-route('POST', '/api/offices/:id/notes', async (req, res, p) => st.saveNote(O(p.id), await body(req), 'Kamu'));
+route('POST', '/api/offices/:id/notes', async (req, res, p) => st.saveNote(O(p.id), await body(req), who()));
 route('DELETE', '/api/offices/:id/notes/:nid', (req, res, p) => { st.purgeNote(O(p.id), p.nid); return { ok: true }; });
 route('POST', '/api/offices/:id/notes/:nid/to-card', async (req, res, p) => {
   const n = st.getNote(O(p.id), p.nid);
@@ -345,11 +400,11 @@ route('POST', '/api/offices/:id/notes/:nid/to-card', async (req, res, p) => {
   if (b.mode === 'each') {
     const open = items.filter(i => !i.done);
     if (!open.length) throw new Error('Tidak ada checklist yang belum dicentang di catatan ini');
-    const made = open.map(i => st.createCard(p.id, { title: i.text, desc: `Dari catatan: ${n.title || 'tanpa judul'}`, who: b.who || null, repo: b.repo || '' }, 'Kamu').id);
+    const made = open.map(i => st.createCard(p.id, { title: i.text, desc: `Dari catatan: ${n.title || 'tanpa judul'}`, who: b.who || null, repo: b.repo || '' }, who()).id);
     return { cards: made };
   }
   const body2 = n.body.replace(/^\s*[-*] \[( |x)\] .+$/gim, '').trim();
-  const c = st.createCard(p.id, { title: n.title || n.body.split('\n')[0].slice(0, 100) || 'Dari catatan', desc: body2, who: b.who || null, repo: b.repo || '', checklist: items.filter(i => !i.done).map(i => i.text) }, 'Kamu');
+  const c = st.createCard(p.id, { title: n.title || n.body.split('\n')[0].slice(0, 100) || 'Dari catatan', desc: body2, who: b.who || null, repo: b.repo || '', checklist: items.filter(i => !i.done).map(i => i.text) }, who());
   return { cards: [c.id] };
 });
 route('POST', '/api/offices/:id/notes/:nid/send-role', async (req, res, p) => {
@@ -357,7 +412,7 @@ route('POST', '/api/offices/:id/notes/:nid/send-role', async (req, res, p) => {
   const b = await body(req);
   const r = st.getRole(p.id, b.role);
   if (!r) throw new Error('Role tidak ditemukan');
-  st.writeRoleNotes(p.id, r.id, `\n## Dari catatan "${n.title || 'tanpa judul'}" (${new Date().toLocaleDateString('id-ID')})\n${n.body}`, 'append', 'Kamu');
+  st.writeRoleNotes(p.id, r.id, `\n## Dari catatan "${n.title || 'tanpa judul'}" (${new Date().toLocaleDateString('id-ID')})\n${n.body}`, 'append', who());
   const s = [...live.values()].find(x => x.office === p.id && x.role === r.id && x.status !== 'ended' && (x.tmux || x.tty));
   if (s && b.live) sessionAction(s.sid, 'text', `Catatan dari pemilik kantor: ${n.title ? n.title + ' — ' : ''}${n.body.replace(/\s+/g, ' ').slice(0, 1500)}`).catch(() => {});
   return { ok: true, live: !!s };
@@ -366,7 +421,7 @@ route('POST', '/api/offices/:id/notes/:nid/send-role', async (req, res, p) => {
 /* wiki */
 route('GET', '/api/offices/:id/wiki', (req, res, p) => st.listWiki(O(p.id)));
 route('GET', '/api/offices/:id/wiki/page', (req, res, p, q) => st.getWiki(O(p.id), q.get('ref') || 'beranda'));
-route('POST', '/api/offices/:id/wiki', async (req, res, p) => st.saveWiki(O(p.id), await body(req), 'Kamu'));
+route('POST', '/api/offices/:id/wiki', async (req, res, p) => st.saveWiki(O(p.id), await body(req), who()));
 route('POST', '/api/offices/:id/wiki-playbook', async (req, res, p) => { const b = await body(req); return st.setPlaybook(O(p.id), b.slug, b); });
 route('GET', '/api/offices/:id/playbooks', (req, res, p, q) => st.listPlaybooks(O(p.id), q.get('role') || null).map(({ body: _, ...x }) => x));
 route('GET', '/api/offices/:id/wiki-proposals', (req, res, p) => st.listProposals(O(p.id)));
@@ -417,7 +472,7 @@ route('GET', '/api/offices/:id/anggaran', (req, res, p) => ({ period: autopilot.
 route('POST', '/api/offices/:id/budget', async (req, res, p) => { setBudget(O(p.id), Number((await body(req)).usd) || 0); return { ok: true }; });
 
 /* news */
-route('POST', '/api/offices/:id/news', async (req, res, p) => { st.addNews(O(p.id), (await body(req)).text, 'Kamu'); return st.listNews(p.id); });
+route('POST', '/api/offices/:id/news', async (req, res, p) => { st.addNews(O(p.id), (await body(req)).text, who()); return st.listNews(p.id); });
 route('DELETE', '/api/offices/:id/news/:nid', (req, res, p) => { st.delNews(O(p.id), Number(p.nid)); return st.listNews(p.id); });
 
 /* settings + hooks */
@@ -493,7 +548,214 @@ route('GET', '/api/offices/:id/dm/:a/:b', (req, res, p) => dm.thread(O(p.id), p.
 
 /* agent (MCP) */
 route('GET', '/api/agent/tools', () => ({ tools: TOOLS }));
-route('POST', '/api/agent/call', async req => { const b = await body(req); return callTool(resolveIdentity(b), b.tool, b.args || {}); });
+route('POST', '/api/agent/call', async req => {
+  const b = await body(req);
+  const ident = resolveIdentity(b);
+  const out = await callTool(ident, b.tool, b.args || {});
+  auditAgent(ident, String(b.tool || ''), b.args || {});
+  return out;
+});
+
+/* ---------------- akun: members, sign-in pages ---------------- */
+function meView() {
+  const a = actor();
+  return a ? { kind: a.kind, id: a.id || null, name: a.name, username: a.username || null, role: a.role } : null;
+}
+const memberActor = (m, ip) => ({ kind: 'member', id: m.id, username: m.username, name: m.name, role: m.role, ip });
+// from the CLI (loopback) the link points at the public name, not 127.0.0.1
+function inviteLink(req, token) {
+  const names = cfg.akun?.names || [], host = String(req.headers.host || '');
+  const base = names.includes(host) || !names.length ? `${isSecure(req) ? 'https' : 'http'}://${host}` : `https://${names[0]}`;
+  return `${base}/undangan?k=${token}`;
+}
+const sessCookie = (req, value, maxAge) => `kc_sesi=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${isSecure(req) ? '; Secure' : ''}`;
+function page(res, status, html, extra = {}) {
+  res.writeHead(status, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': PAGE_CSP, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', ...extra });
+  res.end(html);
+}
+async function formBody(req) {
+  let s = '';
+  for await (const c of req) { s += c; if (s.length > 2e4) throw new Error('Body terlalu besar'); }
+  return Object.fromEntries(new URLSearchParams(s));
+}
+/** /masuk, /keluar, /undangan. Returns true when the request was one of them. */
+async function akunPages(req, res, url) {
+  const p = url.pathname;
+  if (p !== '/masuk' && p !== '/keluar' && p !== '/undangan') return false;
+  if (!allowedHosts().has(req.headers.host)) { logDenied(req, 'host'); res.writeHead(403); res.end(); return true; }
+  if (!akunOn()) { res.writeHead(302, { Location: '/' }); res.end(); return true; }
+  if (req.method === 'POST' && !originOk(req)) { logDenied(req, 'origin'); res.writeHead(403); res.end(); return true; }
+  const ip = clientIp(req), ua = String(req.headers['user-agent'] || '');
+  const days = Number(cfg.akun.sessionDays) || akun.SESSION_DAYS;
+  if (p === '/masuk' && req.method === 'GET') {
+    if (identify(req)) { res.writeHead(302, { Location: '/' }); res.end(); return true; }
+    page(res, 200, loginHtml()); return true;
+  }
+  if (p === '/masuk' && req.method === 'POST') {
+    const f = await formBody(req);
+    try {
+      const r = await akun.login({ username: f.username, password: f.password, code: f.code, ip, ua, days });
+      audit.record('masuk', { as: memberActor(r.member, ip), text: 'masuk', meta: { ua: ua.slice(0, 120) } });
+      res.writeHead(303, { 'Set-Cookie': sessCookie(req, r.cookie, days * 86400), Location: '/', 'Cache-Control': 'no-store' }); res.end();
+    } catch (e) {
+      audit.record('masuk-gagal', { as: { kind: 'anon', id: null, name: String(f.username || '').slice(0, 40) || '(kosong)', ip }, text: e.code === 429 ? 'ditahan: terlalu banyak percobaan' : 'gagal masuk', meta: { ua: ua.slice(0, 120) } });
+      logDenied(req, 'login gagal');
+      page(res, e.code === 429 ? 429 : 401, loginHtml({ error: e.message, username: f.username || '' }));
+    }
+    return true;
+  }
+  if (p === '/keluar' && req.method === 'POST') {
+    const c = cookieOf(req, 'kc_sesi'), m = akun.memberForCookie(c);
+    akun.logout(c);
+    if (m) audit.record('keluar', { as: memberActor(m, ip), text: 'keluar' });
+    res.writeHead(303, { 'Set-Cookie': sessCookie(req, '', 0), Location: '/masuk' }); res.end();
+    return true;
+  }
+  if (p === '/undangan' && req.method === 'GET') {
+    const k = url.searchParams.get('k') || '';
+    page(res, 200, inviteHtml({ token: k, info: akun.inviteInfo(k) })); return true;
+  }
+  if (p === '/undangan' && req.method === 'POST') {
+    const f = await formBody(req), info = akun.inviteInfo(f.k);
+    if (!info) { page(res, 410, inviteHtml({ token: '', info: null })); return true; }
+    if (f.password !== f.password2) { page(res, 400, inviteHtml({ token: f.k, info, error: 'Kedua password tidak sama.' })); return true; }
+    try {
+      const r = await akun.acceptInvite(f.k, { password: f.password, code: f.code, ip, ua });
+      audit.record('akun', { as: memberActor(r.member, ip), text: 'mengaktifkan akun dari undangan' });
+      res.writeHead(303, { 'Set-Cookie': sessCookie(req, r.cookie, akun.SESSION_DAYS * 86400), Location: '/', 'Cache-Control': 'no-store' }); res.end();
+    } catch (e) {
+      page(res, e.code === 410 ? 410 : 400, inviteHtml({ token: f.k, info: akun.inviteInfo(f.k), error: e.message }));
+    }
+    return true;
+  }
+  res.writeHead(405); res.end();
+  return true;
+}
+
+const signedIn = () => { const a = actor(); if (a?.kind !== 'member') throw Object.assign(new Error('Hanya untuk anggota yang masuk dengan akun.'), { code: 403 }); return a; };
+route('GET', '/api/akun/saya', () => ({ akun: akunOn(), me: meView() }));
+route('POST', '/api/akun/password', async req => {
+  const m = signedIn(), b = await body(req);
+  await akun.changePassword(m.id, { current: b.current, next: b.next, code: b.code, keepCookie: cookieOf(req, 'kc_sesi') });
+  return { ok: true };
+});
+route('GET', '/api/akun/anggota', () => ({ members: akun.listMembers() }));
+route('POST', '/api/akun/anggota', async req => {
+  const r = akun.createMember(await body(req), actor()?.name || null);
+  return { member: r.member, link: inviteLink(req, r.invite.token), until: r.invite.until };
+});
+route('PATCH', '/api/akun/anggota/:mid', async (req, res, p) => akun.updateMember(p.mid, await body(req)));
+route('POST', '/api/akun/anggota/:mid/reset', (req, res, p) => { const r = akun.resetMember(p.mid); return { member: r.member, link: inviteLink(req, r.invite.token), until: r.invite.until }; });
+route('GET', '/api/akun/anggota/:mid/sesi', (req, res, p) => ({ sessions: akun.sessionsOf(p.mid) }));
+
+/* ---------------- audit ---------------- */
+// non-admin members only ever see their own rows
+function auditFilter(q) {
+  const a = actor(), self = a?.kind === 'member' && a.role !== 'admin' ? a.id : null;
+  const f = { self };
+  for (const k of ['actor', 'kind', 'office', 'sid', 'q', 'from', 'to', 'before', 'limit']) if (q.get(k)) f[k] = q.get(k);
+  return f;
+}
+route('GET', '/api/audit', (req, res, p, q) => audit.query(auditFilter(q)));
+route('GET', '/api/audit.csv', (req, res, p, q) => {
+  const f = auditFilter(q), rows = [];
+  for (let i = 0, before = f.before; i < 200; i++) {
+    const r = audit.query({ ...f, before, limit: 1000 });
+    rows.push(...r.rows);
+    if (!r.more) break;
+    before = r.rows[r.rows.length - 1].id;
+  }
+  res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="riwayat-kantor-${new Date().toISOString().slice(0, 10)}.csv"`, 'Cache-Control': 'no-store' });
+  res.end('﻿' + audit.toCsv(rows));
+});
+route('GET', '/api/audit/verify', () => audit.verify());
+
+const short = (v, n) => { const t = String(v ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
+const sessName = sid => { const s = live.get(sid); return s ? whoOf(s) : `sesi ${String(sid).slice(0, 8)}`; };
+const cardName = (o, cid) => { try { return `"${short(st.getCard(o, cid)?.title || cid, 60)}"`; } catch { return cid; } };
+const roleName = (o, rid) => { try { return st.getRole(o, rid)?.name || rid; } catch { return rid; } };
+const inboxRow = iid => one(globalDb(), 'SELECT office, sid, role, tool, summary FROM inbox WHERE id = ?', iid);
+const memberName = mid => akun.getMember(mid)?.name || mid;
+// readable lines for the actions people look for; everything else is logged as "METHOD path"
+const DESCRIBE = {
+  'POST /api/inbox/:iid': (p, b) => { const it = inboxRow(p.iid); return `${b.behavior === 'allow' ? 'mengizinkan' : 'menolak'} ${it?.tool || 'izin'}${it?.summary ? ` (${short(it.summary, 100)})` : ''} untuk ${it?.sid ? sessName(it.sid) : 'sesi'}`; },
+  'POST /api/inbox/:iid/answer': p => { const it = inboxRow(p.iid); return `menjawab pertanyaan ${it?.sid ? sessName(it.sid) : 'agen'}`; },
+  'POST /api/sessions/:sid/action': (p, b) => b.action === 'text' ? `mengirim perintah ke ${sessName(p.sid)}: ${short(b.text, 200)}` : `aksi "${b.action}" pada ${sessName(p.sid)}`,
+  'POST /api/sessions/:sid/mode': (p, b) => `mengganti mode izin ${sessName(p.sid)} → ${b.mode}`,
+  'POST /api/sessions/:sid/adopt': p => `memindahkan ${sessName(p.sid)} ke kantor`,
+  'POST /api/sessions/:sid/boss': (p, b) => `mengatur atasan ${sessName(p.sid)} → ${b.boss || 'tidak ada'}`,
+  'POST /api/offices/:id/roles/:rid/start': (p, b) => `memulai shift ${roleName(p.id, p.rid)}${b.task ? `: ${short(b.task, 200)}` : ''}${b.permissionMode ? ` (mode ${b.permissionMode})` : ''}`,
+  'POST /api/offices/:id/roles': (p, b) => `membuat role ${short(b.name, 40)}`,
+  'PATCH /api/offices/:id/roles/:rid': (p, b) => `mengubah role ${roleName(p.id, p.rid)} (${Object.keys(b).join(', ')})`,
+  'POST /api/offices/:id/cards': (p, b) => `membuat kartu "${short(b.title, 80)}"`,
+  'PATCH /api/offices/:id/cards/:cid': (p, b) => `mengubah kartu ${cardName(p.id, p.cid)} (${Object.keys(b).filter(k => k !== 'whoName').join(', ')})`,
+  'DELETE /api/offices/:id/cards/:cid': p => `mengarsipkan kartu ${cardName(p.id, p.cid)}`,
+  'POST /api/offices/:id/cards/:cid/comment': (p, b) => `mengomentari kartu ${cardName(p.id, p.cid)}: ${short(b.text, 120)}`,
+  'PUT /api/offices/:id/aturan': (p, b) => `mengubah aturan kantor [${b.kategori}]${b.alasan ? `: ${short(b.alasan, 100)}` : ''}`,
+  'POST /api/offices/:id/wiki': (p, b) => `menulis wiki "${short(b.title || b.slug, 60)}"`,
+  'DELETE /api/offices/:id/wiki/:slug': p => `menghapus wiki ${p.slug}`,
+  'POST /api/offices/:id/git/:roomId/commit': (p, b) => `commit di ${p.roomId}: ${short(b.message ?? b.msg ?? b.subject, 100)}`,
+  'POST /api/offices/:id/procs/:pid/start': p => `menjalankan proses ${p.pid}`,
+  'POST /api/offices/:id/procs/:pid/stop': p => `menghentikan proses ${p.pid}`,
+  'POST /api/offices/:id/procs/:pid/restart': p => `memulai ulang proses ${p.pid}`,
+  'POST /api/offices/:id/procs/:pid/approve': p => `menyetujui proses ${p.pid}`,
+  'POST /api/offices/:id/terms': (p, b) => `membuat terminal baru${b.room ? ` di ${b.room}` : ''}`,
+  'POST /api/offices/:id/meetings': (p, b) => `memulai rapat "${short(b.topic, 80)}"`,
+  'POST /api/offices/:id/meetings/:mid/say': (p, b) => `menyela rapat: ${short(b.text, 160)}`,
+  'POST /api/settings': () => 'mengubah pengaturan kantor',
+  'POST /api/akun/anggota': (p, b) => `membuat akun ${short(b.username, 32)} (${b.role || 'anggota'})`,
+  'PATCH /api/akun/anggota/:mid': (p, b) => `mengubah akun ${memberName(p.mid)}${b.disabled === true ? ': dinonaktifkan' : b.disabled === false ? ': diaktifkan lagi' : ''}${b.role ? `, peran ${b.role}` : ''}`,
+  'POST /api/akun/anggota/:mid/reset': p => `mereset password dan 2FA ${memberName(p.mid)} (undangan baru)`,
+  'POST /api/akun/password': () => 'mengganti password sendiri',
+};
+// frequent, cosmetic, or already covered elsewhere
+const AUDIT_SKIP = [
+  /^POST \/api\/hook$/, /^POST \/api\/agent\/call$/, /^POST \/api\/usage\/limits\/claude$/,
+  /^PUT \/api\/offices\/[^/]+\/(owner|minions)$/, /^PUT \/api\/owner\/look$/, /\/layout\/check$/, /\/rooms\/preview$/, /^POST \/api\/wizard\/preview$/, /\/template\/preview$/,
+  /\/pratinjau\/[^/]+\/lihat$/, /^PUT \/api\/settings\/tabs$/, /\/model\/(open|cancel)$/, /^POST \/api\/shows\//, /^PUT \/api\/uploads\//,
+];
+function auditRequest(req, url, r, params, status, error) {
+  const sig = `${req.method} ${url.pathname}`;
+  if (AUDIT_SKIP.some(re => re.test(sig))) return;
+  const b = req._body && typeof req._body === 'object' ? req._body : {};
+  let text = null;
+  try { text = DESCRIBE[`${req.method} ${r.pattern}`]?.(params, b) || null; } catch {}
+  const office = params.id && params.id !== '_kompleks' ? params.id : (params.iid ? inboxRow(params.iid)?.office : null) || null;
+  const sid = params.sid || (params.iid ? inboxRow(params.iid)?.sid : null) || null;
+  const query = Object.fromEntries(url.searchParams);
+  audit.record('api', {
+    office, sid,
+    text: (text || `${req.method} ${url.pathname}`) + (status >= 400 ? ` — gagal: ${short(error || status, 120)}` : ''),
+    meta: { method: req.method, path: url.pathname, status, ...(req._body !== undefined ? { body: req._body } : {}), ...(Object.keys(query).length ? { query } : {}) },
+  });
+}
+
+// agents: everything except reading; messages pass the human origin on to the roles they reach
+const READ_TOOL = /(^|_)(list|get|read|search|tree|lihat|status|log|katalog)$|^tunggu|^template_pratinjau$|^tangkap_layar$/;
+const PASS_TOOLS = new Set(['pesan_ke', 'kabari', 'tanya', 'siaran', 'card_create', 'card_update', 'meeting_start']);
+function rolesFor(office, ke) {
+  let roles = []; try { roles = st.listRoles(office); } catch { return []; }
+  const want = ke === 'semua' ? roles.map(r => r.id) : (Array.isArray(ke) ? ke : [ke]).filter(Boolean).map(String);
+  return want.flatMap(w => w.toLowerCase() === 'manager' ? roles.filter(r => r.isMgr).map(r => r.id) : roles.filter(r => r.id === w || r.name.toLowerCase() === w.toLowerCase()).map(r => r.id));
+}
+function auditAgent(ident, tool, args) {
+  if (!tool || READ_TOOL.test(tool)) return;
+  if (PASS_TOOLS.has(tool)) for (const rid of rolesFor(ident.office, args.ke ?? args.who ?? args.peserta)) audit.passOrigin(ident.office, ident.sid, rid);
+  const target = args.ke ?? args.who ?? null;
+  const said = args.teks ?? args.title ?? args.judul ?? args.text ?? '';
+  audit.record('agen', {
+    as: { kind: 'agent', id: null, name: ident.by || 'Agen' }, office: ident.office, sid: ident.sid || null,
+    text: `${tool}${target ? ` → ${Array.isArray(target) ? target.join(', ') : target}` : ''}${said ? `: ${short(said, 160)}` : ''}`,
+    meta: { tool, args }, origin: audit.originOf(ident.sid),
+  });
+}
+
+// prompts as Claude received them, credited to whoever typed in that pane (audit.markTyping)
+bus.on('prompt', ({ sid, prompt }) => {
+  if (!prompt || /^\s*</.test(prompt)) return;
+  try { audit.recordPrompt(live.get(sid), prompt); } catch (e) { console.error('audit prompt:', e.message); }
+});
+bus.on('msg', m => { if (m?.t === 'session' && m.session?.status === 'ended') audit.forgetSession(m.session.sid); });
 
 /* ---------------- login page (phones: paste the token instead of typing it into the address) ---------------- */
 function loginPage(res, status, wrong) {
@@ -516,8 +778,10 @@ const logDenied = (req, why) => console.error(`akses ditolak (${why}): host=${re
 async function handle(req, res) {
   guardFraming(res);
   const url = new URL(req.url, 'http://x');
+  if (await akunPages(req, res, url)) return;
   if (url.pathname === '/' && url.searchParams.get('token')) {
     if (!allowedHosts().has(req.headers.host)) { logDenied(req, 'host'); res.writeHead(403); return res.end(); }
+    if (akunOn()) { res.writeHead(302, { Location: '/masuk' }); return res.end(); }
     if (url.searchParams.get('token').trim() !== cfg.token) { logDenied(req, 'token salah'); return loginPage(res, 403, true); }
     const next = url.searchParams.get('next') || '';
     res.writeHead(302, { 'Set-Cookie': `kc_token=${encodeURIComponent(cfg.token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${req.socket.encrypted ? '; Secure' : ''}`, Location: '/' + (next.startsWith('#/') ? next : '') });
@@ -536,23 +800,35 @@ async function handle(req, res) {
     return;
   }
   if (url.pathname.startsWith('/api/')) {
-    if (!authed(req)) return send(res, 401, { error: 'Butuh token. Buka alamat dari perintah: kantor open' });
+    const a = identify(req);
+    if (!a) return send(res, 401, { error: akunOn() ? 'Belum masuk. Buka /masuk' : 'Butuh token. Buka alamat dari perintah: kantor open' });
+    if (akunOn() && req.method !== 'GET' && !originOk(req)) { logDenied(req, 'origin'); return send(res, 403, { error: 'Asal permintaan ditolak.' }); }
     const r = routes.find(x => x.method === req.method && x.re.test(url.pathname));
     if (!r) return send(res, 404, { error: 'Tidak ditemukan' });
+    const denied = policy(a, `${req.method} ${url.pathname}`);
+    if (denied) { logDenied(req, 'kebijakan'); return send(res, 403, { error: denied }); }
     const m = r.re.exec(url.pathname);
     const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
-    try {
-      const out = await r.fn(req, res, params, url.searchParams);
-      if (!res.headersSent) send(res, 200, out);
-    } catch (e) {
-      if (!res.headersSent) send(res, [404, 409, 413, 416].includes(e.code) ? e.code : 400, { error: e.message, ...(e.offset !== undefined ? { offset: e.offset } : {}) });
-    }
-    return;
+    return withActor(a, async () => {
+      let status = 200, error = null;
+      try {
+        const out = await r.fn(req, res, params, url.searchParams);
+        if (!res.headersSent) send(res, 200, out); else status = res.statusCode;
+      } catch (e) {
+        status = [401, 403, 404, 409, 410, 413, 416, 429].includes(e.code) ? e.code : 400; error = e.message;
+        if (!res.headersSent) send(res, status, { error: e.message, ...(e.offset !== undefined ? { offset: e.offset } : {}) });
+      }
+      if (req.method !== 'GET') auditRequest(req, url, r, params, status, error);
+    });
   }
   // static
   if (!allowedHosts().has(req.headers.host)) { logDenied(req, 'host'); res.writeHead(403); return res.end(); }
-  if (tokenOf(req) !== cfg.token) {
-    if (url.pathname === '/' || url.pathname.endsWith('.html')) { logDenied(req, 'belum login'); return loginPage(res, 401, false); }
+  if (!identify(req)) {
+    if (url.pathname === '/' || url.pathname.endsWith('.html')) {
+      logDenied(req, 'belum login');
+      if (akunOn()) { res.writeHead(302, { Location: '/masuk', 'Cache-Control': 'no-store' }); return res.end(); }
+      return loginPage(res, 401, false);
+    }
     res.writeHead(401); return res.end();
   }
   let file = VENDOR[url.pathname] ? path.join(ROOT_DIR, 'node_modules', VENDOR[url.pathname]) : path.join(WEB, url.pathname === '/' ? 'index.html' : url.pathname);
@@ -568,7 +844,10 @@ const makeServer = () => http.createServer(handle).on('upgrade', onUpgrade);
 const server = makeServer();
 function onUpgrade(req, sock, head) {
   const url = new URL(req.url, 'http://x');
-  if (!authed(req)) { sock.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return sock.destroy(); }
+  const a = identify(req);
+  if (!a) { sock.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return sock.destroy(); }
+  if (akunOn() && !originOk(req)) { logDenied(req, 'origin'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
+  req._actor = a;
   if (url.pathname === '/ws') wssEvents.handleUpgrade(req, sock, head, ws => wssEvents.emit('connection', ws, req));
   else if (url.pathname === '/ws/term') wssTerm.handleUpgrade(req, sock, head, ws => wssTerm.emit('connection', ws, req, url));
   else sock.destroy();
@@ -582,11 +861,11 @@ wssEvents.on('connection', ws => {
 bus.on('msg', m => { const s = JSON.stringify(m); for (const c of wssEvents.clients) if (c.readyState === 1) c.send(s); });
 
 wssTerm.on('connection', (ws, req, url) => {
-  let name;
+  let name, sess = null;
+  const kind = url.searchParams.get('kind');
   try {
-    const kind = url.searchParams.get('kind');
     if (kind === 'session') {
-      const s = live.get(url.searchParams.get('sid'));
+      const s = sess = live.get(url.searchParams.get('sid'));
       name = s?.tmux;
       if (!name || !hasTmux(name)) throw new Error('Sesi ini tidak berjalan di tmux kantor.');
     } else if (kind === 'shell') name = ensureShell(url.searchParams.get('office'), url.searchParams.get('room'));
@@ -594,6 +873,10 @@ wssTerm.on('connection', (ws, req, url) => {
     else throw new Error('Jenis terminal tidak dikenal');
   } catch (e) { ws.send(`\r\n\x1b[31m${e.message}\x1b[0m\r\n`); return ws.close(); }
   const cols = Number(url.searchParams.get('cols')) || 100, rows = Number(url.searchParams.get('rows')) || 30;
+  const by = req._actor || LOCAL, opened = Date.now();
+  const label = kind === 'session' ? `terminal sesi ${sess ? whoOf(sess) : name}` : kind === 'shell' ? `terminal shell ${url.searchParams.get('room') || ''}`.trim() : `terminal ${name}`;
+  const where = { as: by, office: sess?.office || url.searchParams.get('office') || null, sid: sess?.sid || null, meta: { kind, tmux: name } };
+  audit.record('terminal', { ...where, text: `membuka ${label}` });
   const p = pty.spawn(bins().tmux, ['attach-session', '-t', name], { name: 'xterm-256color', cols, rows, cwd: process.env.HOME, env: { ...process.env, TERM: 'xterm-256color', LANG: process.env.LANG || 'en_US.UTF-8' } });
   // Claude's TUI repaints in many tiny writes: send them as one message per tick
   let out = '', flushing = false;
@@ -605,9 +888,13 @@ wssTerm.on('connection', (ws, req, url) => {
     const s = data.toString();
     if (!isBinary && s.startsWith('\x00{')) { try { const m = JSON.parse(s.slice(1)); if (m.cols && m.rows) { const c = Math.max(20, m.cols), r = Math.max(5, m.rows); if (`${c}x${r}` !== size) { size = `${c}x${r}`; p.resize(c, r); } } } catch {} return; }
     // keystrokes can still arrive after tmux detached; writing then would fail with EIO
-    if (!dead) try { p.write(s); } catch {}
+    if (!dead) try { p.write(s); audit.markTyping(name, by); } catch {}
   });
-  ws.on('close', () => { dead = true; try { p.kill(); } catch {} });
+  ws.on('close', () => {
+    dead = true; try { p.kill(); } catch {}
+    const min = Math.round((Date.now() - opened) / 60000);
+    audit.record('terminal', { ...where, text: `menutup ${label} (${min < 1 ? '<1' : min} menit)` });
+  });
 });
 
 function listen() {

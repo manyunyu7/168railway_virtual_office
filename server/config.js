@@ -46,6 +46,10 @@ const DEFAULTS = {
   // Performa PC (server/sysmon.js): sampling cepat hanya saat ada klien melihat; alerts = batas % (tempC null: butuh sudo)
   sysmon: { enabled: true, intervalSec: 5, idleSec: 60, activeSec: 60, historyMin: 60, alerts: { cpu: 90, ram: 92, disk: 95, swapPct: 90, tempC: null, sustainSec: 120, cooldownMin: 30 } },
   dm: { autoStart: false, maxPerPair: 20, windowMin: 10, maxPerTurn: 8, midTurn: true },
+  // shared office (docs/AKUN.md): members sign in with username + password + 2FA instead of the one token.
+  // names = public host names a reverse proxy sends (e.g. "kantor.example.com"); trustProxy = read X-Real-IP / X-Forwarded-Proto.
+  // In this mode the config token still works for hooks and MCP, but only from loopback.
+  akun: { enabled: false, names: [], trustProxy: false, sessionDays: 14 },
 };
 
 export function ensureDirs() {
@@ -57,7 +61,7 @@ export function loadConfig() {
   ensureDirs();
   let cfg = {};
   try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch {}
-  cfg = { ...DEFAULTS, ...cfg, approvals: { ...DEFAULTS.approvals, ...(cfg.approvals || {}) }, payroll: { ...DEFAULTS.payroll, ...(cfg.payroll || {}) }, ghinaNotify: { ...DEFAULTS.ghinaNotify, ...(cfg.ghinaNotify || {}) }, attachments: { ...DEFAULTS.attachments, ...(cfg.attachments || {}) }, location: { ...DEFAULTS.location, ...(cfg.location || {}) }, dm: { ...DEFAULTS.dm, ...(cfg.dm || {}) }, sysmon: { ...DEFAULTS.sysmon, ...(cfg.sysmon || {}), alerts: { ...DEFAULTS.sysmon.alerts, ...(cfg.sysmon?.alerts || {}) } } };
+  cfg = { ...DEFAULTS, ...cfg, approvals: { ...DEFAULTS.approvals, ...(cfg.approvals || {}) }, payroll: { ...DEFAULTS.payroll, ...(cfg.payroll || {}) }, ghinaNotify: { ...DEFAULTS.ghinaNotify, ...(cfg.ghinaNotify || {}) }, attachments: { ...DEFAULTS.attachments, ...(cfg.attachments || {}) }, location: { ...DEFAULTS.location, ...(cfg.location || {}) }, dm: { ...DEFAULTS.dm, ...(cfg.dm || {}) }, akun: { ...DEFAULTS.akun, ...(cfg.akun || {}) }, sysmon: { ...DEFAULTS.sysmon, ...(cfg.sysmon || {}), alerts: { ...DEFAULTS.sysmon.alerts, ...(cfg.sysmon?.alerts || {}) } } };
   if (!cfg.token) {
     cfg.token = crypto.randomBytes(24).toString('base64url');
     saveConfig(cfg);
