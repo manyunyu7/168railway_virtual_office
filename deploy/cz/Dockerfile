@@ -13,8 +13,8 @@ RUN install -d /usr/share/postgresql-common/pgdg \
     && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update && apt-get install -y --no-install-recommends \
-      weasyprint poppler-utils zip unzip sqlite3 fonts-noto-core fonts-liberation postgresql-client-18 \
-    && apt-get purge -y postgresql-client-15 || true \
+      weasyprint poppler-utils qpdf zip unzip sqlite3 fonts-noto-core fonts-liberation postgresql-client-18 \
+      python3-venv python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # same version as the owner's Mac; the agents' user cannot upgrade it (installed as root)
