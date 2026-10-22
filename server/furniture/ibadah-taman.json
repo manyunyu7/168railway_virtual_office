@@ -1,0 +1,3109 @@
+[
+ {
+  "id": "ibadah-sajadah-hijau",
+  "name": "Sajadah Hijau",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 2,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E8D9A8",
+    "c": "#3E9468",
+    "d": "#2F7A55"
+   },
+   "rows": [
+    ".ababba.",
+    "abbbbbba",
+    "abccccba",
+    "abcbbcba",
+    "abbbbbba",
+    "abdccdba",
+    "abccccba",
+    "abcbbcba",
+    "abbdbbba",
+    "abbbdbba",
+    "abcbbcba",
+    "abccccba",
+    "abcbbcba",
+    "abccccba",
+    "abbbbbba",
+    ".aababa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "pray"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "pray",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-sajadah-merah",
+  "name": "Sajadah Merah Marun",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 2,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E8D0A0",
+    "c": "#A8434F",
+    "d": "#F0DDB0",
+    "e": "#8E2F3C"
+   },
+   "rows": [
+    ".ababba.",
+    "abbbbbba",
+    "abccccba",
+    "abcddcba",
+    "abddddba",
+    "abecceba",
+    "abccccba",
+    "abcddcba",
+    "abdeddba",
+    "abddedba",
+    "abcddcba",
+    "abccccba",
+    "abcddcba",
+    "abccccba",
+    "abbbbbba",
+    ".aababa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "pray"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "pray",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-sajadah-biru",
+  "name": "Sajadah Biru",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 2,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E6E2D0",
+    "c": "#4377AE",
+    "d": "#CFE0F2",
+    "e": "#2F5A8E"
+   },
+   "rows": [
+    ".ababba.",
+    "abbbbbba",
+    "abccccba",
+    "abcddcba",
+    "abddddba",
+    "abecceba",
+    "abccccba",
+    "abcddcba",
+    "abdeddba",
+    "abddedba",
+    "abcddcba",
+    "abccccba",
+    "abcddcba",
+    "abccccba",
+    "abbbbbba",
+    ".aababa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "pray"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "pray",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-karpet-saf",
+  "name": "Karpet Saf Panjang",
+  "cat": "ibadah",
+  "w": 4,
+  "h": 2,
+  "sprite": {
+   "w": 32,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E8D9A8",
+    "c": "#4E9474",
+    "d": "#2F5A44",
+    "e": "#3E7A5E"
+   },
+   "rows": [
+    ".ababababababababababababababaa.",
+    "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbba",
+    "abccccccdccccccdccccccdcccccceba",
+    "abccbbccdccbbccdccbbccdccbbcceba",
+    "abcbbbbcdcbbbbcdcbbbbcdcbbbbceba",
+    "abccccccdccccccdccccccdcccccceba",
+    "abccccccdccccccdccccccdcccccceba",
+    "abccbcccdccbcccdccbcccdccbccceba",
+    "abccbbccdccbbccdccbbccdccbbcceba",
+    "abcbbbbcdcbbbbcdcbbbbcdcbbbbceba",
+    "abcccbccdcccbccdcccbccdcccbcceba",
+    "abccccccdccccccdccccccdcccccceba",
+    "abccbbccdccbbccdccbbccdccbbcceba",
+    "abccccccdccccccdccccccdcccccceba",
+    "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbba",
+    ".ababababababababababababababaa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "pray"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "pray",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "pray",
+    "face": "up"
+   },
+   {
+    "dx": 2,
+    "dy": 1,
+    "pose": "pray",
+    "face": "up"
+   },
+   {
+    "dx": 3,
+    "dy": 1,
+    "pose": "pray",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-rak-quran",
+  "name": "Rak Al-Qur'an",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D6B07A",
+    "c": "#B88E58",
+    "d": "#4A321F",
+    "e": "#2F7A55",
+    "f": "#C9A24A",
+    "g": "#E8D9A8",
+    "h": "#8E2F3C",
+    "i": "#2F5A8E",
+    "j": "#8E6A42",
+    "k": "#4A3A6E",
+    "l": "#E8E0CC"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "acddddddddddddca",
+    "acddddddddddddca",
+    "acdeedddddfffdca",
+    "acdgghhhiigggdca",
+    "acdeegggggfffdca",
+    "acdeehhhiifffdca",
+    "acjjjjjjjjjjjjca",
+    "acdddfffddddddca",
+    "acdiigggkkllldca",
+    "acdggfffgggggdca",
+    "acdiifffkkllldca",
+    "acjjjjjjjjjjjjca",
+    "acddddddeeddddca",
+    "acdkklllgghhhdca",
+    "acdgggggeegggdca",
+    "acdkkllleehhhdca",
+    "acjjjjjjjjjjjjca",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "read"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-rehal",
+  "name": "Rehal (Penyangga Mushaf)",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F7A55",
+    "c": "#E8D9A8",
+    "d": "#F4EBD0",
+    "e": "#C9B88A",
+    "f": "#8E6A42",
+    "g": "#B88E58"
+   },
+   "rows": [
+    ".aaaaaa.",
+    "abbccbba",
+    "addecdda",
+    "addcedda",
+    "abbccbba",
+    ".afaafa.",
+    "..affa..",
+    ".aaffaa.",
+    "agggggga",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "read"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-rak-mukena",
+  "name": "Rak Mukena dan Sarung",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 26,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D6B07A",
+    "c": "#B88E58",
+    "d": "#F4F1EA",
+    "e": "#D9C7E8",
+    "f": "#F3D5DC",
+    "g": "#E1DCD0",
+    "h": "#BFA9D4",
+    "i": "#DDB5C0",
+    "j": "#3E6BA8",
+    "k": "#B64A3D",
+    "l": "#2F5280",
+    "m": "#8E382E",
+    "n": "#8E6A42"
+   },
+   "rows": [
+    "................",
+    "................",
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "accadddeeefffcca",
+    "accadddeeefffcca",
+    "accgdddheefifcca",
+    "accgdddheefifcca",
+    "accgdddheefifcca",
+    "accgdddheefifcca",
+    "accgdddheefifcca",
+    "accgdddheefifcca",
+    "accgdddheefifcca",
+    "accgdddheefifcca",
+    "accadddeeefffcca",
+    "accaaaaaaaaaacca",
+    "accjjjjjaaaaacca",
+    "accjjjjjakkkkcca",
+    "acclllllammmmcca",
+    "accjjjjjakkkkcca",
+    "acnnnnnnnnnnnnca",
+    "annnnnnnnnnnnnna",
+    "annaaaaaaaaaanna",
+    ".aa..........aa.",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-gantungan-peci",
+  "name": "Gantungan Peci",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D6B07A",
+    "c": "#B88E58",
+    "d": "#2B2B33",
+    "e": "#4A4A55",
+    "f": "#F2EEE3",
+    "g": "#FFFFFF",
+    "h": "#CFC8B6"
+   },
+   "rows": [
+    "..aaaa..",
+    ".abbbba.",
+    ".acccca.",
+    "adeeeeda",
+    "adddddda",
+    "adddddda",
+    ".acccca.",
+    ".acccca.",
+    "afggggfa",
+    "affffffa",
+    "ahhhhhha",
+    ".acccca.",
+    ".acccca.",
+    "..aaaa.."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-tempat-wudhu",
+  "name": "Tempat Wudhu",
+  "cat": "ibadah",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 24,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#B8C0C8",
+    "c": "#8E96A0",
+    "d": "#9AA3AF",
+    "e": "#9ED6F0",
+    "f": "#CBD5DB",
+    "g": "#A9D6EA",
+    "h": "#7FB8D6",
+    "i": "#A8B4BC",
+    "j": "#C09A70",
+    "k": "#8E6A42",
+    "l": "#A57F58"
+   },
+   "rows": [
+    "...aba.....aba.....aba..",
+    "..abbba...abbba...abbba.",
+    "..abbba...abbba...abbba.",
+    "..accca...accca...accca.",
+    "...ada.....ada.....ada..",
+    "...ada.....ada.....ada..",
+    ".aaaeaaaaaaaeaaaaaaaeaa.",
+    "affffffffffffffffffffffa",
+    "affggggggggggggggggggffa",
+    "affhhhhhhhhhhhhhhhhhhffa",
+    "affhghhhhghhhhghhhhghffa",
+    "affhhhhhhhhhhhhhhhhhhffa",
+    "affffffffffffffffffffffa",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    ".aaaaaaaaaaaaaaaaaaaaaa.",
+    "ajjjjjjjjjjjjjjjjjjjjjja",
+    "akllkllkllkllkllkllkllka",
+    "akllkllkllkllkllkllkllka",
+    "akllkllkllkllkllkllkllka",
+    "akllkllkllkllkllkllkllka",
+    "akllkllkllkllkllkllkllka",
+    ".aaaaaaaaaaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "wudhu"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 2,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-rak-sandal",
+  "name": "Rak Sandal dan Sepatu",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D6B07A",
+    "c": "#B88E58",
+    "d": "#4A321F",
+    "e": "#2F5A8E",
+    "f": "#B64A3D",
+    "g": "#4A4A55",
+    "h": "#D9A441",
+    "i": "#8E6A42",
+    "j": "#3E8E4E"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "acddddddddddddca",
+    "acddddddddddddca",
+    "acdeedffdggdhhca",
+    "acdeedffdggdhhca",
+    "aciiiiiiiiiiiica",
+    "acddddddddddddca",
+    "acddddddddddddca",
+    "acdggdhhdjjdeeca",
+    "acdggdhhdjjdeeca",
+    "acddddddddddddca",
+    "acccccccccccccca",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-keset",
+  "name": "Keset",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 8,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#6E4A2E",
+    "c": "#8B5E3C",
+    "d": "#B98A5E"
+   },
+   "rows": [
+    ".aaaaaa.",
+    "abbbbbba",
+    "acccccca",
+    "adddddda",
+    "acccccca",
+    "adddddda",
+    "abbbbbba",
+    ".aaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-jam-sholat",
+  "name": "Jam Waktu Sholat Digital",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2B2B33",
+    "c": "#0F2A1E",
+    "d": "#7DF0A8",
+    "e": "#E2A23A",
+    "f": "#E5655D"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abcddcddccddddba",
+    "abcddccddcdccdba",
+    "abccdccdccdddcba",
+    "abcddcdddccdddba",
+    "abccccccccccccba",
+    "abbbbbbbbbbbbbba",
+    "abbdbdbebdbfbbba",
+    "abbbbbbbbbbbbbba",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-kaligrafi-geometris",
+  "name": "Hiasan Dinding Ornamen Geometris",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C9A24A",
+    "c": "#1F5A55",
+    "d": "#E8D9A8",
+    "e": "#2D7A72"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abcdcceddeccdcba",
+    "abcccdcddcdcccba",
+    "abcceccddcceccba",
+    "abccddddbdddccba",
+    "abccddddbdddccba",
+    "abcceccddcceccba",
+    "abcccdcddcdcccba",
+    "abcdcceddeccdcba",
+    "abccccccccccccba",
+    "abbbbbbbbbbbbbba",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-lampu-gantung",
+  "name": "Lampu Gantung Lentera",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 2,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#6B5A4A",
+    "b": "#2A2430",
+    "c": "#C9A24A",
+    "d": "#D9A441",
+    "e": "#F6D77A",
+    "f": "#FFF0B0",
+    "g": "#E8D9A8"
+   },
+   "rows": [
+    "...aa...",
+    "...aa...",
+    "...aa...",
+    "..baab..",
+    ".bccccb.",
+    "bdeeeedb",
+    "bdffeedb",
+    "bdffeedb",
+    "bdffeedb",
+    "bdffeedb",
+    "bdeeeedb",
+    ".bccccb.",
+    "..bccb..",
+    "..bggb..",
+    "...bb...",
+    "........"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-sekat-tirai",
+  "name": "Sekat Tirai Pemisah",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C9A24A",
+    "c": "#8E6A42",
+    "d": "#3E9468",
+    "e": "#2F7A55",
+    "f": "#E8D9A8"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "bccccccccccccccb",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "addeeddeeddeedda",
+    "abbbbbbbbbbbbbba",
+    "afbfbfbfbfbfbfba",
+    ".accaaaaaaaacca.",
+    ".accaaaaaaaacca.",
+    ".acccccccccccca.",
+    "..aaaaaaaaaaaa.."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-mimbar-kecil",
+  "name": "Mimbar Kecil",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F7A55",
+    "c": "#E8C98F",
+    "d": "#D6B07A",
+    "e": "#8E6A42",
+    "f": "#B88E58",
+    "g": "#C9A24A"
+   },
+   "rows": [
+    "....aaaaaaaa....",
+    "..aabbbbbbbbaa..",
+    ".acccccccccccca.",
+    ".adddddddddddda.",
+    ".adddddddddddda.",
+    "..aeeeeeeeeeea..",
+    "..affffffffffa..",
+    "..affffffffffa..",
+    "..affeeeeeeffa..",
+    "..affeggggeffa..",
+    "..affeeffeeffa..",
+    "..affeefgeeffa..",
+    "..affeeffeeffa..",
+    "..affeefgeeffa..",
+    "..affeeffeeffa..",
+    "..affeeffeeffa..",
+    "..affeeeeeeffa..",
+    "..affffffffffa..",
+    ".affffffffffffa.",
+    ".aeeeeeeeeeeeea.",
+    ".aeeeeeeeeeeeea.",
+    "..aaaaaaaaaaaa.."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-kipas-angin",
+  "name": "Kipas Angin",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 21,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#9AA3AF",
+    "c": "#C9CFD6",
+    "d": "#6B7280",
+    "e": "#7A808A",
+    "f": "#555B66"
+   },
+   "rows": [
+    ".aabbaa.",
+    "abbccbba",
+    "abcddcba",
+    "bcddddcb",
+    "bcddadcb",
+    "abddddba",
+    "abbddbba",
+    ".aabbaa.",
+    "..aeea..",
+    "..aeea..",
+    "..aeea..",
+    "..aeea..",
+    "..aeea..",
+    "..aeea..",
+    "..aeea..",
+    "..aeea..",
+    ".adddda.",
+    "affffffa",
+    "affffffa",
+    ".aaaaaa.",
+    "........"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     ".aabbaa.",
+     "abbccbba",
+     "abcddcba",
+     "bcddddcb",
+     "bcddadcb",
+     "abddddba",
+     "abbddbba",
+     ".aabbaa.",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     ".adddda.",
+     "affffffa",
+     "affffffa",
+     ".aaaaaa.",
+     "........"
+    ]
+   },
+   {
+    "rows": [
+     ".aabbaa.",
+     "abbccbba",
+     "abdcccda",
+     "bccdddcb",
+     "bccdaccb",
+     "abcdcdba",
+     "abdccbda",
+     ".aabbaa.",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     "..aeea..",
+     ".adddda.",
+     "affffffa",
+     "affffffa",
+     ".aaaaaa.",
+     "........"
+    ]
+   }
+  ],
+  "fps": 6,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-rak-tasbih",
+  "name": "Rak Tasbih",
+  "cat": "ibadah",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D6B07A",
+    "c": "#B88E58",
+    "d": "#2F7A55",
+    "e": "#4A3A6E",
+    "f": "#F2EEE3",
+    "g": "#8E2F3C",
+    "h": "#C9A24A"
+   },
+   "rows": [
+    ".aaaaaa.",
+    "abbbbbba",
+    "acccccca",
+    ".addaeea",
+    ".affaffa",
+    ".aggaeea",
+    ".affaffa",
+    ".addahha",
+    ".affahha",
+    ".ahhahha",
+    ".ahhaaa.",
+    ".ahha...",
+    "..aa....",
+    "........"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "ibadah-papan-pengumuman",
+  "name": "Papan Pengumuman Musholla",
+  "cat": "ibadah",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#B88E58",
+    "c": "#C9965E",
+    "d": "#F4F1EA",
+    "e": "#C2413A",
+    "f": "#F3D5DC",
+    "g": "#3B7DD8",
+    "h": "#B9B2A6",
+    "i": "#D9A0AC",
+    "j": "#CFE0F2",
+    "k": "#F6E7A8",
+    "l": "#8FB0D0"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abcdeddcffgffcba",
+    "abcddddcfffffcba",
+    "abcdhhdcfiiifcba",
+    "abcddddcccccccba",
+    "abcddddcjejjccba",
+    "abccccccjjjjccba",
+    "abckgkkcjlljccba",
+    "abckkkkcjjjjccba",
+    "abccccccccccccba",
+    "abbbbbbbbbbbbbba",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "read"
+  ],
+  "rooms": [
+   "musholla"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-pot-monstera",
+  "name": "Pot Monstera",
+  "cat": "taman",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 24,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F7340",
+    "c": "#7BC47F",
+    "d": "#3E8E4E",
+    "e": "#58A867",
+    "f": "#C9784A",
+    "g": "#B5653A",
+    "h": "#9A532F"
+   },
+   "rows": [
+    "......aaaa......",
+    ".....abbbba.....",
+    "....abbbcbbaa...",
+    "...abbbbbbbdda..",
+    "..aeebbbabdddda.",
+    ".aeeeebbadddddda",
+    "aeeeeeebbddaddda",
+    "aeeeeaeeeedddda.",
+    ".aeeeeeeeeeddda.",
+    "addeeeeeeeedddda",
+    "addcdeeaeeedacda",
+    "addddaeeeeedddda",
+    "adddddeeeeddddda",
+    ".addddabbadddda.",
+    "..aaaaabbaaaaa..",
+    "...aaaabbaaaa...",
+    "..affffbbffffa..",
+    "..affffffffffa..",
+    "...agggggggga...",
+    "...agggggggga...",
+    "...agggggggga...",
+    "...ahhhhhhhha...",
+    "....aaaaaaaa....",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "plant",
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-pot-kaktus",
+  "name": "Pot Kaktus",
+  "cat": "taman",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E86A9A",
+    "c": "#6BBF78",
+    "d": "#4E9E5E",
+    "e": "#E8F2D0",
+    "f": "#C9784A",
+    "g": "#B5653A",
+    "h": "#9A532F"
+   },
+   "rows": [
+    "..aba...",
+    "...aba..",
+    "..acdda.",
+    "..acdda.",
+    "..acedda",
+    ".aacddda",
+    "adacddda",
+    "adacdea.",
+    "addddda.",
+    ".aaceda.",
+    "affcddfa",
+    "affffffa",
+    ".agggga.",
+    ".agggga.",
+    ".ahhhha.",
+    "..aaaa.."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "plant",
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-pot-sansevieria",
+  "name": "Pot Lidah Mertua",
+  "cat": "taman",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F7340",
+    "c": "#58A867",
+    "d": "#3E8E4E",
+    "e": "#D8D878",
+    "f": "#B5653A",
+    "g": "#9A532F"
+   },
+   "rows": [
+    "........",
+    "...a....",
+    "..aba...",
+    "..acba..",
+    "..acbaa.",
+    ".aacbada",
+    "addcbdda",
+    "addcbdda",
+    "adecbdda",
+    "addcbeda",
+    "addcbdda",
+    "adecbdda",
+    "addcbeda",
+    "addcbdda",
+    "addcbdda",
+    "addbbdda",
+    ".affffa.",
+    ".affffa.",
+    ".agggga.",
+    "..aaaa.."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "plant",
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-pohon-kecil",
+  "name": "Pohon Kecil Berpot",
+  "cat": "taman",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 30,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F7340",
+    "c": "#58A867",
+    "d": "#3E8E4E",
+    "e": "#7BC47F",
+    "f": "#E8C040",
+    "g": "#7A5532",
+    "h": "#C9784A",
+    "i": "#B5653A",
+    "j": "#9A532F"
+   },
+   "rows": [
+    "................",
+    ".....aaaaaa.....",
+    "...aabccccbaa...",
+    "..abdccceccbba..",
+    "..addccccccbba..",
+    ".adddccccccddba.",
+    ".addeccccccfdda.",
+    ".addddccccddddda",
+    ".addddddddddddda",
+    ".abdddddddddddda",
+    ".abbdfddddddddda",
+    "..abbbbbdfdddda.",
+    "..abbbbbbdddda..",
+    "...aabbbbbbaa...",
+    ".....aaggaa.....",
+    "......agga......",
+    "......agga......",
+    "......agga......",
+    "......agga......",
+    "......agga......",
+    "......agga......",
+    "...aaaaggaaaa...",
+    "..ahhhhgghhhha..",
+    "..ahhhhhhhhhha..",
+    "...aiiiiiiiia...",
+    "...aiiiiiiiia...",
+    "...aiiiiiiiia...",
+    "...ajjjjjjjja...",
+    "....aaaaaaaa....",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "plant",
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-pohon-besar",
+  "name": "Pohon Besar",
+  "cat": "taman",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 46,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F7340",
+    "c": "#58A867",
+    "d": "#245E33",
+    "e": "#7BC47F",
+    "f": "#3E8E4E",
+    "g": "#7A5532",
+    "h": "#946A42",
+    "i": "#5E4026"
+   },
+   "rows": [
+    "........................",
+    ".........aaaaaa.........",
+    ".......aabbbbbbaaa......",
+    "...a.aabccbbbbbbbda.....",
+    "..aeabccccccfbbbebba....",
+    "...abfccccccfffbbbbba...",
+    "..abfccccccccfffbbdbba..",
+    "..abfccccccecfccbbbbba..",
+    ".abffeccceccfcccdffbbba.",
+    ".abfffccccccccccccffbba.",
+    "abbfffffccffccccccfffbba",
+    "abbffffffdfffccccfffffba",
+    "abbfffffffffffccffffffba",
+    "abbffffffffffffddfffffba",
+    "abbbffffffffffffffffffba",
+    "abbbffffffffefffffffefba",
+    "bbbfffffffffffffffffffbb",
+    "bbbffffffffffffffffffbbb",
+    "bbbffffffffbffffffffffbb",
+    "bbbffffffffbbfffffffffbb",
+    "bbbbffffffbbbbbffffffbbb",
+    "bbbbbffffbbbbbbffffffbbb",
+    "abbbbbbbdbbbbbbbbffbbbba",
+    ".abbbbbbbbbbbbbbbbbbbba.",
+    "..abbbbbbaaaaaabbbbbba..",
+    "...aaaaagaaaaaagaaaaa...",
+    "........aghgggaga.......",
+    ".........aggggga........",
+    ".........agggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    ".........ahggga.........",
+    "........aahgggaa........",
+    ".......agggggggga.......",
+    ".......agggggggga.......",
+    "......aiiiiiiiiiia......",
+    ".......aaaaaaaaaa.......",
+    "........................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "plant",
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 0.5
+ },
+ {
+  "id": "taman-bangku",
+  "name": "Bangku Taman",
+  "cat": "taman",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D6B07A",
+    "c": "#8E6A42",
+    "d": "#B88E58",
+    "e": "#4A505C",
+    "f": "#E4C28F"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "adddddddddddddda",
+    "acccccccccccccca",
+    "eaaaaaaaaaaaaaae",
+    "effffffffffffffe",
+    "ebbbbbbbbbbbbbbe",
+    "edddddddddddddde",
+    "eaeeaaaaaaaaeeae",
+    "aaeea......aeeaa",
+    ".aeea......aeea.",
+    "..aa........aa..",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sit",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-gazebo",
+  "name": "Gazebo Kecil",
+  "cat": "taman",
+  "w": 4,
+  "h": 3,
+  "sprite": {
+   "w": 32,
+   "h": 44,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C9A24A",
+    "c": "#E8D9A8",
+    "d": "#C95B4A",
+    "e": "#B5483A",
+    "f": "#8E382E",
+    "g": "#946A42",
+    "h": "#7A5532",
+    "i": "#D6B07A",
+    "j": "#B08759",
+    "k": "#8E6A42",
+    "l": "#C9A06D",
+    "m": "#B88E58"
+   },
+   "rows": [
+    "..............abca..............",
+    ".............aabbaa.............",
+    "............addbbdda............",
+    "...........aeeeeeeeea...........",
+    "..........addddddddddaa.........",
+    ".........aeeeeeeeeeeeeea........",
+    "........addddddddddddddda.......",
+    "......aaeeeeeeeeeeeeeeeeea......",
+    ".....addddddddddddddddddda......",
+    "....aeeeeeeeeeeeeeeeeeeeeeaa....",
+    "...adddddddddddddddddddddddda...",
+    ".aaeeeeeeeeeeeeeeeeeeeeeeeeeeaa.",
+    "adddddddddddddddddddddddddddddda",
+    "ffffffffffffffffffffffffffffffff",
+    "ffffffffffffffffffffffffffffffff",
+    "aabghbagbaabaabaabaabaabgabhhbaa",
+    "..aghaagga.a..a..a..a.aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaagga............aggaahha..",
+    "..aghaaggaaaaaaaaaaaaaaggaahha..",
+    ".aighiiggiiiiiiiiiiiiiiggiihhia.",
+    ".ajghkkggkkkkkkkkkkkkkkggkkhhja.",
+    ".alghliiiiiiiiiiiiiiiiiiiilhhla.",
+    ".alghlmmmmmmmmmmmmmmmmmmmmlhhla.",
+    ".ajghjmmmmmmmmmmmmmmmmmmmmjhhja.",
+    ".alghlkkkkkkkkkkkkkkkkkkkklhhla.",
+    ".alghllllllllllllllllllllllhhla.",
+    ".ajghjjjjjjjjjjjjjjjjjjjjjjhhja.",
+    ".alghllllllllllllllllllllllhhla.",
+    ".alghllllllllllllllllllllllhhla.",
+    ".ajghjjjjjjjjjjjjjjjjjjjjjjhhja.",
+    ".alghllllllllllllllllllllllhhla.",
+    ".alghllllllllllllllllllllllhhla.",
+    ".ajghjjjjjjjjjjjjjjjjjjjjjjhhja.",
+    ".alllllllllllllllllllllllllllla.",
+    ".alllllllllllllllllllllllllllla.",
+    "..aaaaaaaaaaaaaaaaaaaaaaaaaaaa..",
+    "................................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sit",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 2,
+    "dy": 1,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 0.4
+ },
+ {
+  "id": "taman-air-mancur",
+  "name": "Air Mancur",
+  "cat": "taman",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 30,
+   "palette": {
+    "a": "#BDE6F5",
+    "b": "#9ED6F0",
+    "c": "#2A2430",
+    "d": "#C9C3B6",
+    "e": "#6FB8D8",
+    "f": "#B8B2A6",
+    "g": "#A8A296",
+    "h": "#8FCBE6",
+    "i": "#9AD3EA"
+   },
+   "rows": [
+    "........................",
+    "........................",
+    "........................",
+    "............a...........",
+    "........................",
+    "............a...........",
+    "...........bb...........",
+    "..........abb.a.........",
+    "...........bb...........",
+    ".......c.ccbbccc........",
+    "......cdaeeeeeeeac......",
+    ".....cdeeeeeeeeeedc.....",
+    ".....cddeeeeeeeeddc.....",
+    "......cddddddddddc......",
+    "......accccffcccc.a.....",
+    "..........cffc..........",
+    "........cccffccc........",
+    "....ccccddggggddcccc....",
+    "..ccddddddggggddddddcc..",
+    ".cddddeeeeggggeeeeddddc.",
+    "cdddeeeehhhhhhhheeeedddc",
+    "cddeeehhhhhhhhhhhheeeddc",
+    "cddeeehhhhhhhhhhhheeeddc",
+    "cdddeeeehhhhhhhheeeedddc",
+    "cgddddeeeeeeeeeeeeddddgc",
+    ".cggddddddddddddddddggc.",
+    "..ccggggddddddddggggcc..",
+    "....ccggggggggggggcc....",
+    "......cccccccccccc......",
+    "........................"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     "........................",
+     "........................",
+     "........................",
+     "............a...........",
+     "........................",
+     "............a...........",
+     "...........bb...........",
+     "..........abb.a.........",
+     "...........bb...........",
+     ".......c.ccbbccc........",
+     "......cdaeeeeeeeac......",
+     ".....cdeeeeeeeeeedc.....",
+     ".....cddeeeeeeeeddc.....",
+     "......cddddddddddc......",
+     "......accccffcccc.a.....",
+     "..........cffc..........",
+     "........cccffccc........",
+     "....ccccddggggddcccc....",
+     "..ccddddddggggddddddcc..",
+     ".cddddeeeeggggeeeeddddc.",
+     "cdddeeeehhhhhhhheeeedddc",
+     "cddeeehhhhhhhhhhhheeeddc",
+     "cddeeehhhhhhhhhhhheeeddc",
+     "cdddeeeehhhhhhhheeeedddc",
+     "cgddddeeeeeeeeeeeeddddgc",
+     ".cggddddddddddddddddggc.",
+     "..ccggggddddddddggggcc..",
+     "....ccggggggggggggcc....",
+     "......cccccccccccc......",
+     "........................"
+    ]
+   },
+   {
+    "rows": [
+     "........................",
+     "........................",
+     "............a...........",
+     "........................",
+     "............a...........",
+     "...........bb...........",
+     "...........bb...........",
+     "...........bba..........",
+     "...........bb...........",
+     ".......ccacbbccac.......",
+     "......cdeeeeeeeedc......",
+     ".....cdeeeeeeeeeedc.....",
+     ".....cddeeeeeeeeddc.....",
+     "......caddddddddda......",
+     "........cccffcccc.......",
+     "..........cffc..........",
+     "........cccffccc........",
+     "....ccccddggggddcccc....",
+     "..ccddddddggggddddddcc..",
+     ".cddddeeeeggggeeeeddddc.",
+     "cdddeeeeiiiiiiiieeeedddc",
+     "cddeeeiiiiiiiiiiiieeeddc",
+     "cddeeeiiiiiiiiiiiieeeddc",
+     "cdddeeeeiiiiiiiieeeedddc",
+     "cgddddeeeeeeeeeeeeddddgc",
+     ".cggddddddddddddddddggc.",
+     "..ccggggddddddddggggcc..",
+     "....ccggggggggggggcc....",
+     "......cccccccccccc......",
+     "........................"
+    ]
+   }
+  ],
+  "fps": 2,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor",
+   "chat"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 0.5
+ },
+ {
+  "id": "taman-kolam-ikan",
+  "name": "Kolam Ikan",
+  "cat": "taman",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C9C3B6",
+    "c": "#4E9FC0",
+    "d": "#5BB0D0",
+    "e": "#3E8E4E",
+    "f": "#F3D5DC",
+    "g": "#BDE6F5",
+    "h": "#F28C38",
+    "i": "#A8A296",
+    "j": "#F4F1EA"
+   },
+   "rows": [
+    ".......aaaaaaaaaa.......",
+    "....aaabbbbbbbbbbaaa....",
+    "...abbbbbbbbbbbbbbbba...",
+    "..abbbbccccccccccbbbba..",
+    ".abbbcdddddddddeeccbbba.",
+    "abbbddddddddddeefeccbbba",
+    "abbcdgddddddddeeeecccbba",
+    "abbcddeedddddhhhhdcccbba",
+    "abbcdeeeedddddddddcccbba",
+    "abbcceeeedddddddcccccbba",
+    "aibbcceecccjjhccccccbbia",
+    ".aibbccccccccccccccbbia.",
+    "..aibbbccccccccccbbbia..",
+    "...aaiibbbbbbbbbbiiaa...",
+    ".....aaiiiiiiiiiiaa.....",
+    ".......aaaaaaaaaa......."
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     ".......aaaaaaaaaa.......",
+     "....aaabbbbbbbbbbaaa....",
+     "...abbbbbbbbbbbbbbbba...",
+     "..abbbbccccccccccbbbba..",
+     ".abbbcdddddddddeeccbbba.",
+     "abbbddddddddddeefeccbbba",
+     "abbcdgddddddddeeeecccbba",
+     "abbcddeedddddhhhhdcccbba",
+     "abbcdeeeedddddddddcccbba",
+     "abbcceeeedddddddcccccbba",
+     "aibbcceecccjjhccccccbbia",
+     ".aibbccccccccccccccbbia.",
+     "..aibbbccccccccccbbbia..",
+     "...aaiibbbbbbbbbbiiaa...",
+     ".....aaiiiiiiiiiiaa.....",
+     ".......aaaaaaaaaa......."
+    ]
+   },
+   {
+    "rows": [
+     ".......aaaaaaaaaa.......",
+     "....aaabbbbbbbbbbaaa....",
+     "...abbbbbbbbbbbbbbbba...",
+     "..abbbbccccccccccbbbba..",
+     ".abbbcdddddddddeeccbbba.",
+     "abbbddddddddddeefeccbbba",
+     "abbcddgdddddddeeeecccbba",
+     "abbcddeedddddddeedcccbba",
+     "abbcdeeeedhhhhddddcccbba",
+     "abbcceeeeddddddjjhcccbba",
+     "aibbcceeccccccccccccbbia",
+     ".aibbccccccccccccccbbia.",
+     "..aibbbccccccccccbbbia..",
+     "...aaiibbbbbbbbbbiiaa...",
+     ".....aaiiiiiiiiiiaa.....",
+     ".......aaaaaaaaaa......."
+    ]
+   }
+  ],
+  "fps": 1.5,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor",
+   "chat"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 0.5
+ },
+ {
+  "id": "taman-payung-meja",
+  "name": "Meja Payung Taman",
+  "cat": "taman",
+  "w": 2,
+  "h": 2,
+  "sprite": {
+   "w": 16,
+   "h": 30,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#6B5A4A",
+    "c": "#C95B4A",
+    "d": "#F4F1EA",
+    "e": "#B5483A",
+    "f": "#CFC8B6",
+    "g": "#E8B371",
+    "h": "#D59A55",
+    "i": "#E8E0CC",
+    "j": "#7A808A"
+   },
+   "rows": [
+    "......aaba......",
+    "...aaaccbcaaa...",
+    "..addccddccdda..",
+    ".acddccddccddca.",
+    ".acddccddccddca.",
+    "accddccddccddcca",
+    "accddccddccddcca",
+    ".acddccddccddca.",
+    ".aeeeeeeeeeeeea.",
+    ".acaccccccccca..",
+    "..a.aaccccaaa...",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    "......abba......",
+    ".....aabbaa.....",
+    ".aaaaffffffaaaa.",
+    "agddddddddddddga",
+    "aghhddddddddhhga",
+    "aghhddddddddhhga",
+    "ahhhiiddddiihhha",
+    "ahhhaaajjaaahhha",
+    "ahhhaaajjaaahhha",
+    "ahhhajjjjjjahhha",
+    ".aaa.aaaaaa.aaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sit",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "sit",
+    "face": "right"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "sit",
+    "face": "left"
+   }
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-lampu-taman",
+  "name": "Lampu Taman",
+  "cat": "taman",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 28,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#F6D77A",
+    "d": "#FFF0B0",
+    "e": "#555B66",
+    "f": "#3B3F4A"
+   },
+   "rows": [
+    "..abba..",
+    ".abbbba.",
+    "abccccba",
+    "abddccba",
+    "abddccba",
+    "abddccba",
+    "abddccba",
+    "abccccba",
+    ".abbbba.",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    ".abbbba.",
+    "..aefa..",
+    ".abbbba.",
+    "affffffa",
+    "affffffa",
+    ".aaaaaa.",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-pagar-tanaman",
+  "name": "Pagar Tanaman",
+  "cat": "taman",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F7340",
+    "c": "#3E8E4E",
+    "d": "#58A867",
+    "e": "#7BC47F",
+    "f": "#245E33"
+   },
+   "rows": [
+    "....aa....aa....",
+    "..aabbaaaabbaa..",
+    ".acbbcbbbdbbbba.",
+    ".abdbbbbbbbbdba.",
+    "abbbbbbbbbbcbdba",
+    "abbbbbcdbbcbbbba",
+    "abcbbebdcebbbbba",
+    "abbcbebbbdbbbbba",
+    "abbbbbbcdbbbebba",
+    "abbbbbbcdcbbdbba",
+    "abebbbebbdbbbbba",
+    "abbbbbbbbbbbbbba",
+    "affffffffffffffa",
+    "affffffffffffffa",
+    ".aaaaaaaaaaaaaa.",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-petak-bunga",
+  "name": "Petak Bunga",
+  "cat": "taman",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E5655D",
+    "c": "#F2CF72",
+    "d": "#E86A9A",
+    "e": "#F4F1EA",
+    "f": "#9B7BCF",
+    "g": "#3E8E4E",
+    "h": "#C9784A",
+    "i": "#B5653A",
+    "j": "#9A532F"
+   },
+   "rows": [
+    "................",
+    "..............aa",
+    "..aaaaaaaaa..abc",
+    ".adcdccceceaaabb",
+    ".adddccceeefcfag",
+    "..agaagaagafffag",
+    ".aagaagaagaagaag",
+    "ahhhhhhhhhhhhhhg",
+    "aiiiiiiiiiiiiiia",
+    "ajjiijjiijjiijja",
+    "aiiiiiiiiiiiiiia",
+    "ajjjjjjjjjjjjjja",
+    ".aaaaaaaaaaaaaa.",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "plant",
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-ayunan",
+  "name": "Ayunan",
+  "cat": "taman",
+  "w": 2,
+  "h": 2,
+  "sprite": {
+   "w": 16,
+   "h": 28,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#946A42",
+    "c": "#7A5532",
+    "d": "#6B5A4A",
+    "e": "#8E8E96",
+    "f": "#E8B371",
+    "g": "#D59A55"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "cdaeaaeaaaeaaedc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "cdae..e...e..edc",
+    "acde..e...e..edc",
+    "acdeaaea.aeaaeca",
+    "acffffffaffffffa",
+    "acggggggagggggga",
+    "acdaaaaa.aaaadca",
+    "acda........adca",
+    "acda........adca",
+    "acda........adca",
+    "acda........adca",
+    "acda........adca",
+    "acda........adca",
+    "adda........adda",
+    ".aa..........aa.",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "play"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "play",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "play",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "taman"
+  ],
+  "weight": 0.4
+ },
+ {
+  "id": "taman-kursi-rotan",
+  "name": "Kursi Rotan",
+  "cat": "taman",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C9965E",
+    "c": "#A87A46",
+    "d": "#7A5532",
+    "e": "#E4C28F",
+    "f": "#D6B07A",
+    "g": "#B08759"
+   },
+   "rows": [
+    ".abbbba.",
+    "abcbcbca",
+    "acbcbcba",
+    "abcaabca",
+    "acbcbcba",
+    "abcaabca",
+    "acbcbcba",
+    "abcbcbca",
+    "adddddda",
+    "aeeeeeea",
+    "affffffa",
+    "agggggga",
+    "adaaaada",
+    "ada..ada",
+    "ada..ada",
+    ".a....a."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sit"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-batu-hias",
+  "name": "Batu Hias",
+  "cat": "taman",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#8E8E96",
+    "c": "#58A867",
+    "d": "#B8B8C0",
+    "e": "#A8A8B0",
+    "f": "#7BC47F",
+    "g": "#76767E"
+   },
+   "rows": [
+    "........",
+    "........",
+    ".aaaa...",
+    "abbbba..",
+    "bbcdbba.",
+    "bcdddcea",
+    "bbddeefe",
+    "ggggeeee",
+    "ggggggga",
+    "aaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-tempat-sampah",
+  "name": "Tempat Sampah Taman",
+  "cat": "taman",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2F5A44",
+    "c": "#3E7A5E",
+    "d": "#E8F2D0"
+   },
+   "rows": [
+    "...aa...",
+    ".aabbaa.",
+    "acccccca",
+    "abbbbbba",
+    "acccccca",
+    "acbcbcba",
+    "acbcbcba",
+    "acbddcba",
+    "acbdccba",
+    "acbcbcba",
+    "acbcbcba",
+    "acbcbcba",
+    "abbbbbba",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-penyiram",
+  "name": "Penyiram Tanaman",
+  "cat": "taman",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 13,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#6FB09B",
+    "c": "#3A6E5E",
+    "d": "#4F8F7B",
+    "e": "#9ED6F0",
+    "f": "#58A867",
+    "g": "#3E8E4E"
+   },
+   "rows": [
+    "................",
+    ".......aaa......",
+    "..aaa.abbba.....",
+    ".accca.aaa......",
+    ".acacaadde......",
+    "abbbbbadda......",
+    "addddddda.e.....",
+    "addddddda.......",
+    "adddddda.e......",
+    "addddda......f..",
+    "accccca.....fgf.",
+    ".aaaaa..........",
+    "................"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "plant"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "stand",
+    "face": "left"
+   }
+  ],
+  "rooms": [
+   "taman",
+   "lobby",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "taman-rumput-liar",
+  "name": "Rumput Liar",
+  "cat": "taman",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 8,
+   "palette": {
+    "a": "#F4F1EA",
+    "b": "#7BC47F",
+    "c": "#F2CF72",
+    "d": "#58A867",
+    "e": "#3E8E4E"
+   },
+   "rows": [
+    "........",
+    "........",
+    "....a...",
+    "..a.....",
+    "....bc..",
+    "..d.b.d.",
+    ".edebed.",
+    "...ebe.."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "taman"
+  ],
+  "weight": 1.5
+ },
+ {
+  "id": "dekor-lukisan-abstrak",
+  "name": "Lukisan Abstrak",
+  "cat": "dekor",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#7A5532",
+    "c": "#F4EBD0",
+    "d": "#C95B4A",
+    "e": "#3B7DD8",
+    "f": "#3E8E4E",
+    "g": "#F2CF72"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abaaaaddccccccba",
+    "abcdddddeeeeecba",
+    "abcdddddeeeeecba",
+    "abcdddcdeeeeecba",
+    "abcdddddeeeeecba",
+    "abccddddccfffcba",
+    "abcgggggggfffcba",
+    "abcgggggggfffcba",
+    "abccccccccccccba",
+    "abbbbbbbbbbbbbba",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-poster",
+  "name": "Poster Pemandangan",
+  "cat": "dekor",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E8D9A8",
+    "c": "#F4F1EA",
+    "d": "#5BA7C0",
+    "e": "#F2CF72",
+    "f": "#3E8E4E",
+    "g": "#2F7340"
+   },
+   "rows": [
+    ".aaaaaa.",
+    "abccccba",
+    "acddddca",
+    "acdeedca",
+    "aceeeeca",
+    "aceeeeca",
+    "acdeedca",
+    "acddddca",
+    "acffffca",
+    "acffffca",
+    "acggggca",
+    "acggggca",
+    "acccccca",
+    ".aaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-akuarium",
+  "name": "Akuarium",
+  "cat": "dekor",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#2B2B33",
+    "c": "#B8C0C8",
+    "d": "#A9E0F0",
+    "e": "#7EC8E3",
+    "f": "#E6F7FC",
+    "g": "#F2CF72",
+    "h": "#E5655D",
+    "i": "#F28C38",
+    "j": "#3E8E4E",
+    "k": "#58A867",
+    "l": "#8E6A42",
+    "m": "#E8D9A8",
+    "n": "#946A42",
+    "o": "#7A5532",
+    "p": "#6B4A2E",
+    "q": "#C9A24A"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "acddddddddddddca",
+    "aceeeeeeefeeeeca",
+    "aceeeeeegfgeeeca",
+    "aceeheeeeeeeeeca",
+    "aceeeiiieeejeeca",
+    "acejeeeeeeejkeca",
+    "acejkeeeeeejkeca",
+    "acejkelleeejkeca",
+    "acmmmmllmmmmmmca",
+    "acmmmmmmmmmmmmca",
+    "acccccccccccccca",
+    "annnnnnnnnnnnnna",
+    "aooooooooooooooa",
+    "aoopppppopppppoa",
+    "aooppppqopqpppoa",
+    "aoopppppopppppoa",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     ".aaaaaaaaaaaaaa.",
+     "abbbbbbbbbbbbbba",
+     "abbbbbbbbbbbbbba",
+     "acddddddddddddca",
+     "aceeeeeeefeeeeca",
+     "aceeeeeegfgeeeca",
+     "aceeheeeeeeeeeca",
+     "aceeeiiieeejeeca",
+     "acejeeeeeeejkeca",
+     "acejkeeeeeejkeca",
+     "acejkelleeejkeca",
+     "acmmmmllmmmmmmca",
+     "acmmmmmmmmmmmmca",
+     "acccccccccccccca",
+     "annnnnnnnnnnnnna",
+     "aooooooooooooooa",
+     "aoopppppopppppoa",
+     "aooppppqopqpppoa",
+     "aoopppppopppppoa",
+     ".aaaaaaaaaaaaaa."
+    ]
+   },
+   {
+    "rows": [
+     ".aaaaaaaaaaaaaa.",
+     "abbbbbbbbbbbbbba",
+     "abbbbbbbbbbbbbba",
+     "acddddddddfdddca",
+     "aceeeeeeeefeeeca",
+     "aceeeeeeheeeeeca",
+     "aceeeeeeeiiieeca",
+     "aceeeeeeeeejeeca",
+     "acejeeeeeeejkeca",
+     "acejkgggeeejkeca",
+     "acejkelleeejkeca",
+     "acmmmmllmmmmmmca",
+     "acmmmmmmmmmmmmca",
+     "acccccccccccccca",
+     "annnnnnnnnnnnnna",
+     "aooooooooooooooa",
+     "aoopppppopppppoa",
+     "aooppppqopqpppoa",
+     "aoopppppopppppoa",
+     ".aaaaaaaaaaaaaa."
+    ]
+   }
+  ],
+  "fps": 1.5,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor",
+   "chat"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-globe",
+  "name": "Globe",
+  "cat": "dekor",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#3B7DD8",
+    "c": "#58A867",
+    "d": "#C9A24A",
+    "e": "#7BC47F",
+    "f": "#7A5532"
+   },
+   "rows": [
+    "..aaaa..",
+    ".abbbba.",
+    "abbccbda",
+    "adbcceda",
+    "bdccbbdb",
+    "adccbcda",
+    "adbbbbda",
+    ".abbbbda",
+    "..addaa.",
+    "..adda..",
+    ".affffa.",
+    "affffffa",
+    ".aaaaaa.",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor",
+   "think"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-jam-besar",
+  "name": "Jam Besar Berdiri",
+  "cat": "dekor",
+  "w": 1,
+  "h": 2,
+  "sprite": {
+   "w": 8,
+   "h": 32,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#946A42",
+    "c": "#7A5532",
+    "d": "#F4EBD0",
+    "e": "#3B2A1E",
+    "f": "#52402E",
+    "g": "#C9A24A",
+    "h": "#E8C040",
+    "i": "#6B4A2E"
+   },
+   "rows": [
+    ".aaaaaa.",
+    "abbbbbba",
+    "abbbbbba",
+    "acddddca",
+    "acddadca",
+    "acddaaca",
+    "acddddca",
+    "acccccca",
+    "acccccca",
+    "aceffeca",
+    "aceegeca",
+    "aceegeca",
+    "aceegeca",
+    "aceegeca",
+    "aceegeca",
+    "aceegeca",
+    "aceegeca",
+    "aceegeca",
+    "aceegeca",
+    "acehheca",
+    "acehheca",
+    "acccccca",
+    "abbbbbba",
+    "abbbbbba",
+    "acccccca",
+    "aciiiica",
+    "aciiiica",
+    "aciiiica",
+    "aciiiica",
+    "abbbbbba",
+    ".aaaaaa.",
+    "........"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     ".aaaaaa.",
+     "abbbbbba",
+     "abbbbbba",
+     "acddddca",
+     "acddadca",
+     "acddaaca",
+     "acddddca",
+     "acccccca",
+     "acccccca",
+     "aceffeca",
+     "aceegeca",
+     "aceegeca",
+     "aceegeca",
+     "aceegeca",
+     "aceegeca",
+     "aceegeca",
+     "aceegeca",
+     "aceegeca",
+     "aceegeca",
+     "acehheca",
+     "acehheca",
+     "acccccca",
+     "abbbbbba",
+     "abbbbbba",
+     "acccccca",
+     "aciiiica",
+     "aciiiica",
+     "aciiiica",
+     "aciiiica",
+     "abbbbbba",
+     ".aaaaaa.",
+     "........"
+    ]
+   },
+   {
+    "rows": [
+     ".aaaaaa.",
+     "abbbbbba",
+     "abbbbbba",
+     "acddddca",
+     "acddadca",
+     "acddaaca",
+     "acddddca",
+     "acccccca",
+     "acccccca",
+     "aceffeca",
+     "acegeeca",
+     "acegeeca",
+     "acegeeca",
+     "acegeeca",
+     "acegeeca",
+     "acegeeca",
+     "acegeeca",
+     "acegeeca",
+     "acegeeca",
+     "achheeca",
+     "achheeca",
+     "acccccca",
+     "abbbbbba",
+     "abbbbbba",
+     "acccccca",
+     "aciiiica",
+     "aciiiica",
+     "aciiiica",
+     "aciiiica",
+     "abbbbbba",
+     ".aaaaaa.",
+     "........"
+    ]
+   }
+  ],
+  "fps": 1,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-karpet-hias",
+  "name": "Karpet Hias",
+  "cat": "dekor",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#8E2F3C",
+    "c": "#E8D9A8",
+    "d": "#2F5A8E"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    "cbccccccccccccccccccccbc",
+    "abcbbbbbbbbbbbbbbbbbbcba",
+    "cbcbbbbbbbbbbbbbbbbbbcbc",
+    "abcbbddddddccddddddbbcba",
+    "cbcbbdddddccccdddddbbcbc",
+    "abcbbddddccbbccddddbbcba",
+    "cbcbbddcdccbbccdcddbbcbc",
+    "abcbbdddddccccdddddbbcba",
+    "cbcbbddddddccddddddbbcbc",
+    "abcbbbbbbbbbbbbbbbbbbcba",
+    "cbcbbbbbbbbbbbbbbbbbbcbc",
+    "abccccccccccccccccccccba",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    ".aaaaaaaaaaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-patung-kecil",
+  "name": "Patung Kecil",
+  "cat": "dekor",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#B58A4F",
+    "c": "#D6A868",
+    "d": "#B8B2A6",
+    "e": "#E4DFD4",
+    "f": "#CFC9BC",
+    "g": "#A8A296"
+   },
+   "rows": [
+    "...aa...",
+    "..abba..",
+    ".abbbba.",
+    ".abcbba.",
+    ".abbbba.",
+    "..abba..",
+    ".acbbba.",
+    "abcbbbba",
+    "abcbbbba",
+    ".acbbba.",
+    ".adddda.",
+    "aeeeeeea",
+    "affffffa",
+    "affffffa",
+    "affffffa",
+    "agggggga",
+    ".aaaaaa.",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-rak-buku-hias",
+  "name": "Rak Buku Hias",
+  "cat": "dekor",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 28,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#6E4B2E",
+    "c": "#4A321F",
+    "d": "#D9A441",
+    "e": "#3E6BA8",
+    "f": "#7A4F96",
+    "g": "#B64A3D",
+    "h": "#4F8F5B",
+    "i": "#3E8E4E",
+    "j": "#58A867",
+    "k": "#D8D2C2",
+    "l": "#B5653A",
+    "m": "#E8D9A8",
+    "n": "#5BA7C0",
+    "o": "#2F5D6E"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abcccccddcccccba",
+    "abccceeddccffcba",
+    "abcggeeddhhffcba",
+    "abcggeeddhhffcba",
+    "abcggeeddhhffcba",
+    "abcgiieddhhffcba",
+    "abbjiijbbbbbbbba",
+    "abcciicchhffkkba",
+    "abcllllchhffkkba",
+    "abcllllchhffkkba",
+    "abcllllchhffkkba",
+    "abcllllchhffkkba",
+    "abbbbbbbbbbbbbba",
+    "abcmmmmmceeddcba",
+    "abcmnnnmceeddcba",
+    "abcmnnnmceeddcba",
+    "abcmnnnmceeddcba",
+    "abcmmmmmceeddcba",
+    "abbbbbbffbbbbbba",
+    "abccchhffccoocba",
+    "abcddhhffkkoocba",
+    "abcddhhffkkoocba",
+    "abcddhhffkkoocba",
+    "abbddhhffkkoobba",
+    ".abbbbbbbbbbbba."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "read",
+   "decor"
+  ],
+  "rooms": [
+   "lib",
+   "lobby",
+   "lounge",
+   "manager"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-lampu-hias",
+  "name": "Lampu Hias Berdiri",
+  "cat": "dekor",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 24,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F6D77A",
+    "c": "#FFF0B0",
+    "d": "#D9A441",
+    "e": "#9AA3AF",
+    "f": "#7A808A",
+    "g": "#555B66"
+   },
+   "rows": [
+    "..aaaa..",
+    ".abbbba.",
+    ".accbba.",
+    "abccbbba",
+    "abccbbba",
+    "abccbbba",
+    "adddddda",
+    ".aaefaa.",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    "..aefa..",
+    ".aaefaa.",
+    "agggggga",
+    "agggggga",
+    ".aaaaaa.",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-vas-bunga",
+  "name": "Vas Bunga",
+  "cat": "dekor",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F2CF72",
+    "c": "#E86A9A",
+    "d": "#E8A040",
+    "e": "#E5655D",
+    "f": "#3E8E4E",
+    "g": "#F4F1EA",
+    "h": "#CFE0F2",
+    "i": "#3B7DD8",
+    "j": "#B8C0C8"
+   },
+   "rows": [
+    ".aabba..",
+    "acbbbba.",
+    "ccbbdeea",
+    "cccbeeee",
+    "accaeeee",
+    ".aaffeea",
+    "...fffa.",
+    "..aggf..",
+    "..agga..",
+    ".ahggga.",
+    ".ahiiga.",
+    ".ahggga.",
+    ".ajjjja.",
+    "..aaaa.."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-papan-foto-tim",
+  "name": "Papan Foto Tim",
+  "cat": "dekor",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#7A5532",
+    "c": "#F4F1EA",
+    "d": "#CFE0F2",
+    "e": "#F3D5DC",
+    "f": "#6E4B2E",
+    "g": "#F6E7A8",
+    "h": "#E8B98F",
+    "i": "#C98E64",
+    "j": "#F2CDA6",
+    "k": "#3E6BA8",
+    "l": "#B64A3D",
+    "m": "#4F8F5B",
+    "n": "#D4EBD0",
+    "o": "#E0D4F0",
+    "p": "#C9A24A",
+    "q": "#F2D6BE",
+    "r": "#4A321F",
+    "s": "#A8744C",
+    "t": "#D9A27A",
+    "u": "#7A4F96",
+    "v": "#2F5D6E",
+    "w": "#D9A441"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abcdadcefecgagba",
+    "abcdhdceiecgjgba",
+    "abckkkclllcmmmba",
+    "abckkkclllcmmmba",
+    "abccccccccccccba",
+    "abcnancopocqrqba",
+    "abcnsncohocqtqba",
+    "abcuuucvvvcwwwba",
+    "abcuuucvvvcwwwba",
+    "abbbbbbbbbbbbbba",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dekor-piala-rak",
+  "name": "Rak Piala dan Trofi",
+  "cat": "dekor",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#7A5532",
+    "c": "#4A5A66",
+    "d": "#2F3A44",
+    "e": "#E8C040",
+    "f": "#FFF0B0",
+    "g": "#C9CFD6",
+    "h": "#C9A24A",
+    "i": "#946A42",
+    "j": "#B64A3D",
+    "k": "#B58A4F"
+   },
+   "rows": [
+    ".aaaaaaaaaaaaaa.",
+    "abbbbbbbbbbbbbba",
+    "abccddddddddddba",
+    "abccddddddddddba",
+    "abccefeeddddddba",
+    "abceeeeeegfggdba",
+    "abcceeeeggggggba",
+    "abccdeeddggggdba",
+    "abccdeedddggddba",
+    "abcchhhhddggddba",
+    "abccdddddhhhhdba",
+    "abcciiiiiiiiiiba",
+    "abccdjddjddjddba",
+    "abccejdgjdkjddba",
+    "abceeegggkkkkdba",
+    "abceeegggkkkkdba",
+    "abcceedggdkkddba",
+    "abccddddddddddba",
+    "abiiiiiiiiiiiiba",
+    "abccddddddddddba",
+    "abbbbbbbbbbbbbba",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "rooms": [
+   "lobby",
+   "lounge",
+   "manager",
+   "meeting",
+   "lib"
+  ],
+  "weight": 1
+ }
+]

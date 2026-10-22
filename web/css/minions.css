@@ -1,0 +1,12 @@
+/* Magang (minion): kartu pengaturan + menu ketuk. Logika di web/js/minions-ui.js */
+.mg-hint{margin:0 0 10px}
+.mg-row{display:grid;grid-template-columns:62px 1fr 30px;align-items:center;gap:8px;margin:6px 0;font-weight:600;font-size:13px}
+.mg-row input[type=range]{width:100%;accent-color:#F2842B}
+.mg-row output{font:700 13px var(--f-mono,ui-monospace);text-align:right}
+.mg-check{grid-template-columns:20px 1fr;align-items:start}
+.mg-check input{margin-top:3px;accent-color:#F2842B}
+.mg-card .btn-row{margin-top:10px;align-items:center}
+.mg-badge{display:inline-block;padding:1px 6px;border-radius:5px;background:#F2842B;color:#3A1E08;font:700 10px "Silkscreen","Pixelify Sans",ui-monospace,monospace;letter-spacing:.04em}
+.mg-menu{position:absolute;z-index:8;min-width:170px;padding:9px 10px;border-radius:12px;background:rgba(31,22,40,.95);border:2px solid rgba(242,132,43,.6);box-shadow:0 6px 24px rgba(0,0,0,.35);color:#F4EDE4}
+.mg-menu-h{font-size:13px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.mg-menu-b{display:flex;gap:6px}

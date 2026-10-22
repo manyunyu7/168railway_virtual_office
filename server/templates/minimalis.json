@@ -1,0 +1,90 @@
+{
+  "id": "minimalis",
+  "order": 6,
+  "name": "Minimalis",
+  "mood": "lega · rapi · secukupnya",
+  "accent": "#8A8F98",
+  "desc": "Untuk project kecil: ruangan ringkas berbaris rapi, perabot sedikit dan hanya yang perlu, lantai terang. Tidak menambah ruangan baru.",
+  "facilities": [],
+  "filler": {
+    "kind": "taman",
+    "name": "Taman"
+  },
+  "layout": {
+    "strategy": "rows",
+    "corridor": 7,
+    "lobbyW": 20,
+    "facilitySize": 0.85,
+    "codeSize": 0.95
+  },
+  "groups": [
+    {
+      "name": "",
+      "kinds": [
+        "manager",
+        "meeting",
+        "kode",
+        "openplan",
+        "game",
+        "lib",
+        "qa",
+        "server",
+        "beku",
+        "musholla",
+        "telepon",
+        "tidur",
+        "pantry",
+        "lounge",
+        "musik",
+        "gym",
+        "taman",
+        "toilet",
+        "booth"
+      ]
+    }
+  ],
+  "floors": {
+    "*": "tile",
+    "kode": "teal2",
+    "manager": "marble",
+    "lobby": "marble",
+    "lib": "wood2",
+    "musholla": "musholla",
+    "taman": "grass",
+    "gym": "gymMat",
+    "server": "metal"
+  },
+  "furnish": {
+    "*": {
+      "density": 0.45,
+      "walls": 0.45
+    },
+    "kode": {
+      "density": 0.35,
+      "walls": 0.4,
+      "items": {
+        "taman-pot-sansevieria": 2,
+        "kerja-jam-dinding": 1,
+        "kerja-lemari-arsip": 1,
+        "kerja-whiteboard-dinding": 1
+      },
+      "others": 0
+    },
+    "lobby": {
+      "density": 0.4,
+      "others": 0,
+      "items": {
+        "taman-pot-sansevieria": 2,
+        "taman-pot-monstera": 1,
+        "kerja-kursi-tunggu": 1,
+        "kerja-jam-dinding": 1
+      }
+    }
+  },
+  "corridorDecor": {
+    "every": 26,
+    "items": [
+      "plant"
+    ]
+  }
+}

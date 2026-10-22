@@ -1,0 +1,173 @@
+{
+  "id": "perpustakaan-tenang",
+  "order": 3,
+  "name": "Perpustakaan Tenang",
+  "mood": "fokus · temaram · sunyi",
+  "accent": "#4F7A5A",
+  "desc": "Untuk kerja yang butuh konsentrasi: perpustakaan besar, ruang baca, dua bilik telepon, bilik fokus di ruang kode, lampu meja temaram. Ruang yang ramai (pantry, musik, rapat) dikumpulkan di ujung.",
+  "facilities": [
+    {
+      "kind": "lib",
+      "name": "Perpustakaan",
+      "size": 1.4
+    },
+    {
+      "kind": "lib",
+      "name": "Ruang Baca",
+      "size": 1.1
+    },
+    {
+      "kind": "telepon",
+      "name": "Bilik Telepon",
+      "size": 1.2
+    },
+    {
+      "kind": "telepon",
+      "name": "Bilik Fokus",
+      "size": 1.2
+    },
+    {
+      "kind": "musholla",
+      "name": "Musholla",
+      "size": 0.8
+    }
+  ],
+  "filler": {
+    "kind": "lib",
+    "name": "Pojok Baca"
+  },
+  "layout": {
+    "strategy": "rows",
+    "corridor": 8,
+    "lobbyW": 22,
+    "rowH": 22
+  },
+  "groups": [
+    {
+      "name": "Sayap Sunyi",
+      "kinds": [
+        "lib",
+        "telepon",
+        "musholla",
+        "tidur"
+      ]
+    },
+    {
+      "name": "Ruang Kerja",
+      "kinds": [
+        "manager",
+        "kode",
+        "openplan",
+        "qa",
+        "server",
+        "beku"
+      ]
+    },
+    {
+      "name": "Ujung Ramai",
+      "kinds": [
+        "meeting",
+        "pantry",
+        "game",
+        "lounge",
+        "musik",
+        "gym",
+        "taman",
+        "toilet",
+        "booth"
+      ]
+    }
+  ],
+  "floors": {
+    "kode": "carpetGreen",
+    "lib": "wood2",
+    "telepon": "plum",
+    "manager": "wood2",
+    "lobby": "wood2",
+    "meeting": "carpetGreen",
+    "musholla": "musholla",
+    "pantry": "wood2",
+    "musik": "plum",
+    "qa": "tile",
+    "server": "metal"
+  },
+  "furnish": {
+    "*": {
+      "density": 0.85
+    },
+    "lib": {
+      "density": 1.35,
+      "others": 0.15,
+      "items": {
+        "teknik-rak-buku-kayu-besar": 3,
+        "teknik-rak-buku-biru-laut": 2,
+        "teknik-rak-buku-hijau-tua": 2,
+        "teknik-rak-buku-anggur": 2,
+        "teknik-tangga-rak-buku": 1,
+        "teknik-meja-baca-lampu": 3,
+        "teknik-kursi-baca-empuk": 3,
+        "teknik-katalog-kartu": 1,
+        "dapur-lampu-lantai": 2,
+        "dekor-globe": 1,
+        "dekor-karpet-hias": 1,
+        "kerja-jam-dinding": 1
+      }
+    },
+    "kode": {
+      "density": 0.75,
+      "others": 0.15,
+      "items": {
+        "teknik-bilik-fokus-akustik": 2,
+        "kerja-lampu-meja": 2,
+        "teknik-rak-buku-kayu-besar": 1,
+        "teknik-kursi-baca-empuk": 1,
+        "dapur-lampu-lantai": 1,
+        "kerja-papan-gabus": 1,
+        "kerja-jam-dinding": 1,
+        "taman-pot-sansevieria": 1
+      }
+    },
+    "telepon": {
+      "density": 1.1,
+      "items": {
+        "teknik-bilik-telepon": 2,
+        "teknik-bilik-fokus-akustik": 2,
+        "teknik-kursi-bilik-fokus": 2,
+        "teknik-meja-headset": 1
+      },
+      "others": 0
+    },
+    "manager": {
+      "items": {
+        "teknik-rak-buku-kayu-besar": 2,
+        "dapur-lampu-lantai": 1,
+        "kerja-lampu-meja": 1,
+        "dekor-globe": 1,
+        "kerja-jam-dinding": 1,
+        "kerja-lemari-arsip": 1
+      },
+      "others": 0.2
+    },
+    "lobby": {
+      "density": 0.7,
+      "others": 0,
+      "items": {
+        "teknik-rak-buku-kayu-besar": 2,
+        "teknik-kursi-baca-empuk": 2,
+        "dapur-lampu-lantai": 2,
+        "taman-pot-sansevieria": 2,
+        "dekor-globe": 1,
+        "kerja-jam-dinding": 1,
+        "dekor-rak-buku-hias": 1
+      }
+    }
+  },
+  "corridorDecor": {
+    "every": 18,
+    "items": [
+      "plant",
+      "bench",
+      "plant"
+    ]
+  }
+}

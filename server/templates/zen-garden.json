@@ -1,0 +1,212 @@
+{
+  "id": "zen-garden",
+  "order": 1,
+  "name": "Taman Zen",
+  "mood": "tenang · hijau · lega",
+  "accent": "#6BAE57",
+  "desc": "Taman berair mancur di tengah kantor. Di kiri taman sisi tenang (musholla, tidur siang, perpustakaan, bilik sunyi), di kanan sisi santai (pantry, musik); ruangan kode di atas dan bawah.",
+  "facilities": [
+    {
+      "kind": "taman",
+      "name": "Taman Zen"
+    },
+    {
+      "kind": "musholla",
+      "name": "Musholla",
+      "size": 0.85
+    },
+    {
+      "kind": "tidur",
+      "name": "Ruang Tidur Siang"
+    },
+    {
+      "kind": "telepon",
+      "name": "Bilik Sunyi",
+      "size": 1.3
+    }
+  ],
+  "filler": {
+    "kind": "taman",
+    "name": "Taman Kecil"
+  },
+  "layout": {
+    "strategy": "hub",
+    "hub": [
+      "taman"
+    ],
+    "hubSize": 1.25,
+    "corridor": 8,
+    "lobbyW": 22
+  },
+  "groups": [
+    {
+      "name": "Sisi Tenang",
+      "kinds": [
+        "musholla",
+        "tidur",
+        "lib",
+        "telepon"
+      ]
+    },
+    {
+      "name": "Sayap Kerja",
+      "kinds": [
+        "manager",
+        "meeting",
+        "kode",
+        "openplan",
+        "game",
+        "qa",
+        "server",
+        "beku"
+      ]
+    },
+    {
+      "name": "Sisi Santai",
+      "kinds": [
+        "pantry",
+        "lounge",
+        "musik",
+        "gym",
+        "toilet",
+        "booth"
+      ]
+    }
+  ],
+  "floors": {
+    "kode": [
+      "teal",
+      "teal2"
+    ],
+    "manager": "wood2",
+    "meeting": "carpetGreen",
+    "lib": "carpetGreen",
+    "tidur": "plum",
+    "telepon": "carpetGreen",
+    "musholla": "musholla",
+    "taman": "grass",
+    "lobby": "marble",
+    "pantry": "wood2",
+    "musik": "plum",
+    "qa": "tile",
+    "server": "metal"
+  },
+  "furnish": {
+    "*": {
+      "density": 0.9
+    },
+    "taman": {
+      "center": [
+        "taman-air-mancur",
+        "taman-kolam-ikan",
+        "taman-bangku",
+        "taman-bangku",
+        "taman-petak-bunga",
+        "taman-petak-bunga",
+        "taman-pohon-besar",
+        "taman-lampu-taman",
+        "taman-lampu-taman",
+        "taman-payung-meja",
+        "taman-batu-hias",
+        "taman-batu-hias"
+      ],
+      "density": 2.6,
+      "others": 0,
+      "items": {
+        "taman-pohon-kecil": 3,
+        "taman-pohon-besar": 1,
+        "taman-bangku": 3,
+        "taman-batu-hias": 3,
+        "taman-petak-bunga": 2,
+        "taman-lampu-taman": 2,
+        "taman-kolam-ikan": 1,
+        "taman-rumput-liar": 3,
+        "taman-pot-sansevieria": 1,
+        "taman-kursi-rotan": 2,
+        "taman-payung-meja": 1,
+        "taman-pagar-tanaman": 1
+      }
+    },
+    "lobby": {
+      "density": 0.8,
+      "others": 0,
+      "items": {
+        "taman-pot-monstera": 3,
+        "taman-pohon-kecil": 2,
+        "taman-bangku": 2,
+        "taman-batu-hias": 2,
+        "dekor-vas-bunga": 1,
+        "kerja-kursi-tunggu": 1,
+        "taman-kolam-ikan": 1,
+        "dekor-lukisan-abstrak": 1,
+        "dekor-akuarium": 1,
+        "kerja-jam-dinding": 1
+      }
+    },
+    "kode": {
+      "density": 0.7,
+      "others": 0.15,
+      "items": {
+        "taman-pot-sansevieria": 2,
+        "taman-pot-kaktus": 1,
+        "taman-pot-monstera": 1,
+        "kerja-papan-gabus": 1,
+        "kerja-jam-dinding": 1,
+        "kerja-lemari-arsip": 1,
+        "kerja-whiteboard-dinding": 1,
+        "dapur-dispenser-galon": 0.5
+      }
+    },
+    "manager": {
+      "density": 0.7,
+      "items": {
+        "taman-pot-monstera": 2,
+        "dekor-lukisan-abstrak": 1,
+        "dekor-rak-buku-hias": 1,
+        "kerja-jam-dinding": 1,
+        "dekor-akuarium": 1,
+        "kerja-lemari-arsip": 1
+      },
+      "others": 0.2
+    },
+    "lib": {
+      "items": {
+        "teknik-rak-buku-kayu-besar": 2,
+        "teknik-rak-buku-hijau-tua": 1,
+        "teknik-kursi-baca-empuk": 3,
+        "teknik-meja-baca-lampu": 2,
+        "dapur-lampu-lantai": 1,
+        "taman-pot-sansevieria": 1,
+        "kerja-jam-dinding": 1
+      },
+      "others": 0.2
+    },
+    "tidur": {
+      "density": 1.1
+    },
+    "telepon": {
+      "density": 1
+    },
+    "pantry": {
+      "density": 0.8,
+      "items": {
+        "dapur-teko-teh": 2,
+        "dapur-dispenser-galon": 1,
+        "dapur-keranjang-buah": 1,
+        "dapur-tanaman-meja-kafe": 2,
+        "dapur-papan-jam-istirahat": 1,
+        "dapur-rak-cangkir": 1
+      },
+      "others": 0.2
+    }
+  },
+  "corridorDecor": {
+    "every": 12,
+    "items": [
+      "plant",
+      "bench",
+      "plant",
+      "water"
+    ]
+  }
+}

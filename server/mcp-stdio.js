@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 import readline from 'node:readline';
 
 function server() {
@@ -12,12 +13,25 @@ function server() {
 }
 const ident = { office: process.env.KANTOR_OFFICE || null, role: process.env.KANTOR_ROLE || null, sid: process.env.KANTOR_SID || null, cwd: process.cwd() };
 
-async function api(p, body) {
+// node:http instead of fetch: `tanya` can wait up to 15 minutes, longer than fetch's default response-header timeout
+function api(p, body) {
   const s = server();
-  const res = await fetch(s.url + p, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}` }, body: body ? JSON.stringify(body) : undefined });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-  return data;
+  const u = new URL(s.url + p);
+  const data = body ? JSON.stringify(body) : null;
+  return new Promise((resolve, reject) => {
+    const req = http.request(u, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}`, ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        let json = {};
+        try { json = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch {}
+        if (res.statusCode >= 400) reject(new Error(json.error || `HTTP ${res.statusCode}`)); else resolve(json);
+      });
+    });
+    req.on('error', reject);
+    if (data) req.write(data);
+    req.end();
+  });
 }
 
 const send = msg => process.stdout.write(JSON.stringify(msg) + '\n');

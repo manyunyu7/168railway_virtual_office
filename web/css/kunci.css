@@ -1,0 +1,8 @@
+.kunci-card .kunci-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.kunci-card .kunci-list>li{padding:8px 10px;border:1px solid var(--line, rgba(128,128,128,.25));border-radius:10px}
+.kunci-card .kunci-h b{font-family:var(--mono, ui-monospace, monospace);font-size:13px}
+.kunci-card .kunci-why{margin-top:2px}
+.kunci-card .kunci-q{margin:6px 0 0;padding-left:20px;font-size:13px}
+.kunci-card .kunci-rules{margin-top:10px;font-size:13px}
+.kunci-card .kunci-rules summary{cursor:pointer;min-height:32px;display:flex;align-items:center}
+.kunci-card .kunci-rules p{margin:8px 0 0}

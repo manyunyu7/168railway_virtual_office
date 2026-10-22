@@ -28,6 +28,24 @@ const DEFAULTS = {
   idleHomeHours: 0,
   payroll: { scanDays: 60, currency: 'USD' },
   claudeBin: 'claude',
+  // folder scanned by the office music player ("Folder musikmu")
+  musicDir: path.join(HOME, 'Music'),
+  // Optional HTTPS listener, e.g. on the Tailscale IP with a real domain pointing at it:
+  // { host: '100.x.y.z', port: 443, cert: '/path/fullchain.crt', key: '/path/key', names: ['office.example.com'] }
+  tls: null,
+  // Push to Ghina when something needs you: url = https://<ghina>/api/kantor/notify, token = its KANTOR_NOTIFY_TOKEN.
+  // The token stays in config.json (never in the repo). Off unless enabled and both url and token are set.
+  // events: permission (new inbox item), question (agent asks), meeting (rapat done/failed)
+  // file (agent sent a file to the owner) is on unless ghinaNotify.file is false, whatever the events list says
+  // office location for prayer times (Kemenag method): tz is an IANA zone
+  location: { name: 'Jakarta', lat: -6.2, lng: 106.8, tz: 'Asia/Jakarta' },
+  // attachments in the agent chat: maxBytes per file, chunkBytes = suggested upload chunk, staleHours = drop unfinished uploads after
+  attachments: { maxBytes: 4 * 1024 ** 3, chunkBytes: 4 * 1024 ** 2, staleHours: 48 },
+  ghinaNotify: { enabled: true, url: '', token: '', events: ['permission', 'question', 'meeting'], debounceSec: 30 },
+  // pesan langsung antaragen: autoStart = mulai shift penerima yang belum jalan; maks `maxPerPair` pesan per pasangan dalam `windowMin` menit
+  // Performa PC (server/sysmon.js): sampling cepat hanya saat ada klien melihat; alerts = batas % (tempC null: butuh sudo)
+  sysmon: { enabled: true, intervalSec: 5, idleSec: 60, activeSec: 60, historyMin: 60, alerts: { cpu: 90, ram: 92, disk: 95, swapPct: 90, tempC: null, sustainSec: 120, cooldownMin: 30 } },
+  dm: { autoStart: false, maxPerPair: 20, windowMin: 10, maxPerTurn: 8, midTurn: true },
 };
 
 export function ensureDirs() {
@@ -39,7 +57,7 @@ export function loadConfig() {
   ensureDirs();
   let cfg = {};
   try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); } catch {}
-  cfg = { ...DEFAULTS, ...cfg, approvals: { ...DEFAULTS.approvals, ...(cfg.approvals || {}) }, payroll: { ...DEFAULTS.payroll, ...(cfg.payroll || {}) } };
+  cfg = { ...DEFAULTS, ...cfg, approvals: { ...DEFAULTS.approvals, ...(cfg.approvals || {}) }, payroll: { ...DEFAULTS.payroll, ...(cfg.payroll || {}) }, ghinaNotify: { ...DEFAULTS.ghinaNotify, ...(cfg.ghinaNotify || {}) }, attachments: { ...DEFAULTS.attachments, ...(cfg.attachments || {}) }, location: { ...DEFAULTS.location, ...(cfg.location || {}) }, dm: { ...DEFAULTS.dm, ...(cfg.dm || {}) }, sysmon: { ...DEFAULTS.sysmon, ...(cfg.sysmon || {}), alerts: { ...DEFAULTS.sysmon.alerts, ...(cfg.sysmon?.alerts || {}) } } };
   if (!cfg.token) {
     cfg.token = crypto.randomBytes(24).toString('base64url');
     saveConfig(cfg);

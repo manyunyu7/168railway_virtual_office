@@ -1,0 +1,179 @@
+{
+  "id": "stasiun",
+  "order": 5,
+  "name": "Stasiun",
+  "mood": "kereta · peron · tepat waktu",
+  "accent": "#B93838",
+  "desc": "Kantor bertema stasiun: lobi lebar jadi hall stasiun dengan papan jadwal, loket, jam dan lonceng; koridor jadi peron; ruang tunggu dengan bangku stasiun; diorama dan sinyal di ruang kerja.",
+  "facilities": [
+    {
+      "kind": "lounge",
+      "name": "Ruang Tunggu"
+    },
+    {
+      "kind": "musholla",
+      "name": "Musholla",
+      "size": 0.85
+    }
+  ],
+  "filler": {
+    "kind": "lounge",
+    "name": "Peron Tunggu"
+  },
+  "layout": {
+    "strategy": "rows",
+    "corridor": 9,
+    "lobbyW": 28,
+    "doorW": 4,
+    "wingLabels": "peron"
+  },
+  "groups": [
+    {
+      "name": "",
+      "kinds": [
+        "manager",
+        "meeting",
+        "kode",
+        "openplan",
+        "game",
+        "qa",
+        "server",
+        "beku",
+        "lib"
+      ]
+    },
+    {
+      "name": "",
+      "kinds": [
+        "lounge",
+        "pantry",
+        "musholla",
+        "musik",
+        "telepon",
+        "tidur",
+        "gym",
+        "taman",
+        "toilet",
+        "booth"
+      ]
+    }
+  ],
+  "floors": {
+    "lobby": "marble",
+    "kode": [
+      "teal2",
+      "tile"
+    ],
+    "lounge": "marble",
+    "manager": "wood2",
+    "meeting": "wood2",
+    "lib": "wood2",
+    "musholla": "musholla",
+    "pantry": "tile",
+    "musik": "plum",
+    "server": "metal",
+    "qa": "tile"
+  },
+  "furnish": {
+    "*": {
+      "density": 0.95
+    },
+    "lobby": {
+      "density": 1.2,
+      "others": 0,
+      "items": {
+        "teknik-papan-jadwal": 3,
+        "teknik-bangku-stasiun": 2,
+        "teknik-etalase-tiket": 2,
+        "teknik-jam-stasiun": 2,
+        "teknik-lonceng-stasiun": 1,
+        "teknik-sinyal-kereta": 2,
+        "teknik-diorama-rel-besar": 1,
+        "teknik-peta-jalur-kereta": 2,
+        "teknik-tiang-semboyan": 1,
+        "teknik-palang-pintu-mini": 1,
+        "teknik-rambu-ka": 1,
+        "taman-pot-monstera": 1,
+        "teknik-etalase-lokomotif": 1
+      },
+      "center": [
+        "teknik-diorama-rel-besar"
+      ]
+    },
+    "lounge": {
+      "density": 1.5,
+      "others": 0,
+      "items": {
+        "teknik-bangku-stasiun": 5,
+        "teknik-papan-jadwal": 2,
+        "teknik-jam-stasiun": 1,
+        "teknik-diorama-rel-kecil": 1,
+        "teknik-etalase-lokomotif": 1,
+        "dapur-vending-minuman": 1,
+        "dapur-vending-snack": 1,
+        "taman-pot-monstera": 1,
+        "teknik-peta-jalur-kereta": 1,
+        "dapur-water-cooler": 1
+      },
+      "center": [
+        "teknik-diorama-rel-besar",
+        "teknik-bangku-stasiun",
+        "teknik-bangku-stasiun",
+        "teknik-bangku-stasiun",
+        "teknik-bangku-stasiun"
+      ]
+    },
+    "kode": {
+      "density": 0.85,
+      "others": 0.15,
+      "items": {
+        "teknik-diorama-rel-kecil": 2,
+        "teknik-sinyal-kereta": 1,
+        "teknik-peta-jalur-kereta": 2,
+        "teknik-kursi-masinis": 1,
+        "teknik-jam-stasiun": 2,
+        "teknik-simulator-kokpit": 1,
+        "teknik-diorama-rel-besar": 1,
+        "kerja-papan-gabus": 1
+      }
+    },
+    "manager": {
+      "items": {
+        "teknik-peta-jalur-kereta": 2,
+        "teknik-etalase-lokomotif": 2,
+        "teknik-diorama-rel-kecil": 1,
+        "teknik-jam-stasiun": 1,
+        "kerja-lemari-arsip": 1
+      },
+      "others": 0.2
+    },
+    "meeting": {
+      "items": {
+        "teknik-peta-jalur-kereta": 1,
+        "teknik-jam-stasiun": 1,
+        "kerja-meja-rapat-besar": 1
+      },
+      "others": 0.5
+    },
+    "pantry": {
+      "items": {
+        "dapur-meja-makan": 2,
+        "dapur-kursi-makan": 3,
+        "dapur-vending-minuman": 1,
+        "teknik-jam-stasiun": 1,
+        "dapur-rak-snack": 1
+      },
+      "others": 0.3
+    }
+  },
+  "corridorDecor": {
+    "every": 13,
+    "items": [
+      "bench",
+      "plant",
+      "water",
+      "bench",
+      "vending"
+    ]
+  }
+}

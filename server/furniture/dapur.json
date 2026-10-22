@@ -1,0 +1,3369 @@
+[
+ {
+  "id": "dapur-mesin-espresso",
+  "name": "Mesin Espresso",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E26A63",
+    "c": "#D67A7A",
+    "d": "#C23B3B",
+    "e": "#F7D774",
+    "f": "#7FD6C4",
+    "g": "#B8BEC8",
+    "h": "#2F2A38",
+    "i": "#4A4356",
+    "j": "#9E3337",
+    "k": "#E7E1D8",
+    "l": "#F6F2EC",
+    "m": "#6B4428"
+   },
+   "rows": [
+    "................",
+    ".aaaaaaaaaaaaaa.",
+    ".abbbbbbbbbbbba.",
+    ".acccccccccccca.",
+    ".acccccccccccca.",
+    ".acccccccccccca.",
+    ".adaeaaddafaada.",
+    ".adaaaaddaaaada.",
+    ".adddddggddddda.",
+    ".adddhiiiihddda.",
+    ".adddhhhhhhddda.",
+    ".adddhhhhhhddda.",
+    ".ajjjjjjjjjjjja.",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "active": {
+   "rows": [
+    "................",
+    ".aaaaaaaaaaaaaa.",
+    ".abbbbbbbbbbbba.",
+    ".acccccccccccca.",
+    ".acccccccccccca.",
+    ".acccccccccccca.",
+    ".adaeaaddafaada.",
+    ".adaaaakdaaaada.",
+    ".adddddglddddda.",
+    ".adddhiliihddda.",
+    ".adddhalahhddda.",
+    ".adddhammahddda.",
+    ".ajjjjaaajjjjja.",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "coffee"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-mesin-kopi-tetes",
+  "name": "Mesin Kopi Tetes",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 13,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#A9A8AD",
+    "c": "#7A7981",
+    "d": "#E86A5C",
+    "e": "#6B6A78",
+    "f": "#3B3A46",
+    "g": "#9AD6E0",
+    "h": "#E4F0F2",
+    "i": "#8A5A3A",
+    "j": "#55546A",
+    "k": "#F6F2EC",
+    "l": "#6B4428"
+   },
+   "rows": [
+    "........",
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccda.",
+    ".aeeeea.",
+    ".aaaaaa.",
+    ".affffa.",
+    ".afggfa.",
+    ".ahhhha.",
+    ".aiiiia.",
+    ".aiiiia.",
+    ".ajjjja.",
+    ".aaaaaa."
+   ]
+  },
+  "active": {
+   "rows": [
+    ".....k..",
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    ".aeeeea.",
+    ".aaaaaa.",
+    ".affffa.",
+    ".afdgfa.",
+    ".ahhhha.",
+    ".alllla.",
+    ".alllla.",
+    ".ajjjja.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "coffee"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-grinder-kopi",
+  "name": "Grinder Kopi",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#5C3A26",
+    "c": "#7A4F35",
+    "d": "#EEECE8",
+    "e": "#E5E2DB",
+    "f": "#F7D774",
+    "g": "#D9D4CA",
+    "h": "#555B68",
+    "i": "#8A92A0"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".abcbba.",
+    ".abcbba.",
+    ".abcbba.",
+    ".abbbba.",
+    ".aaaaaa.",
+    ".adddda.",
+    ".aeeeea.",
+    ".aafaaa.",
+    ".aaaaaa.",
+    ".aghhga.",
+    ".aiiiia.",
+    ".aaaaaa.",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "coffee"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-rak-cangkir",
+  "name": "Rak Cangkir",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#7E5232",
+    "c": "#F4F1EA",
+    "d": "#E26A63",
+    "e": "#7FB6D6",
+    "f": "#F7D774",
+    "g": "#C98F5C",
+    "h": "#9BCB8B",
+    "i": "#B07A4A",
+    "j": "#906443"
+   },
+   "rows": [
+    "................",
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbaaa",
+    "abacaadaaeaafaaa",
+    "abacaadaaeaafaaa",
+    "abaaaaaaaaaaaaba",
+    "agggggggggggggga",
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbaeaafaahaacaa",
+    "abbaeaafaahaacaa",
+    "aiiaaaaaaaaaaaaa",
+    "agggggggggggggga",
+    "ajjjjjjjjjjjjjja",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "coffee",
+   "decor"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-teko-teh",
+  "name": "Teko Teh",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4C7FAF",
+    "c": "#6FA8D6",
+    "d": "#C5DCEF",
+    "e": "#A9CBE6",
+    "f": "#F6F2EC"
+   },
+   "rows": [
+    "........",
+    "....a...",
+    "..abba..",
+    ".aabbaa.",
+    "acccccca",
+    "cccdccca",
+    "acceccca",
+    "acccccca",
+    ".aaaaaa.",
+    ".aaaaaa."
+   ]
+  },
+  "active": {
+   "rows": [
+    ".....f..",
+    "....a...",
+    "..abba..",
+    ".aabbaa.",
+    "acccccca",
+    "cccdccca",
+    "acceccca",
+    "acccccca",
+    ".aaaaaa.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "coffee",
+   "water"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-termos",
+  "name": "Termos Air Panas",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E26A63",
+    "c": "#DCDFE4",
+    "d": "#B8BEC8",
+    "e": "#8A92A0",
+    "f": "#C23B3B"
+   },
+   "rows": [
+    "..aaaa..",
+    "..abba..",
+    "..aaaa..",
+    ".acddea.",
+    ".acddea.",
+    ".acddea.",
+    ".affffa.",
+    ".acddea.",
+    ".acddea.",
+    ".acddea.",
+    ".aeeeea.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "water",
+   "coffee"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-kulkas-kecil",
+  "name": "Kulkas Mini",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D5ECED",
+    "c": "#BEE1E4",
+    "d": "#A9DCE1",
+    "e": "#8AC4CB",
+    "f": "#E8EEF0",
+    "g": "#83A9B1"
+   },
+   "rows": [
+    "........",
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    ".aaaaaa.",
+    ".adeeea.",
+    ".adeefa.",
+    ".adeefa.",
+    ".adeeea.",
+    ".adeefa.",
+    ".adeefa.",
+    ".adeefa.",
+    ".adeeea.",
+    ".aaaaaa.",
+    ".aaggaa.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack",
+   "water"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-kulkas-dua-pintu",
+  "name": "Kulkas Dua Pintu",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 26,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F2F5F8",
+    "c": "#E4E8EC",
+    "d": "#6BD38B",
+    "e": "#E4E8EE",
+    "f": "#C3CAD3",
+    "g": "#8A92A0",
+    "h": "#E26A63",
+    "i": "#F7D774",
+    "j": "#A2A6B1"
+   },
+   "rows": [
+    "................",
+    ".aaaaaaaaaaaaaa.",
+    ".abbbbbbbbbbbba.",
+    ".acccccccccddca.",
+    ".acccccccccccca.",
+    ".aaaaaaaaaaaaaa.",
+    ".aeffffaffffffa.",
+    ".aeffffaffffffa.",
+    ".aefffgagfffffa.",
+    ".aefffgagfhhhfa.",
+    ".aefffgagfhhhfa.",
+    ".aeffffaffffffa.",
+    ".aeffffaffffffa.",
+    ".aaaaaaaaaaaaaa.",
+    ".aeffffaffffffa.",
+    ".aeffffafiiiffa.",
+    ".aefffgagiaiffa.",
+    ".aefffgagiiiffa.",
+    ".aefffgagfffffa.",
+    ".aefffgagfffffa.",
+    ".aefffgagfffffa.",
+    ".aeffffaffffffa.",
+    ".aeffffaffffffa.",
+    ".ajjjjjjjjjjjja.",
+    ".aeffffaffffffa.",
+    ".aaggaaaaaaggaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack",
+   "water"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-kulkas-besar-hitam",
+  "name": "Kulkas Besar Hitam",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 28,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#94919D",
+    "c": "#5A5668",
+    "d": "#4A4658",
+    "e": "#2F2C3A",
+    "f": "#7FD6C4",
+    "g": "#B8BEC8",
+    "h": "#34303E"
+   },
+   "rows": [
+    "................",
+    ".aaaaaaaaaaaaaa.",
+    ".abbbbbbbbbbbba.",
+    ".acccccccccccca.",
+    ".acccccccccccca.",
+    ".aaaaaaaaaaaaaa.",
+    ".adeeeeeaeeeeea.",
+    ".adeffeeaeeeeea.",
+    ".adeffegageeeea.",
+    ".adeeeegageeeea.",
+    ".adeeeeeaeeeeea.",
+    ".aaaaaaaaaaaaaa.",
+    ".adeeeeeaeeeeea.",
+    ".adeeeeeaeeeeea.",
+    ".adeeeeeaeeeeea.",
+    ".adeeeegageeeea.",
+    ".adeeeegageeeea.",
+    ".adeeeegageeeea.",
+    ".adeeeegageeeea.",
+    ".adeeeegageeeea.",
+    ".adeeeegageeeea.",
+    ".adeeeeeaeeeeea.",
+    ".adeeeeeaeeeeea.",
+    ".adeeeeeaeeeeea.",
+    ".adeeeeeaeeeeea.",
+    ".adeeeeeaeeeeea.",
+    ".ahaahhhhhhaaha.",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack",
+   "water"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 0.6
+ },
+ {
+  "id": "dapur-microwave",
+  "name": "Microwave",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F3F2EF",
+    "c": "#C9C5BC",
+    "d": "#6B8794",
+    "e": "#2F3D46",
+    "f": "#E26A63",
+    "g": "#7FD6C4",
+    "h": "#F7E08A",
+    "i": "#FFF8D6"
+   },
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "aaaaaaca",
+    "aadeeafa",
+    "aaeeeaca",
+    "aaeeeaga",
+    "aaaaaaca",
+    "aaaaaaaa",
+    ".a....a."
+   ]
+  },
+  "active": {
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "aaaaaaca",
+    "aahhhafa",
+    "aahihaca",
+    "aahhhaga",
+    "aaaaaaca",
+    "aaaaaaaa",
+    ".a....a."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "eat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-oven-toaster",
+  "name": "Oven Toaster",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#B6BDC7",
+    "c": "#33404F",
+    "d": "#E26A63",
+    "e": "#4E586D",
+    "f": "#F7D774",
+    "g": "#8A97AB",
+    "h": "#F59A3C",
+    "i": "#FFD27A"
+   },
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "aaaaaaaa",
+    "aaccccaa",
+    "aaccccaa",
+    "aaaaaaaa",
+    "adefegga",
+    "aaaaaaaa",
+    ".a....a."
+   ]
+  },
+  "active": {
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "aaaaaaaa",
+    "aahhhhaa",
+    "aaiiiiaa",
+    "aaaaaaaa",
+    "adefegga",
+    "aaaaaaaa",
+    ".a....a."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "eat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-rice-cooker",
+  "name": "Rice Cooker",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E26A63",
+    "c": "#F2EFE8",
+    "d": "#D9D4CA",
+    "e": "#F4F1EA",
+    "f": "#D9484B",
+    "g": "#FFB4A8",
+    "h": "#F7D774"
+   },
+   "rows": [
+    ".aaabaa.",
+    ".acccca.",
+    "aaddddaa",
+    "aeeeeeea",
+    "aeeeeeea",
+    "aeeeeeea",
+    "aeffffea",
+    "aafffgaa",
+    ".aaaaaa.",
+    ".aaaaaa."
+   ]
+  },
+  "active": {
+   "rows": [
+    ".aaabaa.",
+    ".acccca.",
+    "aaddddaa",
+    "aeeeeeea",
+    "aeeeeeea",
+    "aeeeeeea",
+    "aeffffea",
+    "aafffhaa",
+    ".aaaaaa.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "eat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-dispenser-galon",
+  "name": "Dispenser Galon",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#A9DDF2",
+    "c": "#4C90B8",
+    "d": "#E6F6FD",
+    "e": "#8CC7E3",
+    "f": "#F5F7F8",
+    "g": "#EFF2F4",
+    "h": "#7FB6E6",
+    "i": "#E26A63",
+    "j": "#E8ECEF",
+    "k": "#B8BEC8",
+    "l": "#C9D0D6",
+    "m": "#8A92A0"
+   },
+   "rows": [
+    "..aaaa..",
+    ".abccba.",
+    "abbbbbba",
+    "abdbbbba",
+    "abdbbbba",
+    "abdbbbba",
+    ".abbbba.",
+    "..aaaa..",
+    "..eeee..",
+    ".aaaaaa.",
+    ".affffa.",
+    ".agggga.",
+    ".ahaaia.",
+    ".aaaaaa.",
+    ".aaaaaa.",
+    ".ajkkja.",
+    ".ajjjja.",
+    ".alllla.",
+    ".alllla.",
+    ".ammmma.",
+    ".aaaaaa.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "water"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge",
+   "kode"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-water-cooler",
+  "name": "Water Cooler",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 17,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#FFFFFF",
+    "c": "#6FB6E8",
+    "d": "#E26A63",
+    "e": "#F0F3F5",
+    "f": "#C9D0D6",
+    "g": "#DCE2E6",
+    "h": "#F7D774",
+    "i": "#8A92A0"
+   },
+   "rows": [
+    "........",
+    ".aaaaaa.",
+    ".abbbba.",
+    ".abbbba.",
+    ".abbbba.",
+    ".acaada.",
+    ".aaaaaa.",
+    ".aaaaaa.",
+    ".aeeeea.",
+    ".affffa.",
+    ".afccfa.",
+    ".affffa.",
+    ".aeeeea.",
+    ".aghhga.",
+    ".agggga.",
+    ".aiiiia.",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "water"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge",
+   "taman",
+   "gym"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-wastafel-dapur",
+  "name": "Wastafel Dapur",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#B8BEC8",
+    "c": "#EEF1F4",
+    "d": "#D9DEE3",
+    "e": "#8D98A5",
+    "f": "#6C7886",
+    "g": "#C9D0D6",
+    "h": "#C98F5C",
+    "i": "#B07A4A",
+    "j": "#8A92A0",
+    "k": "#A47451"
+   },
+   "rows": [
+    "................",
+    ".....aaaa.......",
+    ".....abba.......",
+    ".....ab.a.......",
+    ".....ab.........",
+    "aaaaaaaaaaaaaaaa",
+    "acccccccccccccca",
+    "adefffffeddgggda",
+    "adeeeeeeeddgggda",
+    "adddddddddddddda",
+    "ahhhhhhhhhhhhhha",
+    "ahaaaaaaaaaaaaha",
+    "ahaiiiiaaiiiiaha",
+    "ahaiiijaajiiiaha",
+    "ahaiiiiaaiiiiaha",
+    "ahaiiiiaaiiiiaha",
+    "akaaaaaaaaaaaaka",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "water"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-meja-bar",
+  "name": "Meja Bar",
+  "cat": "dapur",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 18,
+   "palette": {
+    "a": "#F6F2EC",
+    "b": "#2A2430",
+    "c": "#F4F1EA",
+    "d": "#E26A63",
+    "e": "#D9A06A",
+    "f": "#B07A4A",
+    "g": "#5A3C2A",
+    "h": "#8A6247",
+    "i": "#6B4A34",
+    "j": "#4D342A",
+    "k": "#F7D774"
+   },
+   "rows": [
+    "....a...................",
+    "...bcb..........bbbb....",
+    "...bcbb.........bddb....",
+    "...bbb..........bbbb....",
+    "bbbbbbbbbbbbbbbbbbbbbbbb",
+    "beeeeeeeeeeeeeeeeeeeeeeb",
+    "bffffffffffffffffffffffb",
+    "bffffffffffffffffffffffb",
+    "bffffffffffffffffffffffb",
+    "bghhhhgghhhhgghhhhgghhhh",
+    "bgiiiiggiiiiggiiiiggiiii",
+    "bgiiiiggiiiiggiiiiggiiii",
+    "bgiiiiggiiiiggiiiiggiiii",
+    "bgiiiiggiiiiggiiiiggiiii",
+    "bgiiiiggiiiiggiiiiggiiii",
+    "bgiiiiggiiiiggiiiiggiiii",
+    "bjjjjjjjjjjjjjjjjjjjjjjb",
+    "bbkkkkkkkkkkkkkkkkkkkkbb"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "chat",
+   "coffee"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 2,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-bar-stool",
+  "name": "Bangku Bar",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#EEA6A1",
+    "c": "#E26A63",
+    "d": "#BB5957",
+    "e": "#B8BEC8",
+    "f": "#8A92A0"
+   },
+   "rows": [
+    "........",
+    "........",
+    "........",
+    ".abbbba.",
+    ".acccca.",
+    ".adddda.",
+    "...aa...",
+    "...ef...",
+    "...ff...",
+    "..eeee..",
+    ".aaaaaa.",
+    "a..ff..a",
+    "a..aa..a",
+    "........"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-meja-makan",
+  "name": "Meja Makan Panjang",
+  "cat": "dapur",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#EAC08E",
+    "c": "#D9A06A",
+    "d": "#9BCB8B",
+    "e": "#F4F1EA",
+    "f": "#C98F5C",
+    "g": "#7E5232",
+    "h": "#A47451"
+   },
+   "rows": [
+    "........................",
+    "........................",
+    "........................",
+    "........................",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    "acccccccccaaaaccccccccca",
+    "accaaaacccaddacccaaaacca",
+    "acaeeeeaeeaddaeeaeeeeaca",
+    "acaeeeeaccaaaaccaeeeeaca",
+    "accaaaaccccccccccaaaacca",
+    "acccccccccccccccccccccca",
+    "acccccccccccccccccccccca",
+    "affffffffffffffffffffffa",
+    "aagaffffffffffffffffagaa",
+    "aagaffffffffffffffffagaa",
+    "aagahhhhhhhhhhhhhhhhagaa",
+    "aagaaaaaaaaaaaaaaaaaagaa",
+    ".aga................aga.",
+    ".aga................aga.",
+    ".aaa................aaa.",
+    "........................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "eat",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 2,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 0,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 2,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-kursi-makan",
+  "name": "Kursi Makan",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D9B18D",
+    "c": "#C98F5C",
+    "d": "#7E5232",
+    "e": "#E27B71",
+    "f": "#C95F57"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    ".adddda.",
+    ".acccca.",
+    ".acccca.",
+    ".aaaaaa.",
+    ".aeeeea.",
+    ".affffa.",
+    ".aaaaaa.",
+    ".ad..da.",
+    ".ad..da.",
+    ".ad..da.",
+    ".a....a."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "eat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-meja-kafe-bulat",
+  "name": "Meja Kafe Bulat",
+  "cat": "dapur",
+  "w": 2,
+  "h": 2,
+  "sprite": {
+   "w": 16,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F2E6D2",
+    "c": "#F8EEDB",
+    "d": "#7FB6D6",
+    "e": "#E8D8BC",
+    "f": "#8A92A0",
+    "g": "#B8BEC8"
+   },
+   "rows": [
+    "................",
+    "................",
+    "................",
+    "................",
+    "...aaaaaaaaaa...",
+    "..aabccccccbaa..",
+    ".abccadacccccba.",
+    "abcccadaacaaacba",
+    "abcccaaaccaaacba",
+    "abecccccccccceba",
+    "abbeecccccceebba",
+    ".abbeeeeeeeebba.",
+    "..aabbbbbbbbaa..",
+    "...aaaaaaaaaa...",
+    ".......fg.......",
+    ".......fg.......",
+    ".......fg.......",
+    "....affffffa....",
+    "....aaaaaaaa....",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "chat",
+   "coffee",
+   "eat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 0,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-lesehan",
+  "name": "Meja Lesehan + Bantal",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#EAC08E",
+    "c": "#F4F1EA",
+    "d": "#C98F5C",
+    "e": "#E26A63",
+    "f": "#D6574E",
+    "g": "#4FA3A5",
+    "h": "#E28983",
+    "i": "#8A5A3A",
+    "j": "#84BFC0"
+   },
+   "rows": [
+    "................",
+    "................",
+    "................",
+    "....aaaaaaaa....",
+    "....abccbbba....",
+    "..aaadccdedaaa..",
+    "aaffaddddddaggaa",
+    "ahhhaiiiiiiajjja",
+    "afffaiiiiiiaggga",
+    "aaffaaaaaaaaggaa",
+    "..aa.a....a.aa..",
+    "................"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "eat",
+   "chat",
+   "sit"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "right"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "left"
+   }
+  ],
+  "rooms": [
+   "lounge",
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-vending-minuman",
+  "name": "Vending Minuman",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 26,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#97B7DA",
+    "c": "#729DCD",
+    "d": "#2F6FB5",
+    "e": "#F1B5B1",
+    "f": "#1E2A35",
+    "g": "#FBEBBA",
+    "h": "#BFEBE2",
+    "i": "#E26A63",
+    "j": "#F7D774",
+    "k": "#7FD6C4",
+    "l": "#5A6C7C",
+    "m": "#FAF8F5",
+    "n": "#F4F1EA",
+    "o": "#555B68",
+    "p": "#0F1319",
+    "q": "#2B5B96",
+    "r": "#3C5A66"
+   },
+   "rows": [
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "acaaaaaaaaccccca",
+    "adaefgfhfadaaada",
+    "adaifjfkfadakada",
+    "adaifjfkfadaaada",
+    "adalllllladaaada",
+    "adagfhfmfaddddda",
+    "adajfkfnfadjjjda",
+    "adajfkfnfaddddda",
+    "adalllllladoooda",
+    "adahfmfefadoioda",
+    "adakfnfifaddddda",
+    "adakfnfifaddddda",
+    "adalllllladdddda",
+    "adamfefgfaddddda",
+    "adanfifjfaddddda",
+    "adanaiajaaddddda",
+    "addlllllldddddda",
+    "adaaaaaaaaaaaada",
+    "adappppppppppada",
+    "adaaaaaaaaaaaada",
+    "aqqqqqqqqqqqqqqa",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     "................",
+     "aaaaaaaaaaaaaaaa",
+     "abbbbbbbbbbbbbba",
+     "acccccccccccccca",
+     "acaaaaaaaaccccca",
+     "adaefgfhfadaaada",
+     "adaifjfkfadakada",
+     "adaifjfkfadaaada",
+     "adalllllladaaada",
+     "adagfhfmfaddddda",
+     "adajfkfnfadjjjda",
+     "adajfkfnfaddddda",
+     "adalllllladoooda",
+     "adahfmfefadoioda",
+     "adakfnfifaddddda",
+     "adakfnfifaddddda",
+     "adalllllladdddda",
+     "adamfefgfaddddda",
+     "adanfifjfaddddda",
+     "adanaiajaaddddda",
+     "addlllllldddddda",
+     "adaaaaaaaaaaaada",
+     "adappppppppppada",
+     "adaaaaaaaaaaaada",
+     "aqqqqqqqqqqqqqqa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   },
+   {
+    "rows": [
+     "................",
+     "aaaaaaaaaaaaaaaa",
+     "abbbbbbbbbbbbbba",
+     "acccccccccccccca",
+     "acaaaaaaaaccccca",
+     "adaefgfhfadrrrda",
+     "adaifjfkfadrrrda",
+     "adaifjfkfadrrrda",
+     "adalllllladrrrda",
+     "adagfhfmfaddddda",
+     "adajfkfnfadjjjda",
+     "adajfkfnfaddddda",
+     "adalllllladoooda",
+     "adahfmfefadoioda",
+     "adakfnfifaddddda",
+     "adakfnfifaddddda",
+     "adalllllladdddda",
+     "adamfefgfaddddda",
+     "adanfifjfaddddda",
+     "adanaiajaaddddda",
+     "addlllllldddddda",
+     "adaaaaaaaaaaaada",
+     "adappppppppppada",
+     "adaaaaaaaaaaaada",
+     "aqqqqqqqqqqqqqqa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  ],
+  "fps": 2,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "water",
+   "snack"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge",
+   "lobby"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-vending-snack",
+  "name": "Vending Snack",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 26,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E19D9D",
+    "c": "#D67A7A",
+    "d": "#C23B3B",
+    "e": "#1E2A35",
+    "f": "#FBEBBA",
+    "g": "#F7D774",
+    "h": "#A7D1D2",
+    "i": "#4FA3A5",
+    "j": "#FAD1B0",
+    "k": "#F4A261",
+    "l": "#7FD6C4",
+    "m": "#5A6C7C",
+    "n": "#CDE5C5",
+    "o": "#9BCB8B",
+    "p": "#555B68",
+    "q": "#E26A63",
+    "r": "#0F1319",
+    "s": "#9E3337",
+    "t": "#3C5A66"
+   },
+   "rows": [
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "acaaaaaaaaccccca",
+    "adaeeeeeeadaaada",
+    "adafghijkadalada",
+    "adaggiikkadaaada",
+    "adammmmmmadaaada",
+    "adaeeeeeeaddddda",
+    "adahijknoadgggda",
+    "adaiikkooaddddda",
+    "adammmmmmadpppda",
+    "adaeeeeeeadpqpda",
+    "adajknofgaddddda",
+    "adakkooggaddddda",
+    "adammmmmmaddddda",
+    "adaeeeeeeaddddda",
+    "adanofghiaddddda",
+    "adaooggiiaddddda",
+    "addmmmmmmdddddda",
+    "adaaaaaaaaaaaada",
+    "adarrrrrrrrrrada",
+    "adaaaaaaaaaaaada",
+    "assssssssssssssa",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     "................",
+     "aaaaaaaaaaaaaaaa",
+     "abbbbbbbbbbbbbba",
+     "acccccccccccccca",
+     "acaaaaaaaaccccca",
+     "adaeeeeeeadaaada",
+     "adafghijkadalada",
+     "adaggiikkadaaada",
+     "adammmmmmadaaada",
+     "adaeeeeeeaddddda",
+     "adahijknoadgggda",
+     "adaiikkooaddddda",
+     "adammmmmmadpppda",
+     "adaeeeeeeadpqpda",
+     "adajknofgaddddda",
+     "adakkooggaddddda",
+     "adammmmmmaddddda",
+     "adaeeeeeeaddddda",
+     "adanofghiaddddda",
+     "adaooggiiaddddda",
+     "addmmmmmmdddddda",
+     "adaaaaaaaaaaaada",
+     "adarrrrrrrrrrada",
+     "adaaaaaaaaaaaada",
+     "assssssssssssssa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   },
+   {
+    "rows": [
+     "................",
+     "aaaaaaaaaaaaaaaa",
+     "abbbbbbbbbbbbbba",
+     "acccccccccccccca",
+     "acaaaaaaaaccccca",
+     "adaeeeeeeadtttda",
+     "adafghijkadtttda",
+     "adaggiikkadtttda",
+     "adammmmmmadtttda",
+     "adaeeeeeeaddddda",
+     "adahijknoadgggda",
+     "adaiikkooaddddda",
+     "adammmmmmadpppda",
+     "adaeeeeeeadpqpda",
+     "adajknofgaddddda",
+     "adakkooggaddddda",
+     "adammmmmmaddddda",
+     "adaeeeeeeaddddda",
+     "adanofghiaddddda",
+     "adaooggiiaddddda",
+     "addmmmmmmdddddda",
+     "adaaaaaaaaaaaada",
+     "adarrrrrrrrrrada",
+     "adaaaaaaaaaaaada",
+     "assssssssssssssa",
+     "aaaaaaaaaaaaaaaa"
+    ]
+   }
+  ],
+  "fps": 2,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge",
+   "lobby"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-rak-snack",
+  "name": "Rak Snack",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#BDC6B8",
+    "c": "#3A4A33",
+    "d": "#FBEBBA",
+    "e": "#F7D774",
+    "f": "#BFDBEB",
+    "g": "#7FB6D6",
+    "h": "#CDBFEB",
+    "i": "#9B7FD6",
+    "j": "#F1B5B1",
+    "k": "#E26A63",
+    "l": "#FAD1B0",
+    "m": "#F4A261",
+    "n": "#8FA37F",
+    "o": "#556649"
+   },
+   "rows": [
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "acdeccccfgcccchi",
+    "aceecjkcggclmcii",
+    "aceeckkcggcmmcii",
+    "aceeckkcggcmmcii",
+    "annnnnnnnnnnnnna",
+    "acccccccccccccca",
+    "ackkcggcmmciicee",
+    "ackkcggcmmciicee",
+    "ackkcggcmmciicee",
+    "annnnnnnnnnnnnna",
+    "aooooooooooooooa",
+    "aoaaooooooooaaoa",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-toples-kue",
+  "name": "Toples Kue",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 11,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#E26A63",
+    "c": "#F29A92",
+    "d": "#F6FCFE",
+    "e": "#DDEFF4",
+    "f": "#C98F5C",
+    "g": "#EAC08E",
+    "h": "#7E5232",
+    "i": "#F7D774",
+    "j": "#B07A4A"
+   },
+   "rows": [
+    ".abccba.",
+    ".aaaaaa.",
+    ".adeeea.",
+    ".adeeea.",
+    ".adeeea.",
+    ".adeeea.",
+    ".afgffa.",
+    ".afffha.",
+    ".afiffa.",
+    ".ajjjja.",
+    "..aaaa.."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-keranjang-buah",
+  "name": "Keranjang Buah",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#9BCB8B",
+    "c": "#D5EBC8",
+    "d": "#F1A59F",
+    "e": "#FAD1B0",
+    "f": "#E24A3F",
+    "g": "#F4A261",
+    "h": "#E3B07C",
+    "i": "#8A5A3A",
+    "j": "#C98F5C"
+   },
+   "rows": [
+    "...aa...",
+    ".aabbaa.",
+    "aabbcbaa",
+    "aadbbeaa",
+    "afabbaga",
+    "aaaaaaaa",
+    "ahhihiha",
+    "ajjijija",
+    "aiiiiiia",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack",
+   "eat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-mesin-es-krim",
+  "name": "Mesin Es Krim",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#FFE3EA",
+    "c": "#FFD4DE",
+    "d": "#FFE9A6",
+    "e": "#FFF6D6",
+    "f": "#FFF3F6",
+    "g": "#F2A7B8",
+    "h": "#7FB6E6",
+    "i": "#E26A63",
+    "j": "#D9708A",
+    "k": "#C48798"
+   },
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "acccccca",
+    "aaaaaaaa",
+    "aaaddaaa",
+    "aaaeeaaa",
+    "aaddddaa",
+    "aafddfaa",
+    "aaffffaa",
+    "aaaaaaaa",
+    "agggggga",
+    "aghaaiga",
+    "agaaaaga",
+    "agggggga",
+    "aggjjgga",
+    "aggjjgga",
+    "aggjjgga",
+    "aggjjgga",
+    "akkkkkka",
+    "aaaaaaaa",
+    "aaaaaaaa"
+   ]
+  },
+  "active": {
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "acccccca",
+    "aaaaaaaa",
+    "aaaddaaa",
+    "aaaeeaaa",
+    "aaddddaa",
+    "aafddfaa",
+    "aaffffaa",
+    "aaaaaaaa",
+    "agggggga",
+    "aghaaiga",
+    "agaaaaga",
+    "agggggga",
+    "aggeegga",
+    "aggeegga",
+    "aggejgga",
+    "aggjjgga",
+    "akkkkkka",
+    "aaaaaaaa",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "snack"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-tempat-sampah-pilah",
+  "name": "Tempat Sampah Pilah",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#356499",
+    "c": "#417956",
+    "d": "#A67C2C",
+    "e": "#913035",
+    "f": "#82B0DC",
+    "g": "#3F86C9",
+    "h": "#8DC39E",
+    "i": "#4FA36A",
+    "j": "#EBC677",
+    "k": "#E0A82E",
+    "l": "#D78080",
+    "m": "#C23B3B",
+    "n": "#F4F1EA"
+   },
+   "rows": [
+    "................",
+    "................",
+    "abbaaccaaddaaeea",
+    "aaaaaaaaaaaaaaaa",
+    "afgaahiaajkaalma",
+    "afgaahiaajkaalma",
+    "afgaahiaajkaalma",
+    "afgaahiaajkaalma",
+    "annaannaannaanna",
+    "annaannaannaanna",
+    "afgaahiaajkaalma",
+    "afgaahiaajkaalma",
+    "afgaahiaajkaalma",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-rak-piring",
+  "name": "Rak Piring",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C98F5C",
+    "c": "#F4F1EA",
+    "d": "#7E5232",
+    "e": "#7FB6D6",
+    "f": "#D9D4CA"
+   },
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "acdcdcda",
+    "acececea",
+    "acdcdcda",
+    "acdcdcda",
+    "abbbbbba",
+    "adddddda",
+    "acccccca",
+    "aeeeeeea",
+    "affffffa",
+    "abbbbbba",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "eat",
+   "decor"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-lemari-dapur",
+  "name": "Lemari Dapur",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 28,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#BFCEC5",
+    "c": "#9CB3A5",
+    "d": "#648071",
+    "e": "#F7D774",
+    "f": "#5C7469",
+    "g": "#FFFFFF",
+    "h": "#E7E2D8",
+    "i": "#7FA38E",
+    "j": "#759584",
+    "k": "#6A8478"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbabbbbbbba",
+    "accccccaccccccca",
+    "addddddaddddddda",
+    "addddddaddddddda",
+    "adddddeaedddddda",
+    "addddddaddddddda",
+    "addddddaddddddda",
+    "addddddaddddddda",
+    "affffffafffffffa",
+    "aaaaaaaaaaaaaaaa",
+    "aaaaaaaaaaaaaaaa",
+    "aaaaaaaaaaaaaaaa",
+    "agggggggggggggga",
+    "ahhhhhhhhhhhhhha",
+    "ahhhhhhhhhhhhhha",
+    "ahhhhhhhhhhhhhha",
+    "aiiiiiiaiiiiiiia",
+    "aijjjjjajjjjjjia",
+    "aijjjjeaejjjjjia",
+    "aijjjjjajjjjjjia",
+    "aijjjjjajjjjjjia",
+    "aijjjjjajjjjjjia",
+    "aijjjjjajjjjjjia",
+    "aijjjjjajjjjjjia",
+    "aijjjjjajjjjjjia",
+    "akkkkkkakkkkkkka",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "eat",
+   "decor"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "pantry"
+  ],
+  "weight": 0.8
+ },
+ {
+  "id": "dapur-papan-menu-kafe",
+  "name": "Papan Menu Kafe",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#7E5232",
+    "c": "#3C4F46",
+    "d": "#2B3A33",
+    "e": "#F4F1EA",
+    "f": "#F7D774",
+    "g": "#E26A63",
+    "h": "#C9D5CD",
+    "i": "#7FD6C4"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abdeeeeeedfffdba",
+    "abddddddddddgdba",
+    "abddddddddddddba",
+    "abdhhhhhddfffdba",
+    "abddddddddddddba",
+    "abdhhhhdddfffdba",
+    "abddddddddddddba",
+    "abdhhhhhddfffdba",
+    "abddddddddddddba",
+    "abdhhhhdddfffdba",
+    "abidddddddddddba",
+    "abbbbbbbbbbbbbba",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "spots": [],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-papan-jam-istirahat",
+  "name": "Papan Jam Istirahat",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C23B3B",
+    "c": "#E26A63",
+    "d": "#F4F1EA",
+    "e": "#FFFFFF",
+    "f": "#8A92A0"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbccccccccccbba",
+    "abbbbbbbbbbbbbba",
+    "adddddddddddddda",
+    "addaaaddddddddaa",
+    "aaaeeeaaddddddda",
+    "aaeebeeadaaaaada",
+    "aaeeaeeaddddddda",
+    "aaeeaaeadfffffda",
+    "aaeeeeeaddddddda",
+    "aaaeeeaadffffdda",
+    "addaaaddddddddda",
+    "adddddddddddddda",
+    "aaaaaaaaaaaaaaaa",
+    "....a......a....",
+    "....a......a...."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "decor"
+  ],
+  "spots": [],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-tanaman-meja-kafe",
+  "name": "Tanaman Meja Kafe",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#3F8F5C",
+    "c": "#A5E3B0",
+    "d": "#4FA36A",
+    "e": "#8BD39A",
+    "f": "#68C07F",
+    "g": "#FFFFFF",
+    "h": "#E8E1D4",
+    "i": "#4FA3A5",
+    "j": "#C9C0AE"
+   },
+   "rows": [
+    "..abbaa.",
+    "aabbbbaa",
+    "aabbbcaa",
+    "ddebbafa",
+    "dddaaffa",
+    "addaaaa.",
+    "aagggga.",
+    ".ahiiha.",
+    ".ahhhha.",
+    ".ajjjja.",
+    ".aaaaaa.",
+    "..aaaa.."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "plant",
+   "decor"
+  ],
+  "spots": [],
+  "rooms": [
+   "pantry",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-sofa-2",
+  "name": "Sofa 2 Dudukan",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#81AAB8",
+    "c": "#4B8599",
+    "d": "#80A6B4",
+    "e": "#498094",
+    "f": "#F7D774",
+    "g": "#9ABFCB",
+    "h": "#6FA3B4",
+    "i": "#57798A",
+    "j": "#3E6578"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "aaaaccccccccaaaa",
+    "adeaccccccccadea",
+    "adeaccccccccadea",
+    "adeacaaaacccadea",
+    "adeacaffacccadea",
+    "adeacaffacccadea",
+    "adeagaaaagggadea",
+    "adeahhhhihhhadea",
+    "adeahhhhihhhadea",
+    "adeahhhhihhhadea",
+    "adeahhhhihhhadea",
+    "ajjjjjjjjjjjjjja",
+    "ajjjjjjjjjjjjjja",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sofa",
+   "sit",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-sofa-3",
+  "name": "Sofa 3 Dudukan",
+  "cat": "dapur",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C3857E",
+    "c": "#A95147",
+    "d": "#BF837E",
+    "e": "#A34E46",
+    "f": "#F4F1EA",
+    "g": "#7FD6C4",
+    "h": "#D49E97",
+    "i": "#915857",
+    "j": "#C2746B",
+    "k": "#81403E"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    "aaaaccccccccccccccccaaaa",
+    "adeaccccccccccccccccadea",
+    "adeaccccccccccccccccadea",
+    "adeacaaaacccccccccaaaaea",
+    "adeacaffacccccccccaggaea",
+    "adeacaffacccccccccaggaea",
+    "adeahaaaaihhhhhihhaaaaea",
+    "adeajjjjjijjjjjijjjjadea",
+    "adeajjjjjijjjjjijjjjadea",
+    "adeajjjjjijjjjjijjjjadea",
+    "adeajjjjjijjjjjijjjjadea",
+    "akkkkkkkkkkkkkkkkkkkkkka",
+    "akkkkkkkkkkkkkkkkkkkkkka",
+    "aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sofa",
+   "sit",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 2,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-sofa-l",
+  "name": "Sofa L",
+  "cat": "dapur",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 24,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#AA95BB",
+    "c": "#85689E",
+    "d": "#A793B8",
+    "e": "#816499",
+    "f": "#F7D774",
+    "g": "#BEACCD",
+    "h": "#7B678D",
+    "i": "#A289B8",
+    "j": "#67507B",
+    "k": "#F4F1EA"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    "aaaaccccccccccccccccaaaa",
+    "adeaccccccccccccccccadea",
+    "adeacaaaacccccccccccadea",
+    "adeacaffacccccccccccadea",
+    "adeacaffacccccccccccadea",
+    "adeacaaaacccccccccccadea",
+    "adeagggghggggggghgggadea",
+    "adeaiiiihiiiiiiihiiiadea",
+    "adeaiiiihiiiiiiihiiiadea",
+    "adeaiiiihiiiiiiihiiiadea",
+    "adeaiiiihiiiiiiihiiiadea",
+    "adeaiiiihiiiiiiihiiiadea",
+    "aaaajjjjjjjjjjjjaiiiadea",
+    "aaaaaaaaaaaaaaaaaiiiadea",
+    "................aaaaadea",
+    "................aakaadea",
+    "................aaaaadea",
+    "................aiiiadea",
+    "................aiiiadea",
+    "................aiiiadea",
+    "................ajjjadea",
+    "................aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sofa",
+   "sit",
+   "chat"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 2,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 2,
+    "dy": 1,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lounge"
+  ],
+  "weight": 0.8
+ },
+ {
+  "id": "dapur-kursi-malas",
+  "name": "Kursi Malas",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#A38D75",
+    "c": "#7E6A56",
+    "d": "#6A5848",
+    "e": "#B9A28C",
+    "f": "#9C8470"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    ".acccca.",
+    ".adddda.",
+    ".acccca.",
+    ".acccca.",
+    "aaaaaaaa",
+    "aeeeeeea",
+    "cffffffc",
+    "cffffffc",
+    "cddddddc",
+    "aaaaaaaa",
+    ".acccca.",
+    ".aaaaaa.",
+    ".a....a."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "sofa",
+   "read"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-beanbag",
+  "name": "Beanbag",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#EF8B6D",
+    "c": "#F9B5A0",
+    "d": "#BB5E47",
+    "e": "#E2704F",
+    "f": "#B15A45",
+    "g": "#9E5141"
+   },
+   "rows": [
+    "........",
+    "........",
+    "..abba..",
+    ".bccbbb.",
+    "abbbbbba",
+    "abbbbdba",
+    "eeebbeee",
+    "aefffffa",
+    "agggggga",
+    ".aaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "sofa"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lounge",
+   "game",
+   "tidur"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-karpet-bulat",
+  "name": "Karpet Bulat",
+  "cat": "dapur",
+  "w": 2,
+  "h": 2,
+  "sprite": {
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C95F57",
+    "c": "#F4E6C8",
+    "d": "#4FA3A5"
+   },
+   "rows": [
+    ".....a.a.a.a....",
+    "...abbbbbbbba...",
+    "..abbbccccbbba..",
+    ".abbccccccccbba.",
+    "abbccddddddccbba",
+    "abbcddccccddcbba",
+    "abccdccccccdccba",
+    "abccdccbbccdccba",
+    "abccdccbbccdccba",
+    "abccdccccccdccba",
+    "abbcddccccddcbba",
+    "abbccddddddccbba",
+    ".abbccccccccbba.",
+    "..abbbccccbbba..",
+    "...abbbbbbbba...",
+    "....aaaaaaaa...."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "spots": [],
+  "rooms": [
+   "lounge",
+   "tidur"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-karpet-persegi",
+  "name": "Karpet Persegi Bergaris",
+  "cat": "dapur",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 16,
+   "palette": {
+    "a": "#6A4E85",
+    "b": "#F4E6C8",
+    "c": "#8E6FA8",
+    "d": "#F7D774"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "bccccccccccccccccccccccb",
+    "acaaaaaaaaaaaaaaaaaaaaca",
+    "bcbcddccddccddccddccddcb",
+    "acbcddccddccddccddccddca",
+    "bcbcddccddccddccddccddcb",
+    "acbcddccddccddccddccddca",
+    "bcbcddccddccddccddccddcb",
+    "acbcddccddccddccddccddca",
+    "bcbcddccddccddccddccddcb",
+    "acbcddccddccddccddccddca",
+    "bcbcddccddccddccddccddcb",
+    "acbcddccddccddccddccddca",
+    "bcaaaaaaaaaaaaaaaaaaaacb",
+    "acccccccccccccccccccccca",
+    "aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "spots": [],
+  "rooms": [
+   "lounge",
+   "tidur"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-meja-kopi",
+  "name": "Meja Kopi Lounge",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F0CFA0",
+    "c": "#E3B07C",
+    "d": "#E26A63",
+    "e": "#7FB6D6",
+    "f": "#F7D774",
+    "g": "#C98F5C",
+    "h": "#7E5232"
+   },
+   "rows": [
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "accadaccaaaaacca",
+    "accadaacaeeeacca",
+    "accaaaccafaaacca",
+    "acccccccccccccca",
+    "agggggggggggggga",
+    "aaaaaaaaaaaaaaaa",
+    ".ah..........ha.",
+    ".ah..........ha.",
+    ".aa..........aa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "chat",
+   "coffee"
+  ],
+  "spots": [],
+  "rooms": [
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-lampu-lantai",
+  "name": "Lampu Lantai",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 26,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F7D774",
+    "c": "#FFE7A8",
+    "d": "#FFF6D6",
+    "e": "#E2B766",
+    "f": "#B8BEC8",
+    "g": "#8A92A0",
+    "h": "#555B68"
+   },
+   "rows": [
+    ".aaaaaa.",
+    "abccccca",
+    "abddddca",
+    "abddddca",
+    "abddddca",
+    "abccccca",
+    "aeeeeeea",
+    "...aa...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    "...fg...",
+    ".agggga.",
+    ".ahhhha.",
+    ".aaaaaa.",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "decor"
+  ],
+  "spots": [],
+  "rooms": [
+   "lounge",
+   "tidur",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-tv-lounge",
+  "name": "TV Lounge",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#14161C",
+    "c": "#B2E6DC",
+    "d": "#7FD6C4",
+    "e": "#4A8FD0",
+    "f": "#FFFFFF",
+    "g": "#E26A63",
+    "h": "#8A92A0",
+    "i": "#8A6247",
+    "j": "#5A3C2A",
+    "k": "#F7D774",
+    "l": "#92BCE3"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "abccccccccccccba",
+    "abddddddddddddba",
+    "abddeeedddddddba",
+    "abddeeeddffffdba",
+    "abddeeedddddddba",
+    "abddddddddddddba",
+    "abggggggggggggba",
+    "abggggggggggggba",
+    "abggggggggggggba",
+    "abggggggggggggba",
+    "abbbbbbbbbbbbbba",
+    "aaaaaaaaaaaaaaaa",
+    "......ahha......",
+    "......aaaa......",
+    "..aaaaaaaaaaaa..",
+    "..aiiiiiiiiiia..",
+    "..ajjjkkkkjjja..",
+    "..ajjjjjjjjjja..",
+    "..aaaaaaaaaaaa..",
+    "..a..........a.."
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     "aaaaaaaaaaaaaaaa",
+     "abbbbbbbbbbbbbba",
+     "abccccccccccccba",
+     "abddddddddddddba",
+     "abddeeedddddddba",
+     "abddeeeddffffdba",
+     "abddeeedddddddba",
+     "abddddddddddddba",
+     "abggggggggggggba",
+     "abggggggggggggba",
+     "abggggggggggggba",
+     "abggggggggggggba",
+     "abbbbbbbbbbbbbba",
+     "aaaaaaaaaaaaaaaa",
+     "......ahha......",
+     "......aaaa......",
+     "..aaaaaaaaaaaa..",
+     "..aiiiiiiiiiia..",
+     "..ajjjkkkkjjja..",
+     "..ajjjjjjjjjja..",
+     "..aaaaaaaaaaaa..",
+     "..a..........a.."
+    ]
+   },
+   {
+    "rows": [
+     "aaaaaaaaaaaaaaaa",
+     "abbbbbbbbbbbbbba",
+     "abllllllllllllba",
+     "abeeeeeeeeeeeeba",
+     "abeekkkeeeeeeeba",
+     "abeekkkeeffffeba",
+     "abeekkkeeeeeeeba",
+     "abeeeeeeeeeeeeba",
+     "abddddddddddddba",
+     "abddddddddddddba",
+     "abddddddddddddba",
+     "abdddddddddddgba",
+     "abbbbbbbbbbbbbba",
+     "aaaaaaaaaaaaaaaa",
+     "......ahha......",
+     "......aaaa......",
+     "..aaaaaaaaaaaa..",
+     "..aiiiiiiiiiia..",
+     "..ajjjkkkkjjja..",
+     "..ajjjjjjjjjja..",
+     "..aaaaaaaaaaaa..",
+     "..a..........a.."
+    ]
+   }
+  ],
+  "fps": 2,
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sofa",
+   "chat",
+   "decor"
+  ],
+  "spots": [],
+  "rooms": [
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-rak-majalah",
+  "name": "Rak Majalah",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C98F5C",
+    "c": "#F4F1EA",
+    "d": "#E26A63",
+    "e": "#7FB6D6",
+    "f": "#F7D774",
+    "g": "#7E5232",
+    "h": "#9BCB8B",
+    "i": "#F4A261",
+    "j": "#62402F"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abbbbbba",
+    "acdcecfa",
+    "addeeffa",
+    "addeeffa",
+    "abbbbbba",
+    "agggggga",
+    "acfchcia",
+    "affhhiia",
+    "affhhiia",
+    "abbbbbba",
+    "agggggga",
+    "acicdcea",
+    "aiiddeea",
+    "ajjjjjja",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "read",
+   "decor"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "read",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "lounge",
+   "lib"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-futon",
+  "name": "Kasur Lantai Futon",
+  "cat": "dapur",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#B2D3E6",
+    "c": "#F4F1EA",
+    "d": "#7FB6D6",
+    "e": "#E26A63",
+    "f": "#678EAB"
+   },
+   "rows": [
+    "................",
+    "................",
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "aaaaabbbbbbbbbba",
+    "aaccadddddddddda",
+    "aaccaaaaaeeaaaaa",
+    "aaccaaccceecccaa",
+    "aaaaaaccceecccaa",
+    "addddaaaaeeaaaaa",
+    "affffffffffffffa",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sleep"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sleep",
+    "face": "right"
+   }
+  ],
+  "rooms": [
+   "tidur",
+   "lounge"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-kapsul-tidur",
+  "name": "Kapsul Tidur",
+  "cat": "dapur",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4C7FAF",
+    "c": "#7FB6D6",
+    "d": "#7FD6C4",
+    "e": "#FFFFFF",
+    "f": "#D8DDE3",
+    "g": "#3A5F85",
+    "h": "#F4F1EA",
+    "i": "#8A92A0"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "abccccccccbbbbbbbbdddbba",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "aeeeeeeeeeeeeeeeeeeeeeea",
+    "affffffffffffffffffffffa",
+    "affaaaaaaaaaaaaaaaaaaffa",
+    "affaccccccccccccccccaffa",
+    "affaggggggggggggggggaffa",
+    "affageeeeeggggggggggaffa",
+    "affaghhhhhcccccccccgaffa",
+    "affaghhhhhcccccccccgaffa",
+    "affaggggggcccccccccgaffa",
+    "affaaaaaaaaaaaaaaaaaaffa",
+    "affffffffffffffffffffffa",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sleep"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sleep",
+    "face": "right"
+   }
+  ],
+  "rooms": [
+   "tidur"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-ranjang-susun",
+  "name": "Ranjang Susun",
+  "cat": "dapur",
+  "w": 2,
+  "h": 2,
+  "sprite": {
+   "w": 16,
+   "h": 28,
+   "palette": {
+    "a": "#B07A4A",
+    "b": "#2A2430",
+    "c": "#F4F1EA",
+    "d": "#F8C7A0",
+    "e": "#F4A261",
+    "f": "#BF7F53",
+    "g": "#7E5232",
+    "h": "#C98F5C",
+    "i": "#B2D3E6",
+    "j": "#7FB6D6",
+    "k": "#678EAB"
+   },
+   "rows": [
+    "ab............ab",
+    "ab............ab",
+    "ab............ab",
+    "bbbbbbbbbbbbbbbb",
+    "bbccccddddddddbb",
+    "bbcccceeeeeeee.b",
+    "bbcccceeeeeeee.b",
+    "bbcccceeeeeeee.b",
+    "bbeeeeeeeeeeee.b",
+    "bbffffffffffff.b",
+    "bbbbbbbbbbbbbb.b",
+    "bgggggggggggggbb",
+    "bbbbbbbbbbbbbbba",
+    "ab............hh",
+    "ab............ba",
+    "ab............ba",
+    "bbbbbbbbbbbbbbhh",
+    "bbcccciiiiiiiiba",
+    "bbccccjjjjjjjjba",
+    "bbccccjjjjjjjjhh",
+    "bbccccjjjjjjjjba",
+    "bbjjjjjjjjjjjjba",
+    "bbkkkkkkkkkkkkhh",
+    "bbbbbbbbbbbbbbba",
+    "bbbbbbbbbbbbbbba",
+    "bggggggggggggghh",
+    "bbbbbbbbbbbbbbbb",
+    "bbbbbbbbbbbbbbbb"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sleep"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sleep",
+    "face": "right"
+   },
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "sleep",
+    "face": "right"
+   }
+  ],
+  "rooms": [
+   "tidur"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-hammock",
+  "name": "Hammock",
+  "cat": "dapur",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 14,
+   "palette": {
+    "a": "#7E5232",
+    "b": "#2A2430",
+    "c": "#F29A7B",
+    "d": "#F7C0A8",
+    "e": "#E2704F",
+    "f": "#F4F1EA"
+   },
+   "rows": [
+    "ab....................ab",
+    "ab....................ab",
+    "abb..................bab",
+    "abcb................bdab",
+    "abedb..............bccab",
+    "abbcdb............bcebab",
+    "ab.bcdbbbbbbbb..bbceb.ab",
+    "ab..bcccbffffbbbddeb..ab",
+    "ab...beebbbbbbcdccb...ab",
+    "ab....bbecddccecbb....ab",
+    "ab......bbcceebb......ab",
+    "ab........bbbb........ab",
+    "ab....................ab",
+    "bbbb................bbbb"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sleep"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sleep",
+    "face": "right"
+   }
+  ],
+  "rooms": [
+   "tidur",
+   "taman"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-bantal-besar",
+  "name": "Bantal Besar",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 8,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#FFC4AE",
+    "c": "#F29A7B",
+    "d": "#C8806A",
+    "e": "#BD7966"
+   },
+   "rows": [
+    "........",
+    "........",
+    ".aaaaaa.",
+    "abbbbbba",
+    "acccdcca",
+    "accbccca",
+    "aeeeeeea",
+    ".aaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "sleep"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lounge",
+   "tidur"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "dapur-kursi-selimut",
+  "name": "Kursi Berselimut",
+  "cat": "dapur",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 15,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#7FA38E",
+    "c": "#5C7F6B",
+    "d": "#F29A92",
+    "e": "#F4F1EA",
+    "f": "#E26A63",
+    "g": "#B15554",
+    "h": "#C23B3B"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    ".acccca.",
+    ".acccca.",
+    ".aaaaaaa",
+    ".adededa",
+    "aafefefa",
+    "aafefefa",
+    "aaggggga",
+    "abbbbbba",
+    "aaaaaaaa",
+    "..affa..",
+    "..ahha..",
+    ".aa..aa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "sleep",
+   "sofa"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lounge",
+   "tidur"
+  ],
+  "weight": 1
+ }
+]

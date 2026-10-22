@@ -1,3 +1,4 @@
+import { mountUsage, unmountUsage, liveUsage } from './usage-card.js';
 import { $, esc, short, usd, num, tok, api, post, toast, modal, sprite, guestLook, debounce } from './util.js';
 
 let root = null, ctx = null, data = null, month = '', pollT = null;
@@ -15,9 +16,10 @@ export async function render(el, c) {
   el.onclick = onClick; el.onchange = onChange;
   await load();
 }
-export function unmount() { clearTimeout(pollT); pollT = null; if (root) root.onclick = root.onchange = null; root = null; }
+export function unmount() { unmountUsage(); clearTimeout(pollT); pollT = null; if (root) root.onclick = root.onchange = null; root = null; }
 
 export function live(m) {
+  liveUsage(m);
   if (m.t === 'changed' && m.what === 'payroll' && (m.office === '*' || !ctx?.office || m.office === ctx.office.id)) reload();
 }
 const reload = debounce(() => { if (root) load(); }, 600);
@@ -53,6 +55,7 @@ function draw() {
 
   root.innerHTML = `<div class="${global ? 'wrap ' : ''}py-root">
     ${global ? '<div><p class="eyebrow">Semua kantor</p><h1>Payroll kompleks</h1></div>' : ''}
+    <div id="pyUsage"></div>
     <div class="notice info"><span>Biaya di sini adalah estimasi setara harga API, dihitung dari transcript Claude Code di Mac ini. Ini bukan tagihan langganan.</span></div>
     <div class="btn-row"><label class="hint" for="pyMonth">Bulan</label><select id="pyMonth">${d.months.map(m => `<option ${m === d.month ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select>
       <button class="btn sm" data-act="py-rescan" ${d.scan?.running ? 'disabled' : ''}>Pindai ulang</button><span class="hint">${scanText(d.scan)}</span></div>
@@ -64,6 +67,7 @@ function draw() {
       <div class="py-side"><div><h2 style="font:700 15px var(--f-display);margin-bottom:8px">Per model</h2>${modelTable(d.byModel, t.cost)}</div>
       ${global ? `<div><h2 style="font:700 15px var(--f-display);margin-bottom:8px">Per kantor</h2>${officeTable(d.byOffice)}</div>` : ''}</div>
     </div></div>`;
+  mountUsage($('#pyUsage'), office);
 }
 
 function scanText(s) {

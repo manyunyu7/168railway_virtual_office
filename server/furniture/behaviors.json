@@ -1,0 +1,459 @@
+{
+  "version": 1,
+  "notes": "Aturan perilaku agen terhadap perabot. Dokumentasi: docs/FURNITURE.md. Evaluasi rules berurutan; yang pertama cocok (dan lolos chance) menang.",
+  "prayer": {
+    "windowMin": 20,
+    "names": [
+      "subuh",
+      "dzuhur",
+      "ashar",
+      "maghrib",
+      "isya"
+    ],
+    "steps": [
+      {
+        "a": "wudhu",
+        "dwell": [
+          25,
+          50
+        ]
+      },
+      {
+        "a": "pray",
+        "dwell": [
+          90,
+          180
+        ]
+      }
+    ]
+  },
+  "chat": {
+    "distance": 6,
+    "minIdleSec": 20,
+    "dwell": [
+      30,
+      90
+    ]
+  },
+  "rules": [
+    {
+      "id": "sholat",
+      "when": {
+        "status": "idle",
+        "prayer": true
+      },
+      "chance": 0.85,
+      "pick": [
+        {
+          "a": "wudhu",
+          "w": 1
+        }
+      ],
+      "then": "prayer.steps",
+      "dwell": [
+        25,
+        50
+      ]
+    },
+    {
+      "id": "kerja-test",
+      "when": {
+        "status": "working",
+        "tools": [
+          "Bash"
+        ],
+        "bash": "\\b(npm (run )?test|npm t|node --test|go test|flutter test|phpunit|pytest|jest|vitest|cargo test|artisan test)\\b"
+      },
+      "pick": [
+        {
+          "a": "test",
+          "w": 3
+        },
+        {
+          "a": "type",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        15,
+        45
+      ]
+    },
+    {
+      "id": "kerja-server",
+      "when": {
+        "status": "working",
+        "tools": [
+          "Bash"
+        ],
+        "bash": "\\b(ssh|scp|rsync|deploy|docker|systemctl|kubectl|journalctl|pm2|nginx|tail -f)\\b"
+      },
+      "pick": [
+        {
+          "a": "server",
+          "w": 3
+        },
+        {
+          "a": "type",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        15,
+        45
+      ]
+    },
+    {
+      "id": "kerja-rapat",
+      "when": {
+        "status": "working",
+        "tools": [
+          "Task",
+          "Agent"
+        ]
+      },
+      "pick": [
+        {
+          "a": "meeting",
+          "w": 3
+        },
+        {
+          "a": "whiteboard",
+          "w": 1
+        },
+        {
+          "a": "type",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        20,
+        60
+      ]
+    },
+    {
+      "id": "kerja-papan",
+      "when": {
+        "status": "working",
+        "tools": [
+          "TodoWrite",
+          "ExitPlanMode",
+          "EnterPlanMode"
+        ]
+      },
+      "pick": [
+        {
+          "a": "whiteboard",
+          "w": 4
+        },
+        {
+          "a": "think",
+          "w": 1
+        },
+        {
+          "a": "type",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        12,
+        35
+      ]
+    },
+    {
+      "id": "kerja-web",
+      "when": {
+        "status": "working",
+        "tools": [
+          "WebSearch",
+          "WebFetch"
+        ]
+      },
+      "pick": [
+        {
+          "a": "phone",
+          "w": 2
+        },
+        {
+          "a": "read",
+          "w": 2
+        },
+        {
+          "a": "type",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        12,
+        35
+      ]
+    },
+    {
+      "id": "kerja-baca",
+      "when": {
+        "status": "working",
+        "tools": [
+          "Read",
+          "Grep",
+          "Glob",
+          "LS"
+        ]
+      },
+      "pick": [
+        {
+          "a": "read",
+          "w": 3
+        },
+        {
+          "a": "type",
+          "w": 2
+        }
+      ],
+      "dwell": [
+        10,
+        30
+      ]
+    },
+    {
+      "id": "kerja-cetak",
+      "when": {
+        "status": "working",
+        "tools": [
+          "Write"
+        ]
+      },
+      "chance": 0.15,
+      "pick": [
+        {
+          "a": "print",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        8,
+        15
+      ]
+    },
+    {
+      "id": "kerja-tulis",
+      "when": {
+        "status": "working",
+        "tools": [
+          "Edit",
+          "Write",
+          "MultiEdit",
+          "NotebookEdit"
+        ]
+      },
+      "pick": [
+        {
+          "a": "type",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        15,
+        50
+      ]
+    },
+    {
+      "id": "kerja-mikir",
+      "when": {
+        "status": "working",
+        "thinking": true
+      },
+      "chance": 0.5,
+      "pick": [
+        {
+          "a": "think",
+          "w": 3
+        },
+        {
+          "a": "whiteboard",
+          "w": 1
+        },
+        {
+          "a": "type",
+          "w": 2
+        }
+      ],
+      "dwell": [
+        10,
+        30
+      ]
+    },
+    {
+      "id": "kerja-lain",
+      "when": {
+        "status": "working"
+      },
+      "pick": [
+        {
+          "a": "type",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        15,
+        45
+      ]
+    },
+    {
+      "id": "ngobrol",
+      "when": {
+        "status": "idle",
+        "neighbor": true,
+        "idleMin": [
+          0.3,
+          20
+        ]
+      },
+      "chance": 0.5,
+      "pick": [
+        {
+          "a": "chat",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        30,
+        90
+      ]
+    },
+    {
+      "id": "idle-singkat",
+      "when": {
+        "status": "idle",
+        "idleMin": [
+          0,
+          5
+        ]
+      },
+      "pick": [
+        {
+          "a": "coffee",
+          "w": 3
+        },
+        {
+          "a": "water",
+          "w": 2
+        },
+        {
+          "a": "snack",
+          "w": 2
+        }
+      ],
+      "dwell": [
+        20,
+        60
+      ]
+    },
+    {
+      "id": "idle-sedang",
+      "when": {
+        "status": "idle",
+        "idleMin": [
+          5,
+          20
+        ]
+      },
+      "pick": [
+        {
+          "a": "sofa",
+          "w": 3
+        },
+        {
+          "a": "chat",
+          "w": 1
+        },
+        {
+          "a": "game",
+          "w": 2
+        },
+        {
+          "a": "play",
+          "w": 1
+        },
+        {
+          "a": "music",
+          "w": 2
+        },
+        {
+          "a": "plant",
+          "w": 1
+        },
+        {
+          "a": "exercise",
+          "w": 2
+        },
+        {
+          "a": "train",
+          "w": 1
+        },
+        {
+          "a": "read",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        60,
+        180
+      ]
+    },
+    {
+      "id": "idle-lama",
+      "when": {
+        "status": "idle",
+        "idleMin": [
+          20,
+          null
+        ]
+      },
+      "pick": [
+        {
+          "a": "sleep",
+          "w": 3
+        },
+        {
+          "a": "sofa",
+          "w": 2
+        }
+      ],
+      "dwell": [
+        180,
+        600
+      ]
+    },
+    {
+      "id": "menunggu",
+      "when": {
+        "status": "waiting"
+      },
+      "pick": [
+        {
+          "a": "think",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        10,
+        30
+      ]
+    }
+  ],
+  "fallback": [
+    {
+      "id": "mejang",
+      "pick": [
+        {
+          "a": "sit",
+          "w": 1
+        }
+      ],
+      "dwell": [
+        10,
+        30
+      ]
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "scenes": [
+    { "id": "menghadap-bos", "title": "Menghadap bos", "rooms": ["manager"], "weight": 2, "hourWeights": [{ "h": [8, 11], "w": 3 }, { "h": [13, 16], "w": 2 }], "actors": [1, 1], "cooldown": 120, "need": ["mgr-desk"],
+      "steps": [
+        { "go": "door", "say": "tok tok", "wait": [1.5, 2.5], "skipIf": "agent-in-room", "waitOutside": true },
+        { "go": "desk:mgr", "face": "up", "carry": "folder", "say": "🙇", "wait": [1.5, 2.5], "turnAgent": true },
+        { "say": "siap pak!", "wait": [1.5, 2.5] },
+        { "say": "📋", "carry": "", "wait": [1.2, 2] },
+        { "go": "door", "say": "permisi", "wait": 0.8 }
+      ] },
+    { "id": "qa-uji-device", "title": "Menguji di bench QA", "rooms": ["qa"], "weight": 2, "cooldown": 60,
+      "steps": [
+        { "go": "aff:test", "pose": "stand", "fx": "phone", "wait": [6, 10] },
+        { "carry": "clip", "say": "📝", "wait": [3, 5] },
+        { "say": "🐞", "wait": [1.5, 2.5] },
+        { "go": "desk:agent", "carry": "paper", "say": "🐞 ada bug", "wait": [2, 3] },
+        { "carry": "", "wait": 0.5 }
+      ] },
+    { "id": "qa-tempel-sticky", "title": "Menempel catatan bug di papan", "rooms": ["qa"], "weight": 1.2, "cooldown": 90,
+      "steps": [
+        { "go": "aff:test", "pose": "stand", "fx": "phone", "wait": [5, 8], "carry": "clip" },
+        { "say": "🐞", "wait": 1.5 },
+        { "go": "stand:whiteboard", "carry": "paper", "pose": "stand", "fx": "whiteboard", "face": "up", "wait": [4, 6], "say": "📝" },
+        { "carry": "", "wait": 0.5 }
+      ] },
+    { "id": "server-cek-rak", "title": "Cek rak server", "rooms": ["server"], "weight": 2, "cooldown": 60,
+      "steps": [
+        { "go": "aff:server", "pose": "stand", "fx": "server", "carry": "clip", "say": "🔧", "wait": [6, 10] },
+        { "say": "✅", "wait": [2, 3], "carry": "" }
+      ] },
+    { "id": "meeting-presentasi", "title": "Presentasi di meeting", "rooms": ["meeting"], "weight": 2, "hourWeights": [{ "h": [9, 12], "w": 2.5 }, { "h": [14, 16], "w": 2 }], "actors": [2, 3], "cooldown": 150,
+      "steps": [
+        { "actor": 0, "go": "stand:whiteboard", "face": "up", "fx": "whiteboard", "pose": "stand", "sync": true },
+        { "actor": 1, "go": "aff:meeting", "sync": true },
+        { "actor": 2, "go": "aff:meeting", "sync": true },
+        { "actor": 0, "say": "📊", "wait": [10, 16] },
+        { "actor": 1, "say": "👍", "wait": [10, 16] },
+        { "actor": "all", "sync": true },
+        { "actor": 0, "say": "terima kasih", "wait": 2 }
+      ] },
+    { "id": "perpus-kembalikan-buku", "title": "Mengembalikan buku", "rooms": ["lib"], "weight": 2, "cooldown": 60,
+      "steps": [
+        { "go": "inside", "carry": "book", "wait": 0.5 },
+        { "go": "stand:read", "face": "up", "wait": [2, 3], "say": "📚" },
+        { "carry": "", "wait": 0.5 },
+        { "go": "aff:read", "pose": "read", "fx": "read", "wait": [15, 30] }
+      ] },
+    { "id": "perpus-cari-buku", "title": "Mencari buku", "rooms": ["lib"], "weight": 1.5, "cooldown": 60,
+      "steps": [
+        { "go": "stand:read", "face": "up", "wait": [3, 5], "say": "🔎" },
+        { "go": "stand:read", "face": "up", "wait": [3, 5], "say": "🤔" },
+        { "carry": "book", "say": "📖", "wait": 1.5 },
+        { "go": "aff:read", "pose": "read", "fx": "read", "wait": [15, 30], "carry": "" }
+      ] },
+    { "id": "pantry-antar-kopi", "title": "Mengantar kopi ke agen", "rooms": ["pantry"], "weight": 3, "hourWeights": [{ "h": [7, 11], "w": 3 }, { "h": [14, 16], "w": 1.5 }], "cooldown": 60, "need": ["agent"],
+      "steps": [
+        { "go": "stand:coffee", "pose": "stand", "fx": "coffee", "face": "up", "wait": [6, 10] },
+        { "carry": "cup", "say": "☕", "wait": 1 },
+        { "go": "desk:agent", "face": "up", "wait": 1.5 },
+        { "carry": "", "say": "☕", "wait": 2 }
+      ] },
+    { "id": "pantry-cuci-gelas", "title": "Mencuci gelas", "rooms": ["pantry"], "weight": 1.5, "cooldown": 60,
+      "steps": [
+        { "go": "stand:water", "pose": "stand", "fx": "plant", "face": "up", "carry": "cup", "wait": [8, 14], "say": "🫧" },
+        { "carry": "", "wait": 0.5 }
+      ] },
+    { "id": "makan-bersama", "title": "Makan bersama", "rooms": ["pantry"], "weight": 1, "hourWeights": [{ "h": [11.5, 13.5], "w": 8 }], "actors": [2, 3], "cooldown": 240,
+      "steps": [
+        { "actor": "all", "go": "aff:eat", "fx": "eat", "sync": true },
+        { "actor": "all", "say": ["🍱", "😋", "😂"], "wait": [20, 35] }
+      ] },
+    { "id": "lobi-sambut", "title": "Menyambut di resepsionis", "rooms": ["lobby"], "weight": 2, "hourWeights": [{ "h": [7, 10], "w": 3 }], "cooldown": 60,
+      "steps": [
+        { "go": "stand:recep", "face": "up", "say": "👋 selamat datang", "wait": [6, 10] },
+        { "say": "🙂", "wait": 2 }
+      ] },
+    { "id": "lobi-terima-paket", "title": "Menerima paket dari lift", "rooms": ["lobby"], "weight": 1.5, "cooldown": 120, "need": ["agent"],
+      "steps": [
+        { "go": "lift", "wait": 1.5, "say": "📦" },
+        { "carry": "box", "wait": 0.5 },
+        { "go": "desk:agent", "wait": 1.5 },
+        { "carry": "", "say": "📦", "wait": 2 }
+      ] },
+    { "id": "kode-pair-programming", "title": "Melihat layar agen", "rooms": ["kode"], "weight": 2, "cooldown": 90, "need": ["agent"],
+      "steps": [
+        { "go": "desk:agent", "face": "up", "say": "👀", "wait": [8, 14] },
+        { "say": "👍", "wait": 1.5 }
+      ] },
+    { "id": "kode-bawa-snack", "title": "Membawa snack", "rooms": ["kode"], "weight": 1.5, "cooldown": 120, "need": ["agent"],
+      "steps": [
+        { "go": "room:pantry", "optional": true, "carry": "box", "wait": 0.5 },
+        { "go": "desk:agent", "wait": 1.5 },
+        { "carry": "", "say": "🍪", "wait": 2 }
+      ] },
+    { "id": "kode-lampu-meja", "title": "Menyalakan lampu meja", "rooms": ["kode"], "weight": 0.8, "hourWeights": [{ "h": [17, 23], "w": 3 }], "cooldown": 120,
+      "steps": [
+        { "go": "inside", "pose": "stand", "face": "up", "say": "💡", "wait": [2, 3] }
+      ] },
+    { "id": "gym-spotter", "title": "Spotter angkat beban", "rooms": ["gym"], "weight": 2, "hourWeights": [{ "h": [15, 19], "w": 3 }, { "h": [5, 8], "w": 2 }], "actors": [2, 2], "cooldown": 120,
+      "steps": [
+        { "actor": 0, "go": "aff:exercise", "sync": true },
+        { "actor": 1, "go": "partner", "face": "partner", "sync": true },
+        { "actor": 0, "wait": [20, 30] },
+        { "actor": 1, "say": ["💪", "ayo!", "👍"], "wait": [20, 30] },
+        { "actor": "all", "sync": true }
+      ] },
+    { "id": "game-main-berdua", "title": "Main game berdua", "rooms": ["game"], "weight": 2, "hourWeights": [{ "h": [15, 22], "w": 3 }], "actors": [2, 2], "cooldown": 120,
+      "steps": [
+        { "actor": "all", "go": "aff:game", "sync": true },
+        { "actor": "all", "say": ["🎮", "😂", "🔥"], "wait": [25, 40] }
+      ] },
+    { "id": "musik-jam-session", "title": "Jam session", "rooms": ["musik"], "weight": 2, "hourWeights": [{ "h": [15, 22], "w": 2.5 }], "actors": [2, 3], "cooldown": 150,
+      "steps": [
+        { "actor": "all", "go": "aff:music", "sync": true },
+        { "actor": "all", "say": ["🎵", "🎶", "🎸"], "wait": [25, 40] }
+      ] },
+    { "id": "taman-siram", "title": "Menyiram tanaman", "rooms": ["taman"], "weight": 2, "hourWeights": [{ "h": [6, 9], "w": 3 }, { "h": [16, 18], "w": 2 }], "cooldown": 60,
+      "steps": [
+        { "go": "aff:plant", "fx": "plant", "pose": "stand", "wait": [12, 20], "say": "🌱" },
+        { "say": "🌼", "wait": 2 }
+      ] },
+    { "id": "tidur-siang", "title": "Tidur siang", "rooms": ["tidur"], "weight": 1, "hourWeights": [{ "h": [12, 15], "w": 4 }, { "h": [22, 29], "w": 3 }], "cooldown": 180,
+      "steps": [
+        { "go": "aff:sleep", "fx": "sleep", "pose": "sleep", "wait": [40, 90] }
+      ] },
+    { "id": "musholla-berjamaah", "title": "Sholat berjamaah", "rooms": ["musholla"], "weight": 4, "when": "prayer", "actors": [2, 3], "cooldown": 300,
+      "steps": [
+        { "actor": "all", "go": "aff:wudhu", "fx": "wudhu", "pose": "stand", "wait": [10, 14], "sync": true },
+        { "actor": "all", "go": "aff:pray", "fx": "pray", "pose": "pray", "sync": true },
+        { "actor": "all", "wait": [60, 80] }
+      ] },
+    { "id": "lounge-santai", "title": "Santai di sofa", "rooms": ["lounge"], "weight": 2, "actors": [1, 2], "cooldown": 90,
+      "steps": [
+        { "actor": "all", "go": "aff:sofa", "fx": "sofa", "sync": true },
+        { "actor": "all", "say": ["😌", "💬", "😂"], "wait": [20, 40] }
+      ] },
+    { "id": "telepon-bilik", "title": "Menelepon di bilik", "rooms": ["telepon"], "weight": 2, "cooldown": 60,
+      "steps": [
+        { "go": "aff:phone", "fx": "phone", "pose": "stand", "say": "📞", "wait": [10, 18] }
+      ] },
+    { "id": "ngobrol", "title": "Ngobrol", "rooms": ["*"], "weight": 3, "actors": [2, 3], "withAgent": true, "cooldown": 60,
+      "steps": [
+        { "actor": 0, "go": "inside", "sync": true },
+        { "actor": "all", "go": "partner", "face": "partner", "sync": true },
+        { "actor": "all", "say": ["💬", "☕", "😂", "👍"], "wait": [8, 16] }
+      ] },
+    { "id": "diskusi-papan", "title": "Diskusi di whiteboard", "rooms": ["*"], "weight": 1.5, "actors": [2, 3], "cooldown": 120,
+      "steps": [
+        { "actor": 0, "go": "stand:whiteboard", "face": "up", "pose": "stand", "fx": "whiteboard", "sync": true },
+        { "actor": "all", "go": "partner", "face": "partner", "sync": true },
+        { "actor": 0, "say": "💡", "wait": [10, 18] },
+        { "actor": 1, "say": ["🤔", "👍"], "wait": [10, 18] }
+      ] }
+  ]
+}

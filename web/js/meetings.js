@@ -106,6 +106,16 @@ async function onSubmit(e) {
     try { await post(url(`meetings/${encodeURIComponent(curId)}/say`), { text }); inp.value = ''; } catch (err) { toast(err.message, 'bad'); }
     return;
   }
+  if (e.target.id === 'mtMore') {
+    e.preventDefault();
+    const btn = $('#mtMoreGo', root); btn.disabled = true;
+    try {
+      await post(url(`meetings/${encodeURIComponent(curId)}/continue`), { note: $('#mtMoreNote', root).value, rounds: Number($('#mtMoreRounds', root).value) || 1 });
+      toast('Rapat dilanjutkan', 'ok');
+      await refresh(); scrollChat(true);
+    } catch (err) { toast(err.message, 'bad'); btn.disabled = false; }
+    return;
+  }
   if (e.target.id !== 'mtForm') return;
   e.preventDefault();
   const topic = form.topic.trim();
@@ -129,16 +139,25 @@ function viewHTML() {
   const parts = (m.participants || []).map(roleById).filter(Boolean);
   const running = m.status === 'berjalan';
   return `<div class="card" style="display:grid;gap:14px">
-    <div><div class="btn-row" style="justify-content:space-between"><h2 style="margin:0">${esc(m.topic)}</h2>${statusChip(m.status)}</div>
+    <div><div class="btn-row" style="justify-content:space-between"><h2 style="margin:0">${esc(m.topic)}</h2><span class="btn-row">${m.status === 'selesai' ? '<button class="btn sm" data-act="mt-more">Lanjutkan rapat</button>' : ''}${statusChip(m.status)}</span></div>
       <div class="btn-row" style="margin-top:8px">${parts.map(r => `<span title="${esc(r.name)}${r.id === m.chair ? ' (ketua)' : ''}">${mini(r)}</span>`).join('')}<span class="hint">${parts.map(r => esc(r.name)).join(', ')} · ketua ${esc(roleById(m.chair)?.name || m.chair || '-')} · ${m.rounds || '?'} ronde · <span data-slot="mtcost">${usd(m.cost, 3)}</span></span></div>
       ${m.agenda ? `<p class="sub" style="margin-top:8px;white-space:pre-wrap">${esc(m.agenda)}</p>` : ''}
       ${running ? '<p class="hint" style="margin-top:6px">Selama rapat berjalan, para peserta berkumpul di Ruang Meeting pada denah kantor.</p>' : ''}</div>
     ${m.status === 'gagal' || m.status === 'terputus' ? `<div class="notice"><span>${m.status === 'gagal' ? `Rapat berhenti: ${esc(m.error || 'tanpa keterangan')}` : 'Rapat terputus karena kantor dimulai ulang.'} Percakapan sejauh ini tersimpan, dan rapat bisa diteruskan dari giliran terakhir.</span><button class="btn sm primary" data-act="mt-resume">Lanjutkan rapat</button></div>` : ''}
-    <div class="chat" id="mtChat" style="max-height:60vh;overflow-y:auto;padding-right:4px">${(m.messages || []).map(msgHTML).join('')}</div>
+    <div class="chat" id="mtChat" style="max-height:60vh;overflow-y:auto;padding-right:4px">${(m.messages || []).map(msgHTML).join('')}${m.status === 'berjalan' && m.typing ? liveHTML(m.typing) : ''}</div>
     <div id="mtTyping">${typingHTML()}</div>
     ${running ? `<form id="mtSay" class="inline-form" style="display:flex;gap:8px"><input id="mtSayText" placeholder="Sela rapat: tulis pendapat atau arahan" autocomplete="off" style="flex:1"><button class="btn" type="submit">Kirim</button></form>
       <div class="btn-row"><button class="btn danger" data-act="mt-cancel">Bubarkan rapat</button></div>` : ''}
-    ${m.status === 'selesai' ? minutesHTML(m) : ''}</div>`;
+    ${m.status === 'selesai' ? minutesHTML(m) + moreHTML() : ''}</div>`;
+}
+
+function moreHTML() {
+  return `<form id="mtMore" class="mt-more"><div><h3 style="font-size:14px;margin:0">Lanjutkan rapat</h3>
+      <p class="hint">Peserta yang sama berdiskusi lagi dengan transkrip di atas sebagai konteks, lalu ketua memperbarui notulen. Tindak lanjut yang sudah jadi kartu tetap disimpan.</p></div>
+    <textarea id="mtMoreNote" rows="2" placeholder="Pertanyaan atau arahan baru (opsional), mis. hitung ulang kalau harga premium naik 20%"></textarea>
+    <div class="btn-row" style="align-items:center"><label for="mtMoreRounds" class="hint">Tambah</label>
+      <select id="mtMoreRounds" style="width:auto">${[1, 2, 3].map(n => `<option value="${n}">${n} ronde</option>`).join('')}</select>
+      <button class="btn primary" id="mtMoreGo" type="submit">Lanjutkan rapat</button></div></form>`;
 }
 
 function avatarFor(who) {
@@ -151,8 +170,32 @@ function msgHTML(g) {
   return `<div class="msg ${kind}" data-mid="${esc(g.id)}"><div>${kind ? sprite({ color: '#55606E', hair: '#2B1D14', skin: '#F1C9A5', tie: true }, 3) : avatarFor(g.who)}</div>
     <div><div class="who">${esc(kind ? 'Kamu' : g.who)} · ${esc(hhmm(g.at))}${g.cost ? ` · ${usd(g.cost, 3)}` : ''}</div><div class="bub">${md(g.text, { taskIndex: false })}</div></div></div>`;
 }
+/* the bubble of whoever is speaking right now: dots until the first words, then the text flows in with a caret */
+function liveInner(t) {
+  return t.text ? md(t.text, { taskIndex: false }) : '<span class="typing"><i></i><i></i><i></i></span>';
+}
+function liveHTML(t) {
+  return `<div class="msg live" data-live="${esc(String(t.who).toLowerCase())}"><div>${avatarFor(t.who)}</div>
+    <div><div class="who">${esc(t.who)} · <span class="hint">${t.text ? 'sedang mengetik…' : 'sedang berpikir…'}</span></div><div class="bub${t.text ? ' typed' : ''}">${liveInner(t)}</div></div></div>`;
+}
+function onTyping(t) {
+  const chat = $('#mtChat', root); if (!chat) return;
+  let el = $('.msg.live', chat);
+  if (t.done) { el?.remove(); cur.typing = null; const ty = $('#mtTyping', root); if (ty) ty.innerHTML = typingHTML(); return; }
+  const stick = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 140;
+  cur.typing = { who: t.who, role: t.role, text: t.text || '' };
+  if (el && el.dataset.live !== String(t.who).toLowerCase()) { el.remove(); el = null; }
+  if (!el) { chat.insertAdjacentHTML('beforeend', liveHTML(cur.typing)); }
+  else {
+    $('.who .hint', el).textContent = t.text ? 'sedang mengetik…' : 'sedang berpikir…';
+    const b = $('.bub', el); b.classList.toggle('typed', !!t.text); b.innerHTML = liveInner(cur.typing);
+  }
+  const ty = $('#mtTyping', root); if (ty) ty.innerHTML = typingHTML();
+  if (stick) chat.scrollTop = chat.scrollHeight;
+}
+
 function typingHTML() {
-  const m = cur; if (!m || m.status !== 'berjalan') return '';
+  const m = cur; if (!m || m.status !== 'berjalan' || m.typing) return '';
   const last = [...(m.messages || [])].reverse().find(g => g.kind === 'bicara');
   const names = (m.participants || []).map(roleById).filter(Boolean).map(r => r.name);
   let label = 'Rapat berjalan…';
@@ -189,6 +232,8 @@ async function onClick(e) {
       confirmDo('Bubarkan rapat?', 'Giliran yang sedang jalan dihentikan. Percakapan sejauh ini tetap tersimpan.', 'Bubarkan', async () => {
         try { await post(url('meetings-cancel'), { id: curId }); toast('Rapat dibubarkan', 'ok'); await refresh(); } catch (err) { toast(err.message, 'bad'); }
       });
+    } else if (t.dataset.act === 'mt-more') {
+      const f = $('#mtMore', root); f?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => $('#mtMoreNote', root)?.focus({ preventScroll: true }), 350);
     } else if (t.dataset.act === 'mt-resume') {
       t.disabled = true;
       await post(url(`meetings/${encodeURIComponent(curId)}/resume`), {});
@@ -219,10 +264,14 @@ export function live(msg) {
     if (msg.msg.cost) { cur.cost = (Number(cur.cost) || 0) + msg.msg.cost; const c = $('[data-slot="mtcost"]', root); if (c) c.textContent = usd(cur.cost, 3); }
     const chat = $('#mtChat', root); if (!chat) return;
     const stick = chat.scrollHeight - chat.scrollTop - chat.clientHeight < 140;
-    chat.insertAdjacentHTML('beforeend', msgHTML(msg.msg));
+    // the speaker's live bubble turns into the saved message in place: no flicker, no double
+    const liveEl = msg.msg.kind === 'bicara' && cur.typing && String(cur.typing.who).toLowerCase() === String(msg.msg.who).toLowerCase() ? $('.msg.live', chat) : null;
+    if (liveEl) { liveEl.insertAdjacentHTML('beforebegin', msgHTML(msg.msg)); liveEl.remove(); cur.typing = null; }
+    else chat.insertAdjacentHTML('beforeend', msgHTML(msg.msg));
     if (stick) chat.scrollTop = chat.scrollHeight;
     const ty = $('#mtTyping', root); if (ty) ty.innerHTML = typingHTML();
   }
+  if (msg.t === 'meeting-typing' && mode === 'view' && cur && msg.meeting === curId && cur.status === 'berjalan' && msg.office === ctx.office.id) onTyping(msg);
   if (msg.t === 'changed' && msg.what === 'meetings') {
     if (mode === 'new') return loadList().then(() => { const a = $('aside', root); if (a) a.innerHTML = listHTML(); });
     refresh();

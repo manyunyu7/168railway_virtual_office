@@ -1,0 +1,177 @@
+{
+  "id": "startup-loft",
+  "order": 4,
+  "name": "Startup Loft",
+  "mood": "terbuka · ramai · lincah",
+  "accent": "#3E6BA8",
+  "desc": "Loft open-plan: koridor lebar, pintu lebar ganda, papan kanban dan whiteboard beroda di mana-mana. Ada ruang main, gym, dan ruang santai untuk jeda sprint.",
+  "facilities": [
+    {
+      "kind": "game",
+      "name": "Ruang Main"
+    },
+    {
+      "kind": "gym",
+      "name": "Gym"
+    },
+    {
+      "kind": "lounge",
+      "name": "Ruang Santai",
+      "size": 0.9
+    },
+    {
+      "kind": "musholla",
+      "name": "Musholla",
+      "size": 0.75
+    }
+  ],
+  "filler": {
+    "kind": "lounge",
+    "name": "Pojok Santai"
+  },
+  "layout": {
+    "strategy": "rows",
+    "corridor": 10,
+    "lobbyW": 22,
+    "doorW": 5,
+    "twoDoorsFrom": 24,
+    "codeSize": 1.15
+  },
+  "groups": [
+    {
+      "name": "Tim Produk",
+      "kinds": [
+        "manager",
+        "kode",
+        "openplan",
+        "meeting",
+        "qa",
+        "server",
+        "beku"
+      ]
+    },
+    {
+      "name": "Main & Gerak",
+      "kinds": [
+        "game",
+        "lounge",
+        "gym",
+        "pantry",
+        "musik",
+        "taman",
+        "toilet",
+        "booth"
+      ]
+    },
+    {
+      "name": "Fasilitas",
+      "kinds": [
+        "lib",
+        "musholla",
+        "telepon",
+        "tidur"
+      ]
+    }
+  ],
+  "floors": {
+    "kode": [
+      "teal2",
+      "teal"
+    ],
+    "game": "wood",
+    "gym": "gymMat",
+    "lounge": "lounge",
+    "meeting": "tile",
+    "lobby": "tile",
+    "manager": "teal2",
+    "pantry": "tile",
+    "musholla": "musholla",
+    "lib": "wood2",
+    "musik": "plum",
+    "server": "metal",
+    "qa": "tile"
+  },
+  "furnish": {
+    "*": {
+      "density": 1
+    },
+    "kode": {
+      "density": 0.9,
+      "others": 0.25,
+      "items": {
+        "kerja-papan-kanban": 3,
+        "kerja-whiteboard-roda": 2,
+        "kerja-meja-berdiri": 2,
+        "dapur-beanbag": 2,
+        "kerja-papan-gabus": 1,
+        "kerja-kursi-gaming": 1,
+        "kerja-monitor-ultrawide": 1,
+        "kerja-flip-chart": 1,
+        "dapur-dispenser-galon": 1
+      }
+    },
+    "manager": {
+      "items": {
+        "kerja-papan-kanban": 2,
+        "kerja-whiteboard-dinding": 1,
+        "kerja-tv-presentasi": 1,
+        "kerja-whiteboard-roda": 1,
+        "dapur-beanbag": 1
+      },
+      "others": 0.3
+    },
+    "meeting": {
+      "items": {
+        "kerja-papan-kanban": 2,
+        "kerja-whiteboard-roda": 2,
+        "kerja-flip-chart": 1,
+        "kerja-tv-presentasi": 1
+      },
+      "others": 0.4
+    },
+    "lounge": {
+      "density": 1.15,
+      "others": 0.2,
+      "items": {
+        "dapur-beanbag": 4,
+        "santai-sofa-gaming": 2,
+        "santai-tv-konsol": 1,
+        "dapur-karpet-bulat": 1,
+        "santai-kulkas-minuman": 1,
+        "santai-pingpong": 1,
+        "dapur-sofa-3": 1,
+        "santai-papan-dart": 1
+      }
+    },
+    "game": {
+      "density": 1.15
+    },
+    "gym": {
+      "density": 1.2
+    },
+    "lobby": {
+      "density": 0.85,
+      "others": 0,
+      "items": {
+        "kerja-papan-kanban": 1,
+        "dapur-beanbag": 2,
+        "kerja-meja-resepsionis": 1,
+        "dekor-papan-foto-tim": 1,
+        "dekor-piala-rak": 1,
+        "taman-pot-monstera": 2,
+        "dapur-vending-minuman": 1,
+        "kerja-kursi-tunggu": 1,
+        "dekor-lukisan-abstrak": 1
+      }
+    }
+  },
+  "corridorDecor": {
+    "every": 15,
+    "items": [
+      "plant",
+      "vending",
+      "bench",
+      "water"
+    ]
+  }
+}

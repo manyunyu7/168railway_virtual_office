@@ -1,32 +1,34 @@
 // Halaman "Kantor baru": wizard 4 langkah dengan preview denah yang ikut berubah.
-import { $, $$, esc, short, api, post, toast, sprite, ago, SWATCHES, SKINS, HAIRS } from './util.js';
+import { $, $$, esc, short, api, post, toast, sprite, isFem, ago, SWATCHES } from './util.js';
 import { createStage } from './office-canvas.js';
 import { PERMS } from './roles.js';
+import { randomLook, applyLook } from './chars.js';
+import { loadTemplates, galleryHTML } from './template-gallery.js';
 
-const STEPS = ['Project', 'Ruangan', 'Tim', 'Mulai'];
+const STEPS = ['Project', 'Ruangan', 'Tim', 'Suasana', 'Mulai'];
 const MANAGERS = ['Bu Ratna', 'Pak Hendra', 'Bu Sari', 'Pak Bima', 'Bu Laras', 'Pak Danu'];
 const MODELS = [['opus', 'Opus 5.5'], ['sonnet', 'Sonnet 5.5'], ['haiku', 'Haiku 5.5'], ['fable', 'Fable 5.1']];
 const SUB_SUGS = ['api', 'web', 'mobile', 'admin', 'docs', 'infra'];
 // role presets: the room they prefer is matched against folder names
 const PRESETS = [
-  { key: 'generalis', name: 'Tari', title: 'Generalis', model: 'sonnet', like: /./, persona: 'Serba bisa dan cepat belajar. Membaca CLAUDE.md dan wiki kantor sebelum mulai.', skills: [] },
+  { key: 'generalis', name: 'Tari', fem: true, title: 'Generalis', model: 'sonnet', like: /./, persona: 'Serba bisa dan cepat belajar. Membaca CLAUDE.md dan wiki kantor sebelum mulai.', skills: [] },
   { key: 'frontend', name: 'Dimas', title: 'Frontend', model: 'sonnet', like: /web|front|ui|admin|site|app/, persona: 'Peduli detail tampilan dan aksesibilitas. Selalu cek hasilnya di browser sebelum bilang selesai.', skills: ['frontend', 'css', 'aksesibilitas'] },
   { key: 'backend', name: 'Arya', title: 'Backend', model: 'sonnet', like: /api|back|server|service|core/, persona: 'Teliti soal data dan kontrak API. Menulis tes untuk setiap perubahan logika.', skills: ['backend', 'database', 'testing'] },
-  { key: 'mobile', name: 'Wulan', title: 'Mobile', model: 'sonnet', like: /mobile|android|ios|flutter|app/, persona: 'Memikirkan pengguna di HP dengan sinyal jelek. Rapi soal versi rilis.', skills: ['mobile', 'rilis'] },
+  { key: 'mobile', name: 'Wulan', fem: true, title: 'Mobile', model: 'sonnet', like: /mobile|android|ios|flutter|app/, persona: 'Memikirkan pengguna di HP dengan sinyal jelek. Rapi soal versi rilis.', skills: ['mobile', 'rilis'] },
   { key: 'qa', name: 'Seno', title: 'QA', model: 'haiku', like: /test|qa/, persona: 'Skeptis. Menganggap fitur rusak sampai terbukti sebaliknya, dan menulis temuan sebagai komentar kartu.', skills: ['review', 'testing'] },
   { key: 'devops', name: 'Raka', title: 'DevOps', model: 'sonnet', like: /infra|deploy|ops|docker/, persona: 'Hati-hati di server. Tidak pernah restart atau mengubah config produksi tanpa persetujuan.', skills: ['devops', 'deploy'] },
-  { key: 'docs', name: 'Lintang', title: 'Dokumentasi', model: 'haiku', like: /docs|doc|wiki/, persona: 'Menulis jelas dan ringkas. Menjaga wiki kantor tetap sesuai kode.', skills: ['dokumentasi'] },
+  { key: 'docs', name: 'Lintang', fem: true, title: 'Dokumentasi', model: 'haiku', like: /docs|doc|wiki/, persona: 'Menulis jelas dan ringkas. Menjaga wiki kantor tetap sesuai kode.', skills: ['dokumentasi'] },
 ];
 
 let W = null, root = null, pvTimer = 0, stage = null;
 const fresh = () => ({
   step: 0, mode: 'new', name: '', folder: '', folderEdited: false, base: '', layout: 'single', subs: [], gitInit: true, description: '',
   root: '', q: '', team: [mgrMember()], claudeMd: true, firstCard: true, startManager: false, brief: '', permissionMode: '',
-  roots: [], folders: [], preview: null, error: '', busy: false,
+  roots: [], folders: [], preview: null, error: '', busy: false, template: 'zen-garden', seed: 1, tpls: null,
 });
 function mgrMember() {
-  const i = Math.floor(Math.random() * MANAGERS.length);
-  return { key: 'manager', isMgr: true, name: MANAGERS[i], title: 'Manager', model: 'opus', color: SWATCHES[6], hair: HAIRS[i % HAIRS.length], skin: SKINS[i % SKINS.length], hairStyle: i % 2 ? 'short' : 'long', tie: true,
+  const i = Math.floor(Math.random() * MANAGERS.length), fem = MANAGERS[i].startsWith('Bu'), l = randomLook(undefined, { fem });
+  return { key: 'manager', isMgr: true, fem, name: MANAGERS[i], title: 'Manager', model: 'opus', ...l, color: SWATCHES[6], outfit: fem && l.outfit !== 'rok' && l.outfit !== 'dress' ? 'jas' : l.outfit === 'hoodie' ? 'jas' : l.outfit, tie: !fem && ['jas', 'kemeja'].includes(l.outfit),
     persona: 'Teliti dan tenang. Memecah permintaan jadi kartu di board, menunjuk role yang tepat, dan mereview hasilnya sebelum dianggap selesai.', skills: ['delegasi', 'review'] };
 }
 const slugDir = s => String(s || '').trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
@@ -35,6 +37,7 @@ const tilde = p => String(p || '').replace(/^\/Users\/[^/]+/, '~');
 export async function render(el) {
   root = el; W = fresh();
   try { const r = await api('/api/wizard/folders'); W.roots = r.roots; W.folders = r.folders; W.base = r.roots[0] || ''; } catch (e) { toast(e.message, 'bad'); }
+  loadTemplates().then(l => { if (!W) return; W.tpls = l; if (!l.some(t => t.id === W.template)) W.template = l[0]?.id || ''; if (W.step === 3) draw(); }).catch(() => { if (W) W.template = ''; });
   root.innerHTML = `<div class="wrap wz">
     <header class="wz-head"><div><p class="eyebrow">Kantor baru</p><h1>Buka kantor untuk project</h1></div><ol class="wz-steps" id="wzSteps"></ol></header>
     <div class="wz-grid"><section class="wz-main card" id="wzMain"></section>
@@ -49,7 +52,7 @@ export function unmount() { clearTimeout(pvTimer); stage = null; root = null; }
 
 function draw() {
   $('#wzSteps').innerHTML = STEPS.map((s, i) => `<li class="${i === W.step ? 'cur' : i < W.step ? 'done' : ''}"><button type="button" data-wz="goto" data-i="${i}"${i > W.step ? ' disabled' : ''}><span>${i + 1}</span>${s}</button></li>`).join('');
-  $('#wzMain').innerHTML = [stepProject, stepRooms, stepTeam, stepStart][W.step]() + navHTML();
+  $('#wzMain').innerHTML = [stepProject, stepRooms, stepTeam, stepMood, stepStart][W.step]() + navHTML();
   schedulePreview();
 }
 const navHTML = () => `<div class="wz-nav">${W.step ? '<button type="button" class="btn" data-wz="back">Kembali</button>' : '<a class="btn" href="#/">Batal</a>'}
@@ -101,7 +104,7 @@ function stepRooms() {
 function stepTeam() {
   const rooms = W.preview?.rooms || [];
   const picked = new Set(W.team.map(t => t.key));
-  const row = (t, i) => `<li class="wz-member"><span class="wz-ava">${sprite(t, 3)}</span>
+  const row = (t, i) => `<li class="wz-member"><span class="wz-ava">${sprite(t, 3)}<button type="button" class="wz-dice" data-wz="dice" data-i="${i}" title="Acak tampilan" aria-label="Acak tampilan ${esc(t.name)}">🎲</button></span>
     <div class="wz-mf"><input value="${esc(t.name)}" data-wz-f="name" data-i="${i}" aria-label="Nama" placeholder="Nama"><input value="${esc(t.title)}" data-wz-f="title" data-i="${i}" aria-label="Jabatan" placeholder="Jabatan"></div>
     <div class="wz-mf">${t.isMgr ? '<span class="wz-room">Ruang Manager</span>' : `<select data-wz-f="room" data-i="${i}" aria-label="Ruangan">${rooms.map(r => `<option value="${esc(r.id)}"${r.id === t.room ? ' selected' : ''}>${esc(r.name)}</option>`).join('')}</select>`}
       <select data-wz-f="model" data-i="${i}" aria-label="Model">${MODELS.map(([v, l]) => `<option value="${v}"${v === t.model ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -116,10 +119,18 @@ function addPreset(key) {
   const p = PRESETS.find(x => x.key === key), n = W.team.length;
   const rooms = W.preview?.rooms || [];
   const room = (rooms.find(r => p.like.test(`${r.path || ''} ${r.name}`.toLowerCase())) || rooms[0])?.id || '';
-  W.team.push({ key, name: p.name, title: p.title, model: p.model, persona: p.persona, skills: p.skills, room, color: SWATCHES[(n * 3) % SWATCHES.length], hair: HAIRS[(n * 2 + 1) % HAIRS.length], skin: SKINS[(n + 2) % SKINS.length], hairStyle: n % 3 === 1 ? 'long' : 'short' });
+  W.team.push({ key, name: p.name, title: p.title, model: p.model, persona: p.persona, skills: p.skills, room, ...randomLook(undefined, { fem: !!p.fem }) });
 }
 
-/* ---------- step 4: start ---------- */
+/* ---------- step 4: mood (office template) ---------- */
+function stepMood() {
+  const t = W.tpls?.find(x => x.id === W.template);
+  return `<h2>Pilih suasana kantor</h2><p class="sub">Template menyusun ulang denah, menambah ruangan fasilitas (taman, musholla, lounge …) dan mengisi perabot bertema. Pratinjaunya langsung terlihat di samping. Bisa diganti atau dipulihkan kapan saja dari Atur denah.</p>
+    ${W.tpls ? galleryHTML(W.tpls, W.template, { attr: 'data-wz-tpl', none: 'Tanpa template' }) : '<p class="hint">Memuat template…</p>'}
+    ${t ? `<div class="btn-row"><button type="button" class="btn sm" data-wz="tpl-roll">Acak susunan</button><span class="hint">seed ${W.seed}</span></div>` : ''}`;
+}
+
+/* ---------- step 5: start ---------- */
 function stepStart() {
   const mgr = W.team.find(t => t.isMgr);
   const where = W.mode === 'new' ? `${tilde(W.base)}/${W.folder}` : tilde(W.root);
@@ -127,7 +138,7 @@ function stepStart() {
   return `<h2>Mulai</h2>
     <div class="wz-sum"><p><b>${esc(W.mode === 'new' ? W.name || W.folder : W.root.split('/').pop())}</b> · <code>${esc(where)}</code></p>
       ${made.length ? `<p class="hint">Dibuat: ${made.join(', ')}</p>` : '<p class="hint">Isi folder tidak diubah, kecuali CLAUDE.md kalau kamu centang di bawah dan belum ada.</p>'}
-      <p class="hint">Tim: ${W.team.map(t => esc(t.name)).join(', ')} · ${W.preview?.plan.rooms.length || '?'} ruangan</p></div>
+      <p class="hint">Tim: ${W.team.map(t => esc(t.name)).join(', ')} · ${W.preview?.plan.rooms.length || '?'} ruangan · suasana ${esc(W.tpls?.find(x => x.id === W.template)?.name || 'bawaan')}</p></div>
     <label class="check"><input type="checkbox" id="wzMd"${W.claudeMd ? ' checked' : ''}> Tulis <code>CLAUDE.md</code> awal${W.mode === 'existing' ? ' (hanya kalau belum ada)' : ''}</label>
     <label class="check"><input type="checkbox" id="wzCard"${W.firstCard ? ' checked' : ''}> Buat kartu pertama untuk ${esc(mgr?.name || 'manager')}: <i>${W.mode === 'new' ? 'Rancang struktur awal project' : 'Kenali project dan rapikan board'}</i></label>
     <label class="check"><input type="checkbox" id="wzStart"${W.startManager ? ' checked' : ''}> Langsung mulai shift ${esc(mgr?.name || 'manager')} <span class="hint">(memakai token)</span></label>
@@ -137,6 +148,8 @@ function stepStart() {
 
 /* ---------- events ---------- */
 function onClick(e) {
+  const card = e.target.closest('[data-wz-tpl]');
+  if (card) { W.template = card.dataset.wzTpl; W.seed = 1; draw(); return; }
   const t = e.target.closest('[data-wz]'); if (!t) return;
   const a = t.dataset.wz, v = t.dataset.v;
   W.error = '';
@@ -146,10 +159,12 @@ function onClick(e) {
   else if (a === 'rm-sub') W.subs = W.subs.filter(s => s !== v);
   else if (a === 'pick') { W.root = v; const f = W.folders.find(x => x.root === v); if (f) W.claudeMd = !f.md; }
   else if (a === 'preset') addPreset(v);
+  else if (a === 'dice') { const m = W.team[Number(t.dataset.i)], fem = m.fem ?? isFem(m); const l = randomLook(undefined, { fem }); if (m.isMgr) { l.color = m.color; if (l.outfit === 'hoodie') l.outfit = 'jas'; l.tie = !fem && ['jas', 'kemeja'].includes(l.outfit); } applyLook(m, l); }
   else if (a === 'rm-member') W.team.splice(Number(t.dataset.i), 1);
   else if (a === 'goto') W.step = Math.min(Number(t.dataset.i), W.step);
   else if (a === 'back') W.step--;
   else if (a === 'next') { const err = check(); if (err) { W.error = err; } else W.step++; }
+  else if (a === 'tpl-roll') W.seed = (Math.random() * 1e6) | 0;
   else if (a === 'create') return create();
   draw();
 }
@@ -184,7 +199,8 @@ function check() {
   return '';
 }
 const spec = () => ({ mode: W.mode, name: W.mode === 'new' ? W.name || W.folder : undefined, base: W.base, folder: W.folder, layout: W.layout, subs: W.subs, gitInit: W.gitInit,
-  root: W.root, description: W.description, team: W.team, claudeMd: W.claudeMd, firstCard: W.firstCard, startManager: W.startManager, brief: W.brief, permissionMode: W.permissionMode });
+  root: W.root, description: W.description, team: W.team, claudeMd: W.claudeMd, firstCard: W.firstCard, startManager: W.startManager, brief: W.brief, permissionMode: W.permissionMode,
+  template: W.template || null, seed: W.seed });
 
 /* ---------- preview ---------- */
 function schedulePreview() {
@@ -198,7 +214,7 @@ function schedulePreview() {
     const ids = new Set(W.preview.rooms.map(r => r.id));
     W.preview.team.forEach((t, i) => { if (!W.team[i].isMgr && !ids.has(W.team[i].room)) W.team[i].room = t.room; });
     showPreview(W.preview);
-    if (W.step === 1 || W.step === 2) { const keep = document.activeElement?.dataset?.wzF ? null : true; if (keep) $('#wzMain').innerHTML = [stepProject, stepRooms, stepTeam, stepStart][W.step]() + navHTML(); }
+    if (W.step === 1 || W.step === 2) { const keep = document.activeElement?.dataset?.wzF ? null : true; if (keep) $('#wzMain').innerHTML = [stepProject, stepRooms, stepTeam, stepMood, stepStart][W.step]() + navHTML(); }
   }, 260);
 }
 function showPreview(pv) {
@@ -206,7 +222,7 @@ function showPreview(pv) {
   host.querySelector('canvas')?.remove();
   $('#wzPvEmpty').hidden = !!pv;
   if (!pv) { $('#wzPvInfo').innerHTML = ''; stage = null; return; }
-  const roles = pv.team.map(t => ({ ...t, tie: !!t.isMgr }));
+  const roles = pv.team.map(t => ({ ...t, tie: t.tie ?? !!t.isMgr }));
   const sessions = pv.team.map((t, i) => ({ sid: `pv${i}`, role: t.id, room: t.room, status: 'idle', kind: 'kantor', title: t.name, subs: [] }));
   stage = createStage(host, { plan: pv.plan, roles, sessions, cards: [], fill: true, animateArrivals: false, insets: { left: 8, top: 8, right: 8, bottom: 8 }, onPick: () => {}, onRoom: () => {} });
   stage.fitAll();

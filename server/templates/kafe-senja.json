@@ -1,0 +1,206 @@
+{
+  "id": "kafe-senja",
+  "order": 2,
+  "name": "Kafe Senja",
+  "mood": "hangat · kayu · ngobrol",
+  "accent": "#C98A3F",
+  "desc": "Pantry dan lounge besar jadi jantung kantor, seperti kafe sore hari: lantai kayu, sofa, rak buku, kopi. Ruangan kerja mengelilinginya.",
+  "facilities": [
+    {
+      "kind": "lounge",
+      "name": "Lounge Senja"
+    },
+    {
+      "kind": "musholla",
+      "name": "Musholla",
+      "size": 0.8
+    }
+  ],
+  "filler": {
+    "kind": "lounge",
+    "name": "Teras Kopi"
+  },
+  "layout": {
+    "strategy": "hub",
+    "hub": [
+      "pantry",
+      "lounge"
+    ],
+    "hubSize": 1.05,
+    "corridor": 8,
+    "lobbyW": 22
+  },
+  "groups": [
+    {
+      "name": "Pojok Tenang",
+      "kinds": [
+        "musholla",
+        "lib",
+        "telepon",
+        "tidur",
+        "meeting"
+      ]
+    },
+    {
+      "name": "Ruang Kerja",
+      "kinds": [
+        "manager",
+        "kode",
+        "openplan",
+        "game",
+        "qa",
+        "server",
+        "beku"
+      ]
+    },
+    {
+      "name": "Panggung",
+      "kinds": [
+        "musik",
+        "gym",
+        "taman",
+        "toilet",
+        "booth"
+      ]
+    }
+  ],
+  "floors": {
+    "*": "wood2",
+    "lounge": "lounge",
+    "musholla": "musholla",
+    "kode": [
+      "wood2",
+      "teal"
+    ],
+    "meeting": "plum",
+    "server": "metal",
+    "qa": "tile",
+    "musik": "plum",
+    "lobby": "wood2"
+  },
+  "furnish": {
+    "*": {
+      "density": 1
+    },
+    "lounge": {
+      "density": 1.6,
+      "others": 0.1,
+      "center": [
+        "dapur-karpet-persegi",
+        "dapur-sofa-l",
+        "dapur-meja-kopi",
+        "dapur-kursi-selimut",
+        "dapur-kursi-selimut",
+        "dapur-lampu-lantai",
+        "dapur-sofa-3",
+        "dapur-meja-kafe-bulat",
+        "dapur-meja-kafe-bulat",
+        "dapur-karpet-bulat"
+      ],
+      "items": {
+        "dapur-sofa-3": 3,
+        "dapur-sofa-l": 1.5,
+        "dapur-sofa-2": 2,
+        "dapur-kursi-selimut": 3,
+        "dapur-lampu-lantai": 3,
+        "dapur-meja-kopi": 2,
+        "dapur-karpet-bulat": 1,
+        "dekor-rak-buku-hias": 2,
+        "teknik-rak-buku-kayu-besar": 2,
+        "dapur-rak-majalah": 1,
+        "santai-pemutar-piringan": 1,
+        "santai-rak-vinyl": 1,
+        "dapur-tanaman-meja-kafe": 2,
+        "dapur-papan-menu-kafe": 1,
+        "dekor-lukisan-abstrak": 1,
+        "taman-pot-monstera": 2,
+        "dapur-meja-kafe-bulat": 1,
+        "dapur-bantal-besar": 1
+      }
+    },
+    "pantry": {
+      "density": 1.4,
+      "others": 0.15,
+      "items": {
+        "dapur-meja-kafe-bulat": 3,
+        "dapur-mesin-espresso": 2,
+        "dapur-mesin-kopi-tetes": 1,
+        "dapur-grinder-kopi": 1,
+        "dapur-rak-cangkir": 1,
+        "dapur-toples-kue": 2,
+        "dapur-papan-menu-kafe": 2,
+        "dapur-meja-bar": 1,
+        "dapur-bar-stool": 2,
+        "dapur-tanaman-meja-kafe": 2,
+        "dapur-lampu-lantai": 1
+      },
+      "center": [
+        "dapur-meja-kafe-bulat",
+        "dapur-meja-kafe-bulat",
+        "dapur-meja-kafe-bulat",
+        "dapur-tanaman-meja-kafe",
+        "dapur-meja-kafe-bulat"
+      ]
+    },
+    "kode": {
+      "density": 0.8,
+      "others": 0.2,
+      "items": {
+        "dapur-lampu-lantai": 2,
+        "dekor-rak-buku-hias": 1,
+        "kerja-lampu-meja": 1,
+        "dekor-lukisan-abstrak": 1,
+        "taman-pot-monstera": 1,
+        "dapur-termos": 1,
+        "kerja-jam-dinding": 1
+      }
+    },
+    "manager": {
+      "items": {
+        "dapur-lampu-lantai": 1,
+        "dekor-rak-buku-hias": 2,
+        "dekor-lukisan-abstrak": 1,
+        "dapur-sofa-2": 1,
+        "kerja-jam-dinding": 1,
+        "taman-pot-monstera": 1
+      },
+      "others": 0.2
+    },
+    "lib": {
+      "items": {
+        "teknik-rak-buku-kayu-besar": 3,
+        "teknik-rak-buku-anggur": 1,
+        "teknik-kursi-baca-empuk": 2,
+        "dapur-lampu-lantai": 2,
+        "dapur-kursi-selimut": 1,
+        "teknik-meja-baca-lampu": 1
+      },
+      "others": 0.2
+    },
+    "lobby": {
+      "density": 0.9,
+      "others": 0,
+      "items": {
+        "dapur-sofa-3": 1,
+        "dapur-lampu-lantai": 2,
+        "taman-pot-monstera": 2,
+        "dekor-rak-buku-hias": 1,
+        "dapur-papan-menu-kafe": 1,
+        "dekor-lukisan-abstrak": 1,
+        "kerja-kursi-tunggu": 1,
+        "dapur-meja-kopi": 1,
+        "dekor-vas-bunga": 1
+      }
+    }
+  },
+  "corridorDecor": {
+    "every": 14,
+    "items": [
+      "plant",
+      "bench",
+      "vending",
+      "plant",
+      "water"
+    ]
+  }
+}

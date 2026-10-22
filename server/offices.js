@@ -5,6 +5,7 @@ import { config, HOME } from './config.js';
 import { globalDb, officeDb, all, one, run, nowIso, newId, j, tx } from './db.js';
 import { autoLayout, railwayLayout, appendRow } from './layout.js';
 import { seedOffice } from './seed.js';
+import { checkPlaced } from './furniture.js';
 
 const SKIP = new Set(['node_modules', 'build', 'dist', 'vendor', '.git', '.idea', '.vscode', '__pycache__', 'Pods', '.dart_tool', 'target', 'out', 'tmp']);
 
@@ -57,6 +58,87 @@ export function scanRoot(root) {
 const RAIL_MAP = { lib: 'docs', web: 'web', ltc: '168railway-golang-ltc', gopk: 'go-pk', mobile: 'mobile', admin: 'admin', live: 'android-live', lite: 'android-lite', ppka: 'ppka-wannabe', gallery: 'gallery-scanner', minikilla: 'mini-killa' };
 const RAIL_ALIASES = { gallery: ['gallery-audit'] };
 
+/* ---------------- layout editor ---------------- */
+const GEO = ['x', 'y', 'w', 'h', 'floor', 'doors'];
+// a saved layout repositions rooms by id; rooms it doesn't know (a repo cloned later) go in a new row below
+function applyLayout(plan, L) {
+  if (!L?.rooms) return false;
+  const hidden = new Set(L.hidden || []);
+  const known = [], fresh = [];
+  for (const r of plan.rooms) {
+    if (hidden.has(r.id)) continue;
+    const g = L.rooms[r.id];
+    if (g) { for (const k of GEO) if (g[k] !== undefined) r[k] = g[k]; known.push(r); }
+    else fresh.push(r);
+  }
+  plan.rooms = known;
+  plan.w = L.w || plan.w; plan.h = L.h || plan.h;
+  for (const k of ['decor', 'runners', 'wings']) if (Array.isArray(L[k])) plan[k] = L[k];
+  // zones live inside their open-plan room and follow it
+  if (fresh.length) appendRow(plan, fresh.filter(r => r.kind !== 'zone'));
+  return true;
+}
+/** Problems with a layout: overlaps (other than shared walls), out of bounds, doors off the wall, too small. */
+export function layoutProblems(plan) {
+  const out = [], rooms = plan.rooms.filter(r => r.kind !== 'zone');
+  for (const r of rooms) {
+    if (![r.x, r.y, r.w, r.h].every(Number.isInteger)) out.push(`${r.name}: posisi dan ukuran harus bilangan bulat`);
+    if (r.w < 8 || r.h < 8) out.push(`${r.name}: terlalu kecil (minimal 8×8)`);
+    if (r.x < 0 || r.y < 0 || r.x + r.w > plan.w || r.y + r.h > plan.h) out.push(`${r.name}: keluar dari batas denah`);
+    for (const d of r.doors || []) {
+      const len = d.s === 't' || d.s === 'b' ? r.w : r.h;
+      if (!['t', 'b', 'l', 'r'].includes(d.s) || d.at < 1 || d.at + (d.w || 3) > len - 1) out.push(`${r.name}: pintu tidak pas di dinding`);
+    }
+  }
+  for (let i = 0; i < rooms.length; i++) for (let k = i + 1; k < rooms.length; k++) {
+    const a = rooms[i], b = rooms[k];
+    const ox = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x), oy = Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y);
+    if (ox > 1 && oy > 1) out.push(`${a.name} menabrak ${b.name}`);
+  }
+  return out;
+}
+/** Save the editor's layout (geometry by room id + decor). Refused with the list of problems if it doesn't fit. */
+export function saveLayout(id, L) {
+  const m = officeModel(id);
+  if (!m) throw new Error('Kantor tidak ditemukan');
+  const w = Math.max(20, Math.min(400, Math.round(L.w || m.plan.w))), h = Math.max(20, Math.min(400, Math.round(L.h || m.plan.h)));
+  // the rooms a layout may place: everything the office has before any layout is applied
+  const base = () => { const t = structuredClone(basePlan(m.root, m.scan, [])); const ex = j(one(officeDb(id), "SELECT value FROM meta WHERE key = 'extraRooms'")?.value, []).filter(x => !t.rooms.some(r => r.id === x.id)); if (ex.length) appendRow(t, ex.map(x => ({ ...x, extra: true }))); return t; };
+  const ids = new Set(base().rooms.map(r => r.id));
+  const rooms = {};
+  for (const r of L.rooms || []) {
+    if (!ids.has(r.id)) continue;
+    rooms[r.id] = { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h), ...(r.floor ? { floor: String(r.floor) } : {}),
+      doors: (r.doors || []).map(d => ({ s: d.s, at: Math.round(d.at), w: Math.max(2, Math.min(6, Math.round(d.w || 3))) })) };
+  }
+  const saved = { w, h, rooms, hidden: (L.hidden || []).map(String), ...Object.fromEntries(['decor', 'runners', 'wings'].filter(k => Array.isArray(L[k])).map(k => [k, L[k]])) };
+  // check the result exactly as it will be built
+  const trial = base();
+  applyLayout(trial, saved);
+  const bad = layoutProblems(trial);
+  if (bad.length) throw new Error(`Denah belum bisa disimpan: ${bad.slice(0, 4).join('; ')}${bad.length > 4 ? ` (+${bad.length - 4} lagi)` : ''}`);
+  run(officeDb(id), "INSERT INTO meta (key, value) VALUES ('layout', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify(saved));
+  invalidate(id);
+  return officeModel(id).plan;
+}
+/** Furniture placed in an office: [{uid,item,x,y}] with absolute tile coordinates. */
+export function getFurniture(id) {
+  const m = officeModel(id);
+  if (!m) throw new Error('Kantor tidak ditemukan');
+  return m.plan.furniture || [];
+}
+/** Replace the office's furniture. Refused with the list of problems when an item is unknown or outside the plan. */
+export function saveFurniture(id, list) {
+  const m = officeModel(id);
+  if (!m) throw new Error('Kantor tidak ditemukan');
+  const { items, problems } = checkPlaced(list, m.plan);
+  if (problems.length) throw new Error(`Perabot belum bisa disimpan: ${problems.slice(0, 4).join('; ')}${problems.length > 4 ? ` (+${problems.length - 4} lagi)` : ''}`);
+  run(officeDb(id), "INSERT INTO meta (key, value) VALUES ('furniture', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify(items));
+  invalidate(id);
+  return items;
+}
+export function resetLayout(id) { run(officeDb(id), "DELETE FROM meta WHERE key = 'layout'"); invalidate(id); return officeModel(id).plan; }
+
 /** The floor plan a folder gets from its contents (before user-added rooms and overrides). */
 export function basePlan(root, scan, roles = []) {
   let plan;
@@ -86,6 +168,9 @@ export function basePlan(root, scan, roles = []) {
       for (const f of scan.folders.slice(0, 8)) code.push({ id: slug(f.dir), name: pretty(f.dir), kind: 'kode', path: f.dir, stack: f.stack || 'folder', md: f.md });
       if (!code.length) code.push({ id: 'kode', name: 'Kode', kind: 'kode', path: '', stack: detectStack(root) });
     }
+    // a folder named like a facility (server/, qa/, lib/ …) must not take that room's id
+    const taken = new Set(['lobby', 'manager', 'meeting', 'lib', 'qa', 'server', 'musik', 'pantry']);
+    for (const r of code) { let id = taken.has(r.id) ? `${r.id}-repo` : r.id; for (let n = 2; taken.has(id); n++) id = `${r.id}-${n}`; r.id = id; taken.add(id); }
     for (const r of code) r.desks = roles.filter(x => x.room === r.id).length + 1;
     const docs = scan.folders.find(f => f.dir === 'docs');
     const fn = [
@@ -93,7 +178,7 @@ export function basePlan(root, scan, roles = []) {
       { id: 'meeting', name: 'Ruang Meeting', kind: 'meeting' },
       { id: 'lib', name: 'Perpustakaan', kind: 'lib', path: docs ? 'docs' : null, stack: docs ? 'docs' : '' },
     ];
-    const tail = [{ id: 'qa', name: 'Lab QA', kind: 'qa' }, { id: 'server', name: 'Ruang Server', kind: 'server' }, { id: 'pantry', name: 'Pantry', kind: 'pantry' }];
+    const tail = [{ id: 'qa', name: 'Lab QA', kind: 'qa' }, { id: 'server', name: 'Ruang Server', kind: 'server' }, { id: 'musik', name: 'Ruang Musik', kind: 'musik' }, { id: 'pantry', name: 'Pantry', kind: 'pantry' }];
     plan = autoLayout([...fn, ...code, ...tail]);
   }
   return plan;
@@ -121,7 +206,9 @@ export function officeModel(id, { preview = null } = {}) {
     if (room) (room.worktrees ||= []).push(wt.dir);
   }
   for (const r of plan.rooms) Object.assign(r, overrides[r.id] || {});
-  const model = { id: row.id, name: row.name, root: row.root, style: row.style || describe(scan), plan, scan };
+  const custom = applyLayout(plan, j(one(db, "SELECT value FROM meta WHERE key = 'layout'")?.value, null));
+  plan.furniture = j(one(db, "SELECT value FROM meta WHERE key = 'furniture'")?.value, []);
+  const model = { id: row.id, name: row.name, root: row.root, style: row.style || describe(scan), plan, scan, custom };
   if (!preview) cache.set(id, model);
   return model;
 }
@@ -258,7 +345,7 @@ export function previewRoom(id, { name, kind = 'kode', path: folder = '' }) {
   return { model: officeModel(id, { preview: room }), room };
 }
 
-const ROOM_KINDS = ['kode', 'meeting', 'lib', 'qa', 'server', 'pantry', 'beku', 'game', 'manager'];
+export const ROOM_KINDS = ['kode', 'meeting', 'lib', 'qa', 'server', 'pantry', 'beku', 'game', 'manager', 'musik', 'musholla', 'lounge', 'gym', 'taman', 'telepon', 'tidur'];
 export function addRoom(id, { name, kind = 'kode', path: folder = '', create = false, gitInit = false }) {
   const m = officeModel(id);
   if (!m) throw new Error('Kantor tidak ditemukan');

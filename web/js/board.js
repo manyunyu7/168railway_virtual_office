@@ -1,170 +1,377 @@
-// Tab Board: kanban + daftar + drawer kartu. Data dari API sungguhan, realtime lewat live().
-import { $, $$, esc, short, ago, api, post, patch, del, toast, confirmDo, mini, md, ICON, debounce } from './util.js';
-import { showDrawer, closeDrawer, drawerState, drawerEl } from './panel.js';
-import { startShiftDialog } from './roles.js';
+// Tab Board: kanban lengkap (filter, swimlane, label, WIP, multi-pilih, keyboard) + daftar + drawer kartu.
+// Data dari API sungguhan, realtime lewat live(). Drawer ada di board-detail.js, fungsi murni di board-lib.js.
+import { $, $$, esc, short, ago, api, post, patch, del, toast, confirmDo, modal, mini, ICON, debounce } from './util.js';
+import { drawerState } from './panel.js';
+import {
+  PRIOS, GROUPS, isDate, fmtDay, dueState, pendingDeps, progressOf, midOrd, matchCard, activeCount,
+  loadPrefs, savePrefs, loadWip, saveWip, defaultPrefs, parseQuick, todayStr,
+} from './board-lib.js';
+import {
+  S, hooks, office, base, roles, roleOf, rooms, repoName, whoName, prioVar, epics, kids, isLive, liveHTML, repoChoices,
+  labelOf, labelName, labelChip, mediaUrl,
+  KINDS, KIND_LABEL, isAll, boardOf, curBoard, viewCols, colOf, colVal, boardChip, loadBoardSel, saveBoardSel,
+} from './board-state.js';
+import { openCard, openNew, reloadCard, refreshDrawer, closeDetail, updateLiveBox, unbindDetail, drawerOwned, openLabelManager } from './board-detail.js';
 
-const COLS = ['Backlog', 'Siap', 'Dikerjakan', 'Review', 'Selesai'];
-const WIP = [0, 0, 5, 3, 0];
-const PRIOS = ['P0', 'P1', 'P2', 'P3'];
-const LS = id => 'kc.board.' + id;
+let rootH = null, docH = null;
+const persist = () => { S.f.collapsedB = { ...(S.f.collapsedB || {}), [S.board]: S.f.collapsed }; savePrefs(S.oid, S.f); };
+const COLN = () => viewCols().map(c => c.name);
+const wipKey = () => (S.board === 'utama' ? S.oid : `${S.oid}.${S.board}`);
+const ctxF = () => ({ map: S.map, labelName, today: todayStr() });
+const filtered = () => { const x = ctxF(); return S.cards.filter(c => !c.epic && matchCard(c, S.f, x)); };
+const byOrd = (a, b) => (a.ord ?? 0) - (b.ord ?? 0) || a.createdAt?.localeCompare?.(b.createdAt) || 0;
+const colCards = col => S.cards.filter(c => !c.epic && colOf(c) === col).sort(byOrd);
+const visibleSel = () => [...S.sel].filter(id => S.map.has(id));
+const FILTER_QUICK = [['mine', 'Kartu saya'], ['unassigned', 'Belum ditugaskan'], ['blocked', 'Terblokir'], ['waiting', 'Menunggu kartu lain'], ['hideOld', 'Sembunyikan Selesai lama']];
+const DUE_OPTS = [['overdue', 'Terlambat'], ['week', 'Pekan ini'], ['none', 'Tanpa tenggat']];
 
-const S = {
-  ctx: null, el: null, oid: null,
-  cards: [], seen: new Map(),
-  f: { q: '', role: '', repo: '', prio: '', group: 'none', view: 'kanban', sort: { k: 'col', dir: 1 } },
-  dragId: null, timer: null, flash: new Set(), liveSig: '',
-  dr: null, // { id|null, card, preview, blockedOpen, comment, notify, pending, focus }
-  drEl: null, handlers: null, rootHandlers: null,
-};
-
-/* ---------------- helpers ---------------- */
-const office = () => S.ctx.office;
-const base = () => `/api/offices/${S.oid}`;
-const roles = () => (office().roles || []).filter(r => !r.archived);
-const roleOf = id => id && (office().roles || []).find(r => r.id === id);
-const roleByAny = k => { k = String(k || '').toLowerCase(); return (office().roles || []).find(r => r.id.toLowerCase() === k || r.name.toLowerCase() === k); };
-const rooms = () => office().plan?.rooms || [];
-const repoName = id => {
-  if (!id) return 'tanpa repo';
-  if (id === 'lintas') return 'lintas repo';
-  const r = rooms().find(x => x.id === id);
-  return r ? r.name : id;
-};
-const whoName = id => (id ? roleOf(id)?.name || id : 'Belum ditugaskan');
-const prioVar = p => `var(--${String(p || 'P2').toLowerCase()})`;
-const epics = () => S.cards.filter(c => c.epic);
-const kids = id => S.cards.filter(c => c.epicId === id);
-const isLive = c => !!c.who && (office().sessions || []).some(s => s.role === c.who && s.status === 'working');
-const liveHTML = c => (isLive(c) ? `<div class="kc-live"><i></i>${esc(whoName(c.who))} sedang bekerja</div>` : '');
-const repoOptions = (cur) => {
-  const list = rooms().filter(r => r.path != null || r.id === cur).map(r => [r.id, r.name]);
-  if (!list.some(x => x[0] === 'lintas')) list.push(['lintas', 'lintas repo']);
-  if (cur && !list.some(x => x[0] === cur)) list.push([cur, cur]);
-  return list;
-};
-
-function loadPrefs() {
-  try { Object.assign(S.f, JSON.parse(localStorage.getItem(LS(S.oid)) || '{}')); } catch {}
-  if (!['none', 'repo', 'role'].includes(S.f.group)) S.f.group = 'none';
-  if (!['kanban', 'list'].includes(S.f.view)) S.f.view = 'kanban';
-}
-function savePrefs() {
-  try { const { q, role, repo, prio, group, view } = S.f; localStorage.setItem(LS(S.oid), JSON.stringify({ q, role, repo, prio, group, view })); } catch {}
-}
-
-function filtered() {
-  const f = S.f, q = f.q.trim().toLowerCase();
-  return S.cards.filter(c => !c.epic
-    && (!q || c.title.toLowerCase().includes(q) || (c.desc || '').toLowerCase().includes(q))
-    && (!f.role || (f.role === '_none' ? !c.who : c.who === f.role))
-    && (!f.repo || c.repo === f.repo)
-    && (!f.prio || c.prio === f.prio));
-}
-
-/* ---------------- board view ---------------- */
+/* ---------------- kerangka + kontrol ---------------- */
 function shellHTML() {
   const f = S.f;
-  const repos = rooms().filter(r => r.path != null || S.cards.some(c => c.repo === r.id));
-  const opts = repos.map(r => [r.id, r.name]);
-  if (!opts.some(x => x[0] === 'lintas')) opts.push(['lintas', 'lintas repo']);
-  return `<div class="bd-toolbar">
-      <input type="search" id="bdQ" placeholder="Cari kartu" value="${esc(f.q)}" aria-label="Cari kartu">
-      <select id="bdRole" aria-label="Filter role"><option value="">Semua role</option>${roles().map(r => `<option value="${esc(r.id)}" ${f.role === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}<option value="_none" ${f.role === '_none' ? 'selected' : ''}>Belum ditugaskan</option></select>
-      <select id="bdRepo" aria-label="Filter repo"><option value="">Semua repo</option>${opts.map(([id, n]) => `<option value="${esc(id)}" ${f.repo === id ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
-      <select id="bdPrio" aria-label="Filter prioritas"><option value="">Semua prioritas</option>${PRIOS.map(p => `<option ${f.prio === p ? 'selected' : ''}>${p}</option>`).join('')}</select>
-      <span class="seg-l">Kelompok</span><div class="seg">${[['none', 'Tidak ada'], ['repo', 'Repo'], ['role', 'Role']].map(([k, v]) => `<button data-act="bd-group" data-v="${k}" aria-pressed="${f.group === k}">${v}</button>`).join('')}</div>
-      <div class="seg">${[['kanban', 'Kanban'], ['list', 'Daftar']].map(([k, v]) => `<button data-act="bd-view" data-v="${k}" aria-pressed="${f.view === k}">${v}</button>`).join('')}</div>
-      <button class="btn primary" data-act="bd-new" style="margin-left:auto">Kartu baru</button>
+  return `<div class="bd-boards" id="bdBoards" role="toolbar" aria-label="Papan"></div><div class="bd-toolbar">
+      <input type="search" id="bdQ" placeholder="Cari kartu  ( / )" value="${esc(f.q)}" aria-label="Cari kartu" autocomplete="off">
+      <button type="button" class="btn" id="bdFpBtn" data-act="bd-fp" aria-expanded="false" aria-controls="bdFp">Filter<span class="bd-badge" id="bdBadge" hidden></span></button>
+      <label class="sr-only" for="bdGroup">Kelompokkan berdasarkan</label>
+      <select id="bdGroup" aria-label="Kelompokkan berdasarkan">${GROUPS.map(([k, v]) => `<option value="${k}" ${f.group === k ? 'selected' : ''}>${k === 'none' ? 'Kelompok: tidak ada' : 'Kelompok: ' + v.toLowerCase()}</option>`).join('')}</select>
+      <div class="seg" role="group" aria-label="Tampilan">${[['kanban', 'Kanban'], ['list', 'Daftar']].map(([k, v]) => `<button type="button" data-act="bd-view" data-v="${k}" aria-pressed="${f.view === k}">${v}</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="Kerapatan kartu">${[['comfort', 'Nyaman'], ['compact', 'Ringkas']].map(([k, v]) => `<button type="button" data-act="bd-dens" data-v="${k}" aria-pressed="${f.density === k}">${v}</button>`).join('')}</div>
+      <button type="button" class="btn" data-act="bd-selmode" id="bdSelBtn" aria-pressed="${S.selMode}">Pilih</button>
+      <button type="button" class="btn" data-act="bd-lblmgr">Label</button>
+      <button type="button" class="btn ghost bd-help" data-act="bd-help" aria-label="Pintasan keyboard" title="Pintasan keyboard (?)">?</button>
+      <button type="button" class="btn primary bd-new" data-act="bd-new">Kartu baru</button>
     </div>
-    <div class="epics" id="bdEpics"></div><div id="bdMain"></div>`;
+    <div class="bd-qk" id="bdQk" role="group" aria-label="Filter cepat"></div>
+    <div class="bd-active" id="bdActive" aria-live="polite"></div>
+    <div class="bd-fp" id="bdFp" hidden></div>
+    <div class="epics" id="bdEpics"></div><div id="bdMain"></div><div id="bdBulk"></div>`;
 }
 
+const fbtn = (k, v, text, on, extra = '') => `<button type="button" class="chip" data-act="bd-f" data-k="${k}" data-v="${esc(v)}" aria-pressed="${on}">${extra}${text}</button>`;
+function renderControls() { keepFocus(renderControls0); }
+function keepFocus(fn) {
+  const a = document.activeElement; let sel = null;
+  if (a && S.el?.contains(a) && !a.closest('#bdMain,.bd-menu,#bdBulk')) {
+    const q = v => String(v).replace(/["\\]/g, '\\$&');
+    sel = a.id ? '#' + a.id : a.dataset.act ? `[data-act="${a.dataset.act}"]` + (a.dataset.k ? `[data-k="${q(a.dataset.k)}"]` : '') + (a.dataset.v ? `[data-v="${q(a.dataset.v)}"]` : '') : null;
+  }
+  fn();
+  if (sel) { try { $(sel, S.el)?.focus(); } catch {} }
+}
+function renderControls0() {
+  const f = S.f, n = activeCount(f);
+  const badge = $('#bdBadge', S.el); if (badge) { badge.hidden = !n; badge.textContent = n; }
+  const qk = $('#bdQk', S.el);
+  if (qk) qk.innerHTML = FILTER_QUICK.map(([k, v]) => `<button type="button" class="chip" data-act="bd-q" data-k="${k}" aria-pressed="${!!f[k]}">${v}</button>`).join('');
+  // chip filter aktif
+  const act = [];
+  const chip = (k, v, text) => act.push(`<span class="chip bd-ac">${text}<button type="button" data-act="bd-rm" data-k="${k}" data-v="${esc(v)}" aria-label="Hapus filter ${esc(String(text).replace(/<[^>]*>/g, ''))}">✕</button></span>`);
+  if (f.q.trim()) chip('q', '', `Cari: ${esc(short(f.q.trim(), 24))}`);
+  f.who.forEach(v => chip('who', v, `Role: ${esc(v === '_none' ? 'belum ditugaskan' : whoName(v))}`));
+  f.labels.forEach(v => { if (labelOf(v)) chip('labels', v, `Label: ${esc(labelName(v))}`); });
+  f.prios.forEach(v => chip('prios', v, `Prioritas: ${esc(v)}`));
+  f.repos.forEach(v => chip('repos', v, `Repo: ${esc(v === '_none' ? 'tanpa repo' : repoName(v))}`));
+  if (f.due) chip('due', f.due, `Tenggat: ${esc(DUE_OPTS.find(x => x[0] === f.due)?.[1].toLowerCase() || '')}`);
+  FILTER_QUICK.forEach(([k, v]) => { if (f[k]) chip(k, '', esc(v)); });
+  const box = $('#bdActive', S.el);
+  if (box) box.innerHTML = act.length ? `${act.join('')}<button type="button" class="btn sm ghost" data-act="bd-clear">Bersihkan semua</button>` : '';
+  const btn = $('#bdFpBtn', S.el), fp = $('#bdFp', S.el);
+  if (btn) btn.setAttribute('aria-expanded', String(S.fp));
+  if (fp) {
+    fp.hidden = !S.fp;
+    if (S.fp) {
+      const has = (k, v) => f[k].includes(v);
+      fp.innerHTML = `<div class="bd-fg"><h4>Role</h4><div class="chips">${roles().map(r => fbtn('who', r.id, esc(r.name), has('who', r.id), mini(r))).join('')}${fbtn('who', '_none', 'Belum ditugaskan', has('who', '_none'))}</div></div>
+        <div class="bd-fg"><h4>Label</h4><div class="chips">${S.labels.map(l => `<button type="button" class="lbl pick" data-act="bd-f" data-k="labels" data-v="${esc(l.id)}" aria-pressed="${has('labels', l.id)}" style="--lc:${esc(l.color)}">${esc(l.name)}</button>`).join('') || '<span class="hint">Belum ada label.</span>'}</div></div>
+        <div class="bd-fg"><h4>Prioritas</h4><div class="chips">${PRIOS.map(p => fbtn('prios', p, p, has('prios', p))).join('')}</div></div>
+        <div class="bd-fg"><h4>Repo / ruang</h4><div class="chips">${repoChoices().map(([id, nm]) => fbtn('repos', id, esc(nm), has('repos', id))).join('')}${fbtn('repos', '_none', 'Tanpa repo', has('repos', '_none'))}</div></div>
+        <div class="bd-fg"><h4>Tenggat</h4><div class="chips">${DUE_OPTS.map(([k, v]) => fbtn('due', k, v, f.due === k)).join('')}</div></div>
+        <div class="bd-fg"><h4>Saya adalah</h4><select id="bdMe" aria-label="Role yang dianggap saya"><option value="">(belum dipilih)</option>${roles().map(r => `<option value="${esc(r.id)}" ${f.me === r.id ? 'selected' : ''}>${esc(r.name)}</option>`).join('')}</select><span class="hint">dipakai oleh filter Kartu saya</span></div>`;
+    }
+  }
+}
+
+/* ---------------- papan: pemilih, buat, pengaturan ---------------- */
+function boardPrefs() {
+  const cb = S.f.collapsedB || {};
+  S.f.collapsed = cb[S.board] || (S.board === 'utama' ? S.f.collapsed : []);
+  S.wip = loadWip(wipKey(), S.board === 'utama' ? null : viewCols());
+}
+function switchBoard(id) {
+  if (id === S.board) return;
+  S.board = id; saveBoardSel(S.oid, id);
+  S.sel.clear(); S.qa = null; S.seen = new Map();
+  S.cards = isAll() ? S.all : S.all.filter(c => (c.board || 'utama') === id);
+  S.seen = new Map(S.cards.map(c => [c.id, c.updatedAt]));
+  boardPrefs(); closeMenu(false); paint();
+}
+function renderBoards() {
+  const box = $('#bdBoards', S.el); if (!box) return;
+  const list = S.boards.filter(b => !b.archived);
+  const n = id => S.all.filter(c => !c.epic && !c.done && (id === 'all' || (c.board || 'utama') === id)).length;
+  const pill = (id, name, color, icon) => `<button type="button" class="bd-pill${S.board === id ? ' on' : ''}" data-act="bd-board" data-id="${esc(id)}" aria-pressed="${S.board === id}" style="--bc:${esc(color || 'var(--b6)')}">${icon ? `<span aria-hidden="true">${esc(icon)}</span>` : '<i class="dot"></i>'}<span>${esc(name)}</span><span class="count" aria-label="${n(id)} kartu terbuka">${n(id)}</span></button>`;
+  const b = curBoard();
+  box.innerHTML = list.map(x => pill(x.id, x.name, x.color, x.icon)).join('') + (list.length > 1 ? pill('all', 'Semua papan', '', '∑') : '')
+    + `<button type="button" class="btn sm ghost" data-act="bd-board-new" title="Buat papan baru">+ Papan</button>`
+    + (b ? `<button type="button" class="btn sm ghost" data-act="bd-board-set" title="Pengaturan papan ${esc(b.name)}" aria-label="Pengaturan papan ${esc(b.name)}">⚙ Atur papan</button>` : '');
+}
+const BOARD_COLORS = ['#2F5D9E', '#C2417A', '#3E9A5B', '#D98A1E', '#7A3E9D', '#2F7F86', '#D2553F', '#8B818B'];
+const creativeRooms = () => rooms().filter(r => /kreatif|creative|desain|design|konten|content/i.test(`${r.id} ${r.name}`)).map(r => r.id);
+async function newBoardDialog(tpl0 = 'kreatif') {
+  let tpls = [];
+  try { tpls = (await api(`${base()}/boards`)).templates || []; } catch {}
+  const used = new Set(S.boards.filter(b => !b.archived).map(b => b.name.toLowerCase()));
+  const pick = tpls.find(t => t.id === tpl0 && !used.has(t.name.toLowerCase())) ? tpl0 : 'dev';
+  const tplHTML = tpls.map(t => `<label class="bd-tpl"><input type="radio" name="bdTpl" value="${esc(t.id)}" ${t.id === pick ? 'checked' : ''}><b>${esc(t.icon || '')} ${esc(t.name)}</b><span class="hint">${t.columns.map(c => esc(c.name)).join(' → ')}</span></label>`).join('')
+    + `<label class="bd-tpl"><input type="radio" name="bdTpl" value="kosong"><b>Kosong</b><span class="hint">Antre → Dikerjakan → Selesai, atur sendiri</span></label>`;
+  const cr = creativeRooms();
+  modal({
+    title: 'Papan baru',
+    body: 'Satu kantor bisa punya beberapa papan, mis. papan Kreatif untuk tim konten terpisah dari papan dev. Kolom bisa diubah kapan saja lewat Atur papan.',
+    html: `<div class="bd-nb"><div class="bd-tpls" role="radiogroup" aria-label="Template">${tplHTML}</div>
+      <label for="bdNbName">Nama papan</label><input id="bdNbName" maxlength="40" placeholder="${esc(tpls.find(t => t.id === pick)?.name || 'Papan')}" autocomplete="off">
+      ${cr.length ? `<label class="bd-check"><input type="checkbox" id="bdNbRooms" ${pick === 'kreatif' ? 'checked' : ''}> Jadikan papan bawaan untuk agen di ${cr.map(id => esc(rooms().find(r => r.id === id)?.name || id)).join(', ')}</label>` : ''}</div>`,
+    actions: [{ label: 'Buat papan', kind: 'primary', fn: () => {
+      const t = $('input[name=bdTpl]:checked', $('#modalCard'))?.value || 'dev';
+      const tp = tpls.find(x => x.id === t);
+      const name = $('#bdNbName').value.trim() || tp?.name || 'Papan baru';
+      const body = { name, template: t === 'kosong' ? undefined : t, color: tp?.color || BOARD_COLORS[S.boards.length % BOARD_COLORS.length] };
+      if (t === 'kosong') body.columns = [{ name: 'Antre', kind: 'antre' }, { name: 'Dikerjakan', kind: 'dikerjakan' }, { name: 'Selesai', kind: 'selesai' }];
+      if ($('#bdNbRooms')?.checked) body.rooms = cr;
+      post(`${base()}/boards`, body).then(async b => { toast(`Papan ${b.name} dibuat`, 'ok'); S.board = b.id; saveBoardSel(S.oid, b.id); await refetch(); boardPrefs(); paint(); }).catch(e => toast(e.message, 'bad'));
+    } }, { label: 'Batal' }],
+  });
+}
+
+let BS = null; // draf pengaturan papan
+function bsColsHTML() {
+  const counts = new Map();
+  S.all.filter(c => (c.board || 'utama') === BS.id).forEach(c => { const id = BS.orig[c.col]?.id; if (id) counts.set(id, (counts.get(id) || 0) + 1); });
+  const live = BS.columns.filter(c => !c.gone);
+  const rows = BS.columns.map((c, i) => {
+    if (c.gone) {
+      const n = counts.get(c.id) || 0;
+      return n ? `<li class="bs-gone"><span>${esc(c.name)} dihapus. Pindahkan ${n} kartu ke</span><select data-bs="move" data-i="${i}" aria-label="Kolom tujuan kartu dari ${esc(c.name)}">${live.map(x => `<option value="${esc(x.id || x.name)}" ${BS.moveTo[c.id] === (x.id || x.name) ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><button type="button" class="btn sm ghost" data-bs="undo" data-i="${i}">Batal hapus</button></li>` : '';
+    }
+    const n = c.id ? counts.get(c.id) || 0 : 0;
+    return `<li><input data-bs="name" data-i="${i}" value="${esc(c.name)}" maxlength="40" aria-label="Nama kolom ${i + 1}">
+      <select data-bs="kind" data-i="${i}" aria-label="Jenis kolom ${esc(c.name)}">${KINDS.map(k => `<option value="${k}" ${c.kind === k ? 'selected' : ''}>${KIND_LABEL[k]}</option>`).join('')}</select>
+      <span class="hint">${n} kartu</span>
+      <button type="button" class="x" data-bs="up" data-i="${i}" aria-label="Geser ${esc(c.name)} ke kiri">↑</button><button type="button" class="x" data-bs="down" data-i="${i}" aria-label="Geser ${esc(c.name)} ke kanan">↓</button>
+      <button type="button" class="x" data-bs="del" data-i="${i}" aria-label="Hapus kolom ${esc(c.name)}">✕</button></li>`;
+  }).join('');
+  return `<ul class="bs-cols">${rows}</ul><button type="button" class="btn sm" data-bs="add">+ Kolom</button>
+    <p class="hint">Jenis menentukan arti kolom: <b>Antre</b> (belum mulai), <b>Siap</b>, <b>Dikerjakan</b> (WIP), <b>Review</b>, <b>Selesai</b> (dihitung selesai di metrik, dependensi, kurir). Minimal satu kolom Selesai.</p>`;
+}
+function boardSettings() {
+  const b = curBoard(); if (!b) return;
+  BS = { id: b.id, orig: b.columns, columns: b.columns.map(c => ({ ...c })), moveTo: {}, rooms: [...b.rooms], roles: [...b.roles] };
+  const roomList = rooms().filter(r => r.path != null || b.rooms.includes(r.id));
+  modal({
+    title: `Atur papan ${b.name}`,
+    html: `<div class="bd-bs">
+      <div class="bs-row"><div><label for="bsName">Nama</label><input id="bsName" value="${esc(b.name)}" maxlength="40"></div>
+      <div><label for="bsIcon">Ikon</label><input id="bsIcon" value="${esc(b.icon || '')}" maxlength="4" style="width:5em"></div>
+      <div><label for="bsColor">Warna</label><input type="color" id="bsColor" value="${esc(b.color)}"></div></div>
+      <h3>Kolom</h3><div id="bsCols">${bsColsHTML()}</div>
+      <h3>Papan bawaan agen</h3><p class="hint">Agen di ruangan atau dengan role ini memakai papan ini saat tidak menyebut papan (board_list, card_create).</p>
+      <div class="chips">${roomList.map(r => `<label class="chip"><input type="checkbox" data-bs="room" value="${esc(r.id)}" ${b.rooms.includes(r.id) ? 'checked' : ''}> ${esc(r.name)}</label>`).join('') || '<span class="hint">Belum ada ruangan.</span>'}</div>
+      <div class="chips">${roles().map(r => `<label class="chip"><input type="checkbox" data-bs="role" value="${esc(r.id)}" ${b.roles.includes(r.id) ? 'checked' : ''}> ${mini(r)} ${esc(r.name)}</label>`).join('')}</div>
+      ${b.isDefault ? '' : '<div class="btn-row"><button type="button" class="btn sm danger" data-bs="archive">Arsipkan papan ini</button><span class="hint">kartunya pindah ke Utama</span></div>'}</div>`,
+    actions: [{ label: 'Simpan', kind: 'primary', fn: () => { saveBoardSettings(); return false; } }, { label: 'Batal' }],
+  });
+  const mc = $('#modalCard');
+  if (mc._bs) return;
+  mc._bs = true;
+  const redraw = () => { const box = $('#bsCols', mc); if (box) box.innerHTML = bsColsHTML(); };
+  mc.addEventListener('click', e => {
+    const t = e.target.closest('[data-bs]'); if (!t || !BS) return;
+    const i = Number(t.dataset.i), k = t.dataset.bs, cs = BS.columns;
+    if (k === 'add') { cs.push({ name: `Kolom ${cs.filter(c => !c.gone).length + 1}`, kind: 'dikerjakan' }); redraw(); $$('[data-bs=name]', mc).pop()?.select(); }
+    else if (k === 'up' || k === 'down') { const j = i + (k === 'up' ? -1 : 1); if (j >= 0 && j < cs.length) { [cs[i], cs[j]] = [cs[j], cs[i]]; redraw(); } }
+    else if (k === 'del') { if (cs[i].id) { cs[i].gone = true; const first = cs.find(c => !c.gone); if (first) BS.moveTo[cs[i].id] = first.id || first.name; } else cs.splice(i, 1); redraw(); }
+    else if (k === 'undo') { delete cs[i].gone; delete BS.moveTo[cs[i].id]; redraw(); }
+    else if (k === 'archive') {
+      const b = curBoard(); if (!b) return;
+      if (!t.dataset.armed) { t.dataset.armed = '1'; t.textContent = 'Yakin arsipkan?'; return; }
+      del(`${base()}/boards/${b.id}`).then(async () => { toast(`Papan ${b.name} diarsipkan`, 'ok'); closeModalSafe(); switchBoard('utama'); await refetch(); }).catch(err => toast(err.message, 'bad'));
+    }
+  });
+  const sync = e => {
+    const t = e.target.closest('[data-bs]'); if (!t || !BS) return;
+    const i = Number(t.dataset.i), k = t.dataset.bs;
+    if (k === 'name') BS.columns[i].name = t.value;
+    else if (k === 'kind') BS.columns[i].kind = t.value;
+    else if (k === 'move') BS.moveTo[BS.columns[i].id] = t.value;
+    else if (k === 'room' || k === 'role') { const arr = BS[k + 's']; t.checked ? arr.push(t.value) : arr.splice(arr.indexOf(t.value), 1); }
+  };
+  mc.addEventListener('input', sync); mc.addEventListener('change', sync);
+}
+function closeModalSafe() { const m = $('#modal'); if (m) m.hidden = true; }
+async function saveBoardSettings() {
+  if (!BS) return;
+  const mc = $('#modalCard'), live = BS.columns.filter(c => !c.gone);
+  // kolom baru belum punya id: server memberinya id dari nama; moveTo ke kolom baru memakai namanya, jadi dipetakan ke id hasil slug
+  const slug = v => String(v).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30);
+  const moveTo = Object.fromEntries(Object.entries(BS.moveTo).map(([k, v]) => [k, live.find(c => c.id === v) ? v : slug(v)]));
+  const body = { name: $('#bsName', mc).value, icon: $('#bsIcon', mc).value, color: $('#bsColor', mc).value, rooms: BS.rooms, roles: BS.roles,
+    columns: live.map(c => ({ ...(c.id ? { id: c.id } : {}), name: c.name.trim(), kind: c.kind })), moveTo };
+  try { await patch(`${base()}/boards/${BS.id}`, body); toast('Papan disimpan', 'ok'); closeModalSafe(); BS = null; await refetch(); boardPrefs(); paint(); }
+  catch (e) { toast(e.message, 'bad'); }
+}
+
+/* ---------------- epic strip ---------------- */
 function renderEpics() {
   const box = $('#bdEpics', S.el); if (!box) return;
   box.innerHTML = epics().map(ep => {
-    const ks = kids(ep.id), d = ks.filter(k => k.col === 4).length;
+    const ks = kids(ep.id), d = ks.filter(k => k.done).length;
     return `<button class="epic-card" data-act="bd-open" data-id="${esc(ep.id)}">
-      <div class="kc-row1"><span class="prio" style="--pc:${prioVar(ep.prio)}">${esc(ep.prio)}</span><span class="epic">Epic · ${esc(COLS[ep.col] || '')}</span></div>
+      <div class="kc-row1"><span class="prio" style="--pc:${prioVar(ep.prio)}">${esc(ep.prio)}</span><span class="epic">Epic · ${esc(ep.colName || '')}</span></div>
       <h4>${esc(ep.title)}</h4>
+      ${(ep.labels || []).length ? `<div class="kc-labels">${ep.labels.map(id => labelChip(id)).join('')}</div>` : ''}
       <div class="kc-check"><div class="bar"><i style="width:${ks.length ? Math.round(d / ks.length * 100) : 0}%"></i></div><span>${d}/${ks.length}</span></div>
-      <div class="epic-parts">${ks.map(k => `<span class="${k.col === 4 ? 'done' : ''}">${esc(repoName(k.repo))}${k.col === 4 ? ' selesai' : ''}</span>`).join('')}</div></button>`;
+      <div class="epic-parts">${ks.map(k => `<span class="${k.done ? 'done' : ''}">${esc(repoName(k.repo))}${k.done ? ' selesai' : ''}</span>`).join('')}</div></button>`;
   }).join('');
 }
 
+/* ---------------- kartu ---------------- */
 function cardHTML(c) {
-  const r = c.who && roleOf(c.who), ep = c.epicId && S.cards.find(x => x.id === c.epicId);
+  const r = c.who && roleOf(c.who), ep = c.epicId && S.map.get(c.epicId);
+  const pend = pendingDeps(c, S.map), ds = dueState(c), pg = progressOf(c), sel = S.sel.has(c.id);
   const tot = c.checks?.total || 0, done = c.checks?.done || 0;
-  return `<div class="kc${S.flash.has(c.id) ? ' flash' : ''}" draggable="true" tabindex="0" role="button" data-act="bd-open" data-id="${esc(c.id)}" data-card="${esc(c.id)}" style="--pc:${prioVar(c.prio)}">
-    <div class="kc-row1"><span class="prio">${esc(c.prio)}</span><span class="repo">${esc(repoName(c.repo))}</span></div>
+  const cls = ['kc', S.flash.has(c.id) && 'flash', sel && 'sel', pend.length && 'waiting', c.blocked && 'blk', c.milestone && 'ms'].filter(Boolean).join(' ');
+  const epKids = ep ? kids(ep.id) : [], epDone = epKids.filter(k => k.done).length;
+  const dates = c.start && c.due ? `${fmtDay(c.start)} → ${fmtDay(c.due)}` : c.due ? fmtDay(c.due) : c.start ? 'mulai ' + fmtDay(c.start) : '';
+  const waitTitle = pend.map(id => S.map.get(id)?.title).filter(Boolean).join(', ');
+  const aria = `${c.title}, prioritas ${c.prio}, kolom ${c.colName || ''}${isAll() ? ', papan ' + (c.boardName || c.board) : ''}${r ? ', ' + r.name : ''}`;
+  return `<div class="${cls}" draggable="true" tabindex="0" role="group" aria-label="${esc(aria)}" data-card="${esc(c.id)}" style="--pc:${prioVar(c.prio)}">
+    <span class="kc-tools"><input type="checkbox" class="kc-cb" ${sel ? 'checked' : ''} aria-label="Pilih kartu ${esc(short(c.title, 30))}"><button type="button" class="kc-mb" data-act="bd-menu" data-id="${esc(c.id)}" aria-haspopup="menu" aria-label="Menu kartu ${esc(short(c.title, 30))}">⋯</button></span>
+    ${c.cover ? `<div class="kc-cover"><img src="${esc(c.coverUrl || mediaUrl(c.cover))}" alt="" loading="lazy" draggable="false" onerror="this.parentNode.remove()"></div>` : ''}
+    ${(c.labels || []).length ? `<div class="kc-labels">${c.labels.map(id => labelChip(id)).join('')}</div>` : ''}
+    <div class="kc-row1"><span class="prio">${esc(c.prio)}</span><span class="repo">${esc(repoName(c.repo))}</span>${c.milestone ? '<span class="bd-ms" title="Milestone" aria-label="Milestone">◆</span>' : ''}${isAll() ? boardChip(c) : ''}</div>
     <h4>${esc(c.title)}</h4>
-    ${ep ? `<p class="kc-epic">Epic: ${esc(short(ep.title, 34))}</p>` : ''}
+    ${ep ? `<p class="kc-epic" title="Epic: ${esc(ep.title)}"><span class="bd-eb">Epic</span> ${esc(short(ep.title, 30))} <span class="hint">${epDone}/${epKids.length}</span></p>` : ''}
     ${c.blocked ? `<p class="kc-block">Terblokir: ${esc(c.blocked)}</p>` : ''}
-    ${tot ? `<div class="kc-check"><div class="bar"><i style="width:${Math.round(done / tot * 100)}%"></i></div><span>${done}/${tot}</span></div>` : ''}
-    <div class="kc-foot"><span class="kc-who">${r ? mini(r) + esc(r.name) : '<span class="sub">Belum ditugaskan</span>'}</span>
-      ${c.comments ? `<span class="ico">${ICON.chat}${c.comments}</span>` : ''}${c.due ? `<span class="ico">${ICON.clock}${esc(c.due)}</span>` : ''}</div>
+    ${pend.length ? `<p class="kc-wait" title="${esc(waitTitle)}">Menunggu ${pend.length} kartu</p>` : ''}
+    ${isDate(c.publishAt) ? `<p class="kc-date kc-pub${!c.done && c.publishAt < todayStr() ? ' over' : ''}" title="Tanggal tayang"><span aria-hidden="true">◆</span><span>Tayang ${esc(fmtDay(c.publishAt))}</span></p>` : ''}
+    ${dates ? `<p class="kc-date ${ds}">${ICON.clock}<span>${esc(dates)}</span>${ds === 'over' ? '<b>terlambat</b>' : ''}</p>` : ''}
+    ${pg != null ? `<div class="kc-check"><div class="bar"><i style="width:${pg}%"></i></div><span>${tot && c.progress == null ? `${done}/${tot}` : pg + '%'}</span></div>` : ''}
+    <div class="kc-foot"><span class="kc-who">${r ? mini(r) + `<span class="kc-wn">${esc(r.name)}</span>` : '<span class="sub">Belum ditugaskan</span>'}</span>
+      ${c.comments ? `<span class="ico" title="${c.comments} komentar">${ICON.chat}${c.comments}</span>` : ''}${c.attachments ? `<span class="ico" title="${c.attachments} lampiran">${ICON.file}${c.attachments}</span>` : ''}</div>
     <div class="kc-slot">${liveHTML(c)}</div>
   </div>`;
 }
 
+/* ---------------- swimlane ---------------- */
+const NONE = '_none';
+function laneKeys(c, g) {
+  if (g === 'who') return [c.who || NONE];
+  if (g === 'epic') return [c.epicId && S.map.has(c.epicId) ? c.epicId : NONE];
+  if (g === 'prio') return [c.prio];
+  if (g === 'label') return (c.labels || []).filter(labelOf).length ? c.labels.filter(labelOf) : [NONE];
+  if (g === 'repo') return [c.repo || NONE];
+  return [''];
+}
 function lanes(cards) {
   const g = S.f.group;
-  if (g === 'repo') {
-    const keys = [...new Set(cards.map(c => c.repo || ''))];
-    return keys.map(k => ({ key: k, label: repoName(k) }));
-  }
-  if (g === 'role') {
-    const keys = roles().map(r => r.id);
-    cards.forEach(c => { if (c.who && !keys.includes(c.who)) keys.push(c.who); });
-    keys.push('_none');
-    return keys.map(k => ({ key: k, label: k === '_none' ? 'Belum ditugaskan' : whoName(k) }));
-  }
-  return [{ key: null, label: '' }];
+  if (g === 'none') return [{ key: '', label: '', count: cards.length }];
+  const used = new Map();
+  cards.forEach(c => laneKeys(c, g).forEach(k => used.set(k, (used.get(k) || 0) + 1)));
+  let order;
+  if (g === 'who') order = [...roles().map(r => r.id), ...used.keys(), NONE];
+  else if (g === 'epic') order = [...epics().map(e => e.id), ...used.keys(), NONE];
+  else if (g === 'prio') order = PRIOS;
+  else if (g === 'label') order = [...S.labels.map(l => l.id), NONE];
+  else order = [...repoChoices().map(x => x[0]), ...used.keys(), NONE];
+  const label = k => {
+    if (k === NONE) return { who: 'Belum ditugaskan', epic: 'Tanpa epic', label: 'Tanpa label', repo: 'Tanpa repo' }[g];
+    return g === 'who' ? whoName(k) : g === 'epic' ? S.map.get(k)?.title || k : g === 'prio' ? k : g === 'label' ? labelName(k) : repoName(k);
+  };
+  return [...new Set(order)].filter(k => used.has(k)).map(k => ({ key: k, label: label(k), count: used.get(k), color: g === 'label' ? labelOf(k)?.color : g === 'prio' ? prioVar(k) : '' }));
+}
+/** isi PATCH supaya kartu "masuk" ke swimlane tujuan */
+function laneBody(g, key) {
+  if (g === 'who') return { who: key === NONE ? null : key };
+  if (g === 'epic') return { epicId: key === NONE ? '' : key };
+  if (g === 'prio') return { prio: key };
+  if (g === 'repo') return { repo: key === NONE ? '' : key };
+  return {};
+}
+
+/* ---------------- kanban ---------------- */
+function qaHTML(col, lane, pos) {
+  return `<form class="kc-qa" data-qa="1" data-col="${col}" data-lane="${esc(lane)}" data-pos="${pos}"><input type="text" aria-label="Judul kartu baru di ${esc(COLN()[col] || '')}" placeholder="Judul #label @role !P1" value="${esc(S.qa.val || '')}" autocomplete="off" maxlength="200"><span class="hint">Enter tambah · Esc tutup</span></form>`;
+}
+function kanbanHTML(cards) {
+  const g = S.f.group, ls = lanes(cards), coll = S.f.collapsed, wipOf = S.wip;
+  const VC = viewCols(), names = VC.map(c => c.name);
+  const tpl = names.map((_, i) => (coll.includes(i) ? '46px' : 'minmax(230px,1fr)')).join(' ');
+  const minW = names.reduce((a, _, i) => a + (coll.includes(i) ? 58 : 242), 0);
+  let html = names.map((n0, i) => {
+    const name = esc(n0), kind = VC[i].kind;
+    const n = cards.filter(c => colOf(c) === i).length, tot = S.cards.filter(c => !c.epic && colOf(c) === i).length, lim = wipOf[i], over = lim && tot > lim;
+    if (coll.includes(i)) return `<div class="kb-colh collapsed${over ? ' over' : ''}"><button type="button" class="kb-fold" data-act="bd-fold" data-col="${i}" aria-expanded="false" aria-label="Buka kolom ${name}" title="Buka kolom"><span class="vt">${name}</span><span class="count">${n}</span></button></div>`;
+    return `<div class="kb-colh${over ? ' over' : ''}">
+      <button type="button" class="kb-fold ic" data-act="bd-fold" data-col="${i}" aria-expanded="true" aria-label="Ciutkan kolom ${name}" title="Ciutkan kolom">▾</button>
+      <h3><i class="kb-kind k-${kind}" title="Jenis: ${KIND_LABEL[kind]}" aria-hidden="true"></i>${name}</h3><span class="count" aria-label="${n} kartu">${n}${n !== tot ? `<small>/${tot}</small>` : ''}</span>
+      <button type="button" class="wip${over ? ' over' : ''}" data-act="bd-wip" data-col="${i}" title="Atur batas WIP kolom ${name}" aria-label="Batas WIP ${lim || 'tanpa batas'}, klik untuk mengubah">WIP ${lim ? tot + '/' + lim : '∞'}</button>
+      <button type="button" class="kb-plus" data-act="bd-qa" data-col="${i}" data-lane="${esc(ls[0]?.key ?? '')}" data-pos="top" aria-label="Tambah kartu di ${name}" title="Tambah kartu">+</button></div>`;
+  }).join('');
+  ls.forEach(l => {
+    const off = g !== 'none' && S.f.lanesOff.includes(g + ':' + l.key);
+    if (g !== 'none') html += `<div class="lane-h"><button type="button" class="lane-t" data-act="bd-lane" data-key="${esc(l.key)}" aria-expanded="${!off}"><span class="chev" aria-hidden="true">${off ? '▸' : '▾'}</span>${l.color ? `<i class="lane-dot" style="background:${l.color}"></i>` : ''}<span>${esc(l.label)}</span><span class="count">${l.count}</span></button></div>`;
+    if (off) return;
+    names.forEach((n0, i) => {
+      const name = esc(n0);
+      if (coll.includes(i)) { html += `<div class="kb-cell cl" data-drop="${i}" data-lane="${esc(l.key)}" aria-hidden="true"></div>`; return; }
+      const here = cards.filter(c => colOf(c) === i && laneKeys(c, g).includes(l.key)).sort(byOrd);
+      const qa = S.qa && S.qa.col === i && S.qa.lane === l.key ? S.qa : null;
+      html += `<div class="kb-cell" data-drop="${i}" data-lane="${esc(l.key)}" role="list" aria-label="${name}${l.label ? ' · ' + esc(l.label) : ''}">${qa?.pos === 'top' ? qaHTML(i, l.key, 'top') : ''}${here.map(cardHTML).join('')}${qa?.pos === 'bottom' ? qaHTML(i, l.key, 'bottom') : `<button type="button" class="kb-add" data-act="bd-qa" data-col="${i}" data-lane="${esc(l.key)}" data-pos="bottom" aria-label="Tambah kartu di ${name}">+ Tambah kartu</button>`}</div>`;
+    });
+  });
+  return `<div class="board-scroll"><div class="kb" style="grid-template-columns:${tpl};min-width:${minW}px">${html}</div></div>`;
+}
+
+const SORTS = {
+  prio: c => c.prio, title: c => c.title.toLowerCase(), repo: c => repoName(c.repo).toLowerCase(),
+  who: c => whoName(c.who).toLowerCase(), col: c => colOf(c), due: c => c.due || '9999',
+  checks: c => progressOf(c) ?? -1, moved: c => c.movedAt || '',
+};
+function listHTML(cards) {
+  const { k, dir } = S.f.sort, fn = SORTS[k] || SORTS.col;
+  const sorted = [...cards].sort((a, b) => { const x = fn(a), y = fn(b); return (x < y ? -1 : x > y ? 1 : 0) * dir || colOf(a) - colOf(b); });
+  const th = (key, label) => `<th><button class="bd-th" data-act="bd-sort" data-k="${key}">${label}${S.f.sort.k === key ? `<span aria-hidden="true">${dir > 0 ? ' ▲' : ' ▼'}</span>` : ''}</button></th>`;
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th><span class="sr-only">Pilih</span></th>${th('prio', 'Prioritas')}${th('title', 'Kartu')}${th('repo', 'Repo')}${th('who', 'Role')}${th('col', 'Status')}${th('due', 'Tenggat')}${th('checks', 'Progres')}${th('moved', 'Terakhir')}</tr></thead><tbody>
+    ${sorted.map(c => { const pg = progressOf(c), ds = dueState(c), pend = pendingDeps(c, S.map).length; return `<tr class="click${S.sel.has(c.id) ? ' sel' : ''}" data-card="${esc(c.id)}" tabindex="0">
+      <td><input type="checkbox" class="kc-cb on" ${S.sel.has(c.id) ? 'checked' : ''} aria-label="Pilih kartu ${esc(short(c.title, 30))}"></td>
+      <td><span class="prio" style="--pc:${prioVar(c.prio)}">${esc(c.prio)}</span></td>
+      <td>${c.milestone ? '<span class="bd-ms">◆</span> ' : ''}${esc(c.title)}${c.blocked ? ' <span class="st wait">terblokir</span>' : ''}${pend ? ` <span class="st wait">menunggu ${pend}</span>` : ''}<span class="kc-slot-inline">${isLive(c) ? ' <span class="st working">live</span>' : ''}</span>
+        ${(c.labels || []).length ? `<div class="kc-labels">${c.labels.map(id => labelChip(id)).join('')}</div>` : ''}</td>
+      <td><span class="repo">${esc(repoName(c.repo))}</span></td>
+      <td>${esc(whoName(c.who))}</td><td>${esc(c.colName || '')}${isAll() ? ` <span class="hint">· ${esc(c.boardName || c.board)}</span>` : ''}</td>
+      <td class="kc-date ${ds}">${c.due ? esc(isDate(c.due) ? fmtDay(c.due) : c.due) : '-'}</td>
+      <td>${pg != null ? pg + '%' : '-'}</td>
+      <td class="sub">${esc(c.movedBy ? c.movedBy + ' · ' + ago(c.movedAt) : '')}</td></tr>`; }).join('')}
+    </tbody></table></div>`;
 }
 
 function renderMain() {
   const main = $('#bdMain', S.el); if (!main) return;
+  const act = document.activeElement, focusId = act?.closest?.('#bdMain') && act.closest('[data-card]')?.dataset.card;
+  const qi = $('.kc-qa input', main), qval = qi?.value, qhad = qi && document.activeElement === qi;
+  if (qval !== undefined && S.qa) S.qa.val = qval;
+  renderControls(); renderBulk();
+  main.className = 'bd-' + S.f.density + (S.sel.size || S.selMode ? ' bd-selecting' : '');
   if (!S.cards.length) {
     main.innerHTML = `<div class="empty"><p>Board masih kosong. Buat kartu pertama, atau minta manager atau agent menambahkannya lewat MCP kantor.</p><button class="btn primary" data-act="bd-new">Kartu baru</button></div>`;
     return;
   }
   const cards = filtered();
-  if (!cards.length) { main.innerHTML = '<p class="empty-line">Tidak ada kartu yang cocok dengan filter.</p>'; return; }
+  if (!cards.length) { main.innerHTML = `<div class="empty-line bd-none">Tidak ada kartu yang cocok dengan filter. <button class="btn sm" data-act="bd-clear">Bersihkan filter</button></div>`; return; }
   main.innerHTML = S.f.view === 'list' ? listHTML(cards) : kanbanHTML(cards);
+  if (S.qa && (S.qa.focus || qhad)) { const i = $('.kc-qa input', main); if (i) { i.focus(); try { i.setSelectionRange(i.value.length, i.value.length); } catch {} } S.qa.focus = false; }
+  else if (focusId) $(`[data-card="${CSS.escape(focusId)}"]`, main)?.focus({ preventScroll: true });
 }
-
-function kanbanHTML(cards) {
-  const g = S.f.group, ls = lanes(cards);
-  const inLane = (c, l) => l.key === null || (g === 'repo' ? (c.repo || '') === l.key : (c.who || '_none') === l.key);
-  let html = COLS.map((name, i) => {
-    const n = cards.filter(c => c.col === i).length, lim = WIP[i];
-    return `<div class="kb-colh${lim && n > lim ? ' over' : ''}"><h3>${name}</h3><span class="count">${n}${lim ? ' / ' + lim : ''}</span></div>`;
-  }).join('');
-  ls.forEach(l => {
-    if (l.label) html += `<div class="lane-h">${esc(l.label)}</div>`;
-    html += COLS.map((_, i) => `<div class="kb-cell" data-drop="${i}" data-lane="${l.key === null ? '' : esc(l.key)}">${cards.filter(c => c.col === i && inLane(c, l)).map(cardHTML).join('')}</div>`).join('');
-  });
-  return `<div class="board-scroll"><div class="kb">${html}</div></div>`;
-}
-
-const SORTS = {
-  prio: c => c.prio, title: c => c.title.toLowerCase(), repo: c => repoName(c.repo).toLowerCase(),
-  who: c => whoName(c.who).toLowerCase(), col: c => c.col,
-  checks: c => (c.checks?.total ? c.checks.done / c.checks.total : -1), moved: c => c.movedAt || '',
-};
-function listHTML(cards) {
-  const { k, dir } = S.f.sort, fn = SORTS[k] || SORTS.col;
-  const sorted = [...cards].sort((a, b) => { const x = fn(a), y = fn(b); return (x < y ? -1 : x > y ? 1 : 0) * dir || a.col - b.col; });
-  const th = (key, label) => `<th><button class="bd-th" data-act="bd-sort" data-k="${key}">${label}${S.f.sort.k === key ? `<span aria-hidden="true">${dir > 0 ? ' ▲' : ' ▼'}</span>` : ''}</button></th>`;
-  return `<div class="tbl-wrap"><table class="tbl"><thead><tr>${th('prio', 'Prioritas')}${th('title', 'Kartu')}${th('repo', 'Repo')}${th('who', 'Role')}${th('col', 'Status')}${th('checks', 'Checklist')}${th('moved', 'Terakhir')}</tr></thead><tbody>
-    ${sorted.map(c => `<tr class="click" data-card="${esc(c.id)}" data-act="bd-open" data-id="${esc(c.id)}" tabindex="0">
-      <td><span class="prio" style="--pc:${prioVar(c.prio)}">${esc(c.prio)}</span></td>
-      <td>${esc(c.title)}${c.blocked ? ' <span class="st wait">terblokir</span>' : ''}<span class="kc-slot-inline">${isLive(c) ? ' <span class="st working">live</span>' : ''}</span></td>
-      <td><span class="repo">${esc(repoName(c.repo))}</span></td>
-      <td>${esc(whoName(c.who))}</td><td>${esc(COLS[c.col] || '')}</td>
-      <td>${c.checks?.total ? `${c.checks.done}/${c.checks.total}` : '-'}</td>
-      <td class="sub">${esc(c.movedBy ? c.movedBy + ' · ' + ago(c.movedAt) : '')}</td></tr>`).join('')}
-    </tbody></table></div>`;
-}
+const paint = () => { renderBoards(); renderEpics(); renderMain(); };
 
 function updateLive() {
   if (!S.el) return;
@@ -172,341 +379,404 @@ function updateLive() {
   if (sig === S.liveSig) return;
   S.liveSig = sig;
   $$('.kc[data-card]', S.el).forEach(el => {
-    const c = S.cards.find(x => x.id === el.dataset.card), slot = $('.kc-slot', el);
+    const c = S.map.get(el.dataset.card), slot = $('.kc-slot', el);
     if (c && slot) slot.innerHTML = liveHTML(c);
   });
   $$('tr[data-card]', S.el).forEach(tr => {
-    const c = S.cards.find(x => x.id === tr.dataset.card), slot = $('.kc-slot-inline', tr);
+    const c = S.map.get(tr.dataset.card), slot = $('.kc-slot-inline', tr);
     if (c && slot) slot.innerHTML = isLive(c) ? ' <span class="st working">live</span>' : '';
   });
-  if (S.dr?.card && !S.dr.pending) { const b = $('.bd-livebox', drawerEl()); if (b) b.innerHTML = liveHTML(S.dr.card); }
+  updateLiveBox();
 }
 
-function paint() { renderEpics(); renderMain(); }
-
 async function fetchBoard() {
-  const b = await api(`${base()}/board`);
-  const next = new Map(b.cards.map(c => [c.id, c.updatedAt]));
-  if (S.seen.size) b.cards.forEach(c => { if (S.seen.get(c.id) !== c.updatedAt) S.flash.add(c.id); });
-  S.seen = next; S.cards = b.cards;
+  // selalu semua papan: dependensi lintas papan, hitungan per papan, dan pindah papan butuh kartu papan lain juga
+  const b = await api(`${base()}/board?board=all`);
+  S.boards = b.boards || [];
+  if (!isAll() && !S.boards.some(x => x.id === S.board && !x.archived)) S.board = 'utama';
+  const mine = isAll() ? b.cards : b.cards.filter(c => (c.board || 'utama') === S.board);
+  const next = new Map(mine.map(c => [c.id, c.updatedAt]));
+  if (S.seen.size) mine.forEach(c => { if (S.seen.get(c.id) !== c.updatedAt) S.flash.add(c.id); });
+  S.seen = next; S.all = b.cards; S.cards = mine; S.labels = b.labels || []; S.map = new Map(b.cards.map(c => [c.id, c]));
+  S.sel = new Set(visibleSel());
   return b;
 }
 async function refetch() {
   try { await fetchBoard(); } catch (e) { toast(e.message, 'bad'); return; }
-  if (!S.el) return; // tab was left while fetching
+  if (!S.el) return;
   paint();
   if (S.flash.size) setTimeout(() => { S.flash.clear(); if (S.el) $$('.kc.flash', S.el).forEach(e => e.classList.remove('flash')); }, 1800);
   if (S.dr?.id) {
-    if (!S.cards.some(c => c.id === S.dr.id)) { if (drawerOwned()) closeDrawer(); S.dr = null; }
+    if (!S.map.has(S.dr.id)) closeDetail();
     else refreshDrawer();
   }
 }
 const schedule = debounce(() => refetch(), 300);
+hooks.refetch = refetch; hooks.renderMain = () => { if (S.el) paint(); };
 
-/* ---------------- drag & drop ---------------- */
-async function drop(cell, id) {
-  const c = S.cards.find(x => x.id === id); if (!c) return;
-  const col = Number(cell.dataset.drop), lane = cell.dataset.lane, g = S.f.group;
-  const body = { col };
-  if (g === 'role' && lane !== undefined) body.who = lane === '_none' || lane === '' ? null : lane;
-  if (g === 'repo' && lane !== undefined) body.repo = lane;
-  if (c.col === col && (body.who === undefined || (body.who || null) === (c.who || null)) && (body.repo === undefined || body.repo === (c.repo || ''))) return;
-  Object.assign(c, { col }, body.who !== undefined ? { who: body.who } : {}, body.repo !== undefined ? { repo: body.repo } : {});
+/* ---------------- pindah / urut kartu ---------------- */
+/** ord untuk n kartu yang disisipkan di antara prev dan next */
+function ordsBetween(prev, next, n) {
+  if (prev != null && next != null) return Array.from({ length: n }, (_, k) => prev + (next - prev) * (k + 1) / (n + 1));
+  if (next != null) return Array.from({ length: n }, (_, k) => next - 1000 * (n - k));
+  if (prev != null) return Array.from({ length: n }, (_, k) => prev + 1000 * (k + 1));
+  const t = Date.now(); return Array.from({ length: n }, (_, k) => t + k);
+}
+async function placeCards(ids, col, lane, prevId, nextId, fromLane) {
+  const g = S.f.group, cards = ids.map(id => S.map.get(id)).filter(Boolean); if (!cards.length) return;
+  const ords = ordsBetween(S.map.get(prevId)?.ord ?? null, S.map.get(nextId)?.ord ?? null, cards.length);
+  const jobs = cards.map((c, k) => {
+    const body = { col: colVal(col), ord: ords[k] };
+    if (lane !== undefined && lane !== null && g !== 'none' && g !== 'label') Object.assign(body, laneBody(g, lane));
+    if (g === 'label' && lane !== undefined && lane !== fromLane) {
+      let ls = (c.labels || []).filter(l => l !== fromLane);
+      if (lane && lane !== NONE && !ls.includes(lane)) ls.push(lane);
+      body.labels = ls;
+    }
+    Object.assign(c, body, isAll() ? { stage: col } : { col });
+    return [c.id, body];
+  });
   renderMain();
-  try { await patch(`${base()}/cards/${id}`, body); } catch (e) { toast(e.message, 'bad'); }
+  try { await Promise.all(jobs.map(([id, body]) => patch(`${base()}/cards/${id}`, body))); } catch (e) { toast(e.message, 'bad'); }
   refetch();
 }
+function moveToCol(ids, col) {
+  const last = colCards(col).filter(c => !ids.includes(c.id)).pop();
+  return placeCards(ids, col, undefined, last?.id, null);
+}
+function reorder(id, dir) {
+  const c = S.map.get(id); if (!c) return;
+  const sib = colCards(colOf(c)), i = sib.findIndex(x => x.id === id), j = i + dir;
+  if (j < 0 || j >= sib.length) return;
+  const rest = sib.filter(x => x.id !== id), k = j; // sisip sebelum rest[k], setelah rest[k-1]
+  placeCards([id], colOf(c), undefined, rest[k - 1]?.id, rest[k]?.id).then(() => { $(`[data-card="${CSS.escape(id)}"]`, S.el)?.focus(); });
+}
 
-/* ---------------- drawer ---------------- */
-const drawerOwned = () => { const s = drawerState(); return s.open && S.dr && s.key === 'card:' + (S.dr.id || 'new'); };
-const inField = () => { const d = drawerEl(), a = document.activeElement; return !!(d && a && d.contains(a) && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); };
+/* ---------------- tambah cepat ---------------- */
+async function quickAdd(form) {
+  const input = $('input', form), qa = S.qa; if (!qa) return;
+  const p = parseQuick(input.value, { labels: S.labels, roles: roles() });
+  if (!p.title) { toast('Judul kartu kosong', 'warn'); return; }
+  const g = S.f.group, col = Number(form.dataset.col), lane = form.dataset.lane;
+  const body = { title: p.title, col: colVal(col), labels: p.labels, board: isAll() ? 'utama' : S.board };
+  if (g !== 'none' && g !== 'label' && lane) Object.assign(body, laneBody(g, lane));
+  if (g === 'label' && lane && lane !== NONE && labelOf(lane)) body.labels = [...new Set([...body.labels, labelName(lane)])];
+  if (p.who) body.who = p.who;
+  if (p.prio) body.prio = p.prio;
+  input.disabled = true;
+  try {
+    const card = await post(`${base()}/cards`, body);
+    if (qa.pos === 'top') { const first = colCards(col)[0]; if (first) await patch(`${base()}/cards/${card.id}`, { ord: first.ord - 1000 }); }
+  } catch (e) { toast(e.message, 'bad'); input.disabled = false; input.focus(); return; }
+  input.value = ''; qa.val = ''; qa.focus = true;
+  await refetch();
+}
+function openQa(col, lane, pos) {
+  if (S.f.collapsed.includes(col)) { S.f.collapsed = S.f.collapsed.filter(x => x !== col); persist(); }
+  S.qa = { col, lane, pos, val: '', focus: true };
+  renderMain();
+}
 
-function blankCard() {
+/* ---------------- multi-pilih + aksi massal ---------------- */
+function toggleSel(id, on) {
+  on = on ?? !S.sel.has(id);
+  on ? S.sel.add(id) : S.sel.delete(id);
+  $$(`[data-card="${CSS.escape(id)}"]`, S.el).forEach(el => { el.classList.toggle('sel', on); const cb = $('.kc-cb', el); if (cb) cb.checked = on; });
+  $('#bdMain', S.el)?.classList.toggle('bd-selecting', S.sel.size > 0 || S.selMode);
+  renderBulk();
+}
+function clearSel() { S.sel.clear(); S.selMode = false; $('#bdSelBtn', S.el)?.setAttribute('aria-pressed', 'false'); renderMain(); }
+function renderBulk() {
+  const box = $('#bdBulk', S.el); if (!box) return;
+  const n = visibleSel().length;
+  if (!n) { box.innerHTML = ''; return; }
+  if ($('.bd-bulk', box)) { $('.bd-bn', box).textContent = n + ' dipilih'; return; }
+  const sel = (k, ph, opts) => `<select data-bulk="${k}" aria-label="${ph}"><option value="">${ph}</option>${opts}</select>`;
+  box.innerHTML = `<div class="bd-bulk" role="toolbar" aria-label="Aksi untuk kartu terpilih"><b class="bd-bn">${n} dipilih</b>
+    ${sel('col', 'Pindah ke…', COLN().map((c, i) => `<option value="${i}">${esc(c)}</option>`).join(''))}
+    ${S.boards.filter(b => !b.archived).length > 1 ? sel('board', 'Pindah papan…', S.boards.filter(b => !b.archived).map(b => `<option value="${esc(b.id)}">${esc(b.name)}</option>`).join('')) : ''}
+    ${sel('who', 'Tugaskan…', `<option value="${NONE}">(lepas penugasan)</option>` + roles().map(r => `<option value="${esc(r.id)}">${esc(r.name)}</option>`).join(''))}
+    ${sel('prio', 'Prioritas…', PRIOS.map(p => `<option>${p}</option>`).join(''))}
+    ${sel('addl', '+ Label…', S.labels.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join(''))}
+    ${sel('rml', '− Label…', S.labels.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join(''))}
+    <button type="button" class="btn sm danger" data-act="bd-bulk-del">Arsipkan</button><button type="button" class="btn sm" data-act="bd-sel-clear">Batal</button></div>`;
+}
+async function bulk(kind, v) {
+  const ids = visibleSel(); if (!ids.length || !v) return;
+  if (kind === 'col') { await moveToCol(ids, Number(v)); return; }
+  const jobs = ids.map(id => {
+    const c = S.map.get(id); let body;
+    if (kind === 'who') body = { who: v === NONE ? null : v };
+    else if (kind === 'board') body = { board: v };
+    else if (kind === 'prio') body = { prio: v };
+    else if (kind === 'addl') body = { labels: [...new Set([...(c.labels || []), v])] };
+    else body = { labels: (c.labels || []).filter(l => l !== v) };
+    return patch(`${base()}/cards/${id}`, body);
+  });
+  try { await Promise.all(jobs); toast(`${ids.length} kartu diperbarui`, 'ok'); } catch (e) { toast(e.message, 'bad'); }
+  refetch();
+}
+function bulkDelete() {
+  const ids = visibleSel();
+  confirmDo('Arsipkan kartu', `${ids.length} kartu terpilih akan dihapus dari board (sub-kartu epic ikut).`, 'Arsipkan', async () => {
+    try { await Promise.all(ids.map(id => del(`${base()}/cards/${id}`))); toast(`${ids.length} kartu diarsipkan`, 'ok'); S.sel.clear(); } catch (e) { toast(e.message, 'bad'); }
+    refetch();
+  });
+}
+
+/* ---------------- menu kartu (alternatif keyboard untuk drag) ---------------- */
+function closeMenu(refocus) {
+  const m = S.menu; if (!m) return;
+  m.el.remove(); S.menu = null;
+  if (refocus) ($(`[data-card="${CSS.escape(m.id)}"] .kc-mb`, S.el) || $(`[data-card="${CSS.escape(m.id)}"]`, S.el))?.focus();
+}
+function openMenu(id, anchor) {
+  closeMenu();
+  const c = S.map.get(id); if (!c) return;
+  const cc = colOf(c), sib = colCards(cc), i = sib.findIndex(x => x.id === id);
+  const el = document.createElement('div');
+  el.className = 'bd-menu'; el.setAttribute('role', 'menu'); el.setAttribute('aria-label', 'Menu kartu');
+  el.innerHTML = `<p class="bd-mh">Pindah ke</p>${COLN().map((n, k) => `<button type="button" role="menuitem" data-mn="mv" data-col="${k}" ${k === cc ? 'aria-current="true"' : ''}>${esc(n)}${k === cc ? ' ·' : ''}</button>`).join('')}
+    <hr><button type="button" role="menuitem" data-mn="up" ${i <= 0 ? 'disabled' : ''}>Naikkan dalam kolom</button><button type="button" role="menuitem" data-mn="down" ${i >= sib.length - 1 ? 'disabled' : ''}>Turunkan dalam kolom</button>
+    <hr><button type="button" role="menuitem" data-mn="open">Buka detail</button><button type="button" role="menuitem" data-mn="sel">${S.sel.has(id) ? 'Batal pilih' : 'Pilih kartu'}</button><button type="button" role="menuitem" class="danger" data-mn="del">Arsipkan</button>`;
+  S.el.appendChild(el);
+  const r = anchor.getBoundingClientRect(), w = el.offsetWidth, h = el.offsetHeight;
+  el.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+  el.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - h - 8)) + 'px';
+  S.menu = { el, id };
+  ($('button:not([disabled])', el)).focus();
+}
+function menuClick(e) {
+  const b = e.target.closest('[data-mn]'); if (!b || !S.menu) return;
+  const id = S.menu.id, k = b.dataset.mn;
+  closeMenu(k === 'sel');
+  if (k === 'mv') moveToCol([id], Number(b.dataset.col));
+  else if (k === 'up') reorder(id, -1);
+  else if (k === 'down') reorder(id, 1);
+  else if (k === 'open') openCard(id);
+  else if (k === 'sel') toggleSel(id);
+  else if (k === 'del') confirmDo('Arsipkan kartu', `Kartu "${esc(short(S.map.get(id)?.title || '', 60))}" akan dihapus dari board.`, 'Arsipkan', async () => {
+    try { await del(`${base()}/cards/${id}`); toast('Kartu diarsipkan', 'ok'); } catch (err) { toast(err.message, 'bad'); }
+    refetch();
+  });
+}
+function menuKey(e) {
+  if (!S.menu) return false;
+  const items = $$('button:not([disabled])', S.menu.el), i = items.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown') items[(i + 1) % items.length].focus();
+  else if (e.key === 'ArrowUp') items[(i - 1 + items.length) % items.length].focus();
+  else if (e.key === 'Escape') closeMenu(true);
+  else if (e.key === 'Tab') closeMenu(true);
+  else return false;
+  e.preventDefault(); return true;
+}
+
+/* ---------------- dialog ---------------- */
+function wipDialog(col) {
+  modal({
+    title: `Batas WIP: ${COLN()[col] || ''}`, body: 'Jumlah kartu maksimal di kolom ini. 0 berarti tanpa batas. Kolom diberi tanda saat batas terlewati. Disimpan di browser ini.',
+    html: `<input type="number" id="wipIn" min="0" max="99" value="${S.wip[col] || 0}" aria-label="Batas WIP">`,
+    actions: [{ label: 'Simpan', kind: 'primary', fn: () => { S.wip[col] = Math.max(0, Math.floor(Number($('#wipIn').value) || 0)); saveWip(wipKey(), S.wip); renderMain(); } }, { label: 'Batal' }],
+  });
+}
+function helpDialog() {
+  const rows = [['n', 'Kartu baru'], ['/', 'Cari kartu'], ['← → ↑ ↓', 'Pindah fokus antar kartu'], ['Enter / e', 'Buka kartu terfokus'], ['x', 'Pilih / batal pilih kartu'], ['m', 'Menu pindah kartu'], ['Shift + ← →', 'Pindah kartu antar kolom'], ['Shift + ↑ ↓', 'Ubah urutan dalam kolom'], ['Shift / Cmd + klik', 'Pilih beberapa kartu'], ['f', 'Buka / tutup filter'], ['a', 'Tambah cepat di kolom Backlog'], ['Esc', 'Tutup menu, hapus pilihan'], ['?', 'Bantuan ini']];
+  modal({ title: 'Pintasan keyboard', html: `<dl class="bd-keys">${rows.map(([k, v]) => `<dt><kbd>${esc(k)}</kbd></dt><dd>${esc(v)}</dd>`).join('')}</dl><p class="hint">Tambah cepat: ketik <code>judul #label @role !P1</code> lalu Enter.</p>` });
+}
+
+/* ---------------- filter ---------------- */
+function toggleF(k, v) {
   const f = S.f;
-  return { id: null, title: '', desc: '', col: 0, who: f.role && f.role !== '_none' ? f.role : '', repo: f.repo || '', prio: 'P2', due: '', blocked: '', epic: false, epicId: '', checklist: [], comments: [], history: [], links: [], children: [] };
+  if (k === 'due') f.due = f.due === v ? '' : v;
+  else if (k === 'q') f.q = '';
+  else if (Array.isArray(f[k])) f[k] = f[k].includes(v) ? f[k].filter(x => x !== v) : [...f[k], v];
+  else f[k] = !f[k];
+}
+function removeF(k, v) {
+  if (k === 'q') { f_q(''); } else if (k === 'due') S.f.due = ''; else if (Array.isArray(S.f[k])) S.f[k] = S.f[k].filter(x => x !== v); else S.f[k] = false;
+}
+function f_q(v) { S.f.q = v; const i = $('#bdQ', S.el); if (i) i.value = v; }
+function clearFilters() {
+  const d = defaultPrefs();
+  Object.assign(S.f, { q: '', who: [], labels: [], prios: [], repos: [], due: '', blocked: false, waiting: false, unassigned: false, mine: false, hideOld: false });
+  f_q(d.q);
 }
 
-async function openCard(id) {
-  try {
-    const card = await api(`${base()}/cards/${id}`);
-    S.dr = { id, card, preview: false, blockedOpen: false, comment: '', notify: false, pending: false };
-    showDr();
-  } catch (e) { toast(e.message, 'bad'); }
-}
-function openNew() {
-  S.dr = { id: null, card: blankCard(), preview: false, blockedOpen: false, comment: '', notify: false, pending: false };
-  showDr();
-  $('#cdTitle', drawerEl())?.focus();
-}
-async function reloadCard(focusSel) {
-  if (!S.dr?.id) return;
-  try { S.dr.card = await api(`${base()}/cards/${S.dr.id}`); } catch (e) { toast(e.message, 'bad'); return; }
-  S.dr.pending = false;
-  showDr(focusSel);
-}
-function refreshDrawer() {
-  if (!S.dr?.id || !drawerOwned()) return;
-  if (inField()) { S.dr.pending = true; return; }
-  reloadCard();
-}
-
-function whoOpts(c) {
-  return `<option value="">Belum ditugaskan</option>${roles().map(r => `<option value="${esc(r.id)}" ${c.who === r.id ? 'selected' : ''}>${esc(r.name)} · ${esc(r.title || '')}</option>`).join('')}${c.who && !roleOf(c.who) ? `<option value="${esc(c.who)}" selected>${esc(c.who)}</option>` : ''}`;
-}
-function chipsHTML(c) {
-  return `<span class="prio" style="--pc:${prioVar(c.prio)}">${esc(c.prio)}</span><span class="repo">${esc(repoName(c.repo))}</span>${c.epic ? '<span class="epic">Epic</span>' : ''}${c.id ? `<span class="hint">${esc(c.id)}</span>` : '<span class="hint">kartu baru</span>'}`;
-}
-
-function drawerHTML() {
-  const { card: c, preview, blockedOpen } = S.dr, isNew = !c.id;
-  const blocked = !!c.blocked || blockedOpen;
-  const epicOpts = epics().filter(e => e.id !== c.id);
-  const ck = c.checklist || [];
-  const unchecked = ck.filter(x => !x.done).length;
-  const cardIds = new Set(S.cards.map(x => x.id));
-  const fields = `<div class="cd-grid">
-      <div><label for="cdCol">Status</label><select id="cdCol" data-f="col">${COLS.map((n, i) => `<option value="${i}" ${c.col === i ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-      <div><label for="cdWho">Ditugaskan ke</label><select id="cdWho" data-f="who">${whoOpts(c)}</select></div>
-      <div><label for="cdPrio">Prioritas</label><select id="cdPrio" data-f="prio">${PRIOS.map(p => `<option ${c.prio === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
-      <div><label for="cdRepo">Repo</label><select id="cdRepo" data-f="repo"><option value="">Tanpa repo</option>${repoOptions(c.repo).map(([id, n]) => `<option value="${esc(id)}" ${c.repo === id ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
-      <div><label for="cdDue">Tenggat</label><div class="bd-due"><input id="cdDue" data-f="due" value="${esc(c.due)}" placeholder="2026-10-25 atau teks bebas" autocomplete="off"><button type="button" class="btn sm" data-act="bd-datepick" aria-label="Pilih tanggal">Tanggal</button><input type="date" id="cdDate" class="bd-date" tabindex="-1" aria-hidden="true"></div></div>
-      <div><label for="cdEpic">Epic induk</label><select id="cdEpic" data-f="epicId"><option value="">Tanpa epic</option>${epicOpts.map(e => `<option value="${esc(e.id)}" ${c.epicId === e.id ? 'selected' : ''}>${esc(short(e.title, 36))}</option>`).join('')}</select></div>
-    </div>`;
-  const blockBox = `<div class="bd-block">
-      <label class="bd-check"><input type="checkbox" id="cdBlk" ${blocked ? 'checked' : ''}> Terblokir</label>
-      ${blocked ? `<input id="cdBlkWhy" value="${esc(c.blocked)}" placeholder="Alasan terblokir, mis. menunggu API dari Wulan" autocomplete="off">` : ''}</div>`;
-  const desc = `<section class="dr-sec"><div class="bd-sec-h"><h3>Deskripsi</h3>${isNew ? '' : `<button type="button" class="btn sm ghost" data-act="bd-preview">${preview ? 'Edit' : 'Pratinjau'}</button>`}</div>
-      ${preview ? `<div class="bd-prev">${c.desc ? md(c.desc, { roles: office().roles || [], cardIds, taskIndex: false }) : '<p class="hint">Belum ada deskripsi.</p>'}</div>`
-        : `<textarea id="cdDesc" rows="5" placeholder="Apa yang harus dikerjakan, batasan, catatan. Markdown boleh.">${esc(c.desc)}</textarea>`}</section>`;
-  if (isNew) {
-    return `<div class="dr-head" style="align-items:flex-start"><div class="dr-id"><div class="kc-row1">${chipsHTML(c)}</div>
-        <input class="cd-title" id="cdTitle" value="${esc(c.title)}" placeholder="Judul kartu" aria-label="Judul kartu" autocomplete="off"></div>
-        <button class="icon-btn" data-act="close-drawer" aria-label="Tutup panel">✕</button></div>
-      <div class="dr-body">${fields}${desc}
-        <div class="btn-row"><button class="btn primary" data-act="bd-create">Buat kartu</button><button class="btn" data-act="close-drawer">Batal</button></div></div>`;
+/* ---------------- keyboard ---------------- */
+function neighbor(from, dir) {
+  const cards = $$('#bdMain .kc[data-card]', S.el); if (!cards.length) return null;
+  if (!from) return cards[0];
+  const r = from.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let best = null, bs = Infinity;
+  for (const el of cards) {
+    if (el === from) continue;
+    const q = el.getBoundingClientRect(), x = q.left + q.width / 2, y = q.top + q.height / 2, dx = x - cx, dy = y - cy;
+    const ok = dir === 'left' ? dx < -20 : dir === 'right' ? dx > 20 : dir === 'up' ? (Math.abs(dx) < r.width / 2 && dy < -4) : (Math.abs(dx) < r.width / 2 && dy > 4);
+    if (!ok) continue;
+    const s = (dir === 'left' || dir === 'right') ? Math.abs(dx) * 3 + Math.abs(dy) : Math.abs(dy) * 3 + Math.abs(dx);
+    if (s < bs) { bs = s; best = el; }
   }
-  const children = c.epic ? `<section class="dr-sec"><h3>Sub-kartu (${(c.children || []).filter(k => k.col === 4).length}/${(c.children || []).length} selesai)</h3>
-      <ul class="checklist">${(c.children || []).map(k => `<li class="${k.col === 4 ? 'done' : ''}"><span><a href="#" data-act="bd-open" data-id="${esc(k.id)}">${esc(k.title)}</a> <span class="hint">· ${esc(repoName(k.repo))} · ${esc(k.colName || COLS[k.col])}${k.who ? ' · ' + esc(whoName(k.who)) : ''}</span></span></li>`).join('') || '<li><span class="hint">Belum ada sub-kartu.</span></li>'}</ul></section>` : '';
-  const checklist = `<section class="dr-sec"><h3>Checklist (${ck.filter(x => x.done).length}/${ck.length})</h3>
-      <ul class="checklist">${ck.map(it => `<li class="${it.done ? 'done' : ''}"><input type="checkbox" id="ck${it.id}" data-ck="${it.id}" ${it.done ? 'checked' : ''}><label for="ck${it.id}" style="font-weight:400;font-size:14px"><span>${esc(it.text)}</span></label><button class="x" data-act="bd-ckdel" data-ck="${it.id}" aria-label="Hapus item">✕</button></li>`).join('')}</ul>
-      <form class="inline-form" data-form="ck" style="margin-top:6px"><input id="ckInput" placeholder="Tambah item checklist" autocomplete="off"><button class="btn sm" type="submit">Tambah</button></form>
-      ${unchecked ? `<div class="btn-row" style="margin-top:8px"><button class="btn sm" data-act="bd-split">Pecah jadi sub-kartu</button><span class="hint">${unchecked} item belum dicentang jadi kartu sendiri</span></div>` : ''}</section>`;
-  const thread = (c.comments || []).map(m => {
-    const r = roleByAny(m.who), you = /^(kamu|you)$/i.test(m.who);
-    return `<li><span>${r ? mini(r) : ''}</span><div><div class="meta"><b>${esc(you ? 'Kamu' : r ? r.name : m.who)}</b> · ${esc(ago(m.at))}</div><div class="bd-msg">${esc(m.text)}</div></div></li>`;
-  }).join('') || '<li><span></span><span class="hint">Belum ada komentar.</span></li>';
-  const links = (c.links || []).length ? `<section class="dr-sec"><h3>Terkait</h3><ul class="hist">${c.links.map(l => `<li><span>${esc(l.kind)}</span><span>${/^https?:\/\//.test(l.value) ? `<a href="${esc(l.value)}" target="_blank" rel="noreferrer">${esc(short(l.value, 60))}</a>` : `<code>${esc(l.value)}</code>`}</span></li>`).join('')}</ul></section>` : '';
-  const hist = `<section class="dr-sec"><h3>Riwayat</h3><ul class="hist">${(c.history || []).slice(0, 15).map(h => `<li><span>${esc(ago(h.at))}</span><span><b>${esc(h.who)}</b> ${esc(h.text)}</span></li>`).join('') || '<li><span></span><span>Belum ada.</span></li>'}</ul></section>`;
-  return `<div class="dr-head" style="align-items:flex-start"><div class="dr-id"><div class="kc-row1 bd-chips">${chipsHTML(c)}</div>
-      <input class="cd-title" id="cdTitle" data-f="title" value="${esc(c.title)}" aria-label="Judul kartu" autocomplete="off"></div>
-      <button class="icon-btn" data-act="close-drawer" aria-label="Tutup panel">✕</button></div>
-    <div class="dr-body">
-      <div class="bd-livebox">${liveHTML(c)}</div>
-      ${fields}${blockBox}${desc}${c.epic ? children : ''}${checklist}
-      <section class="dr-sec"><h3>Komentar</h3><ul class="thread">${thread}</ul>
-        <form class="inline-form bd-cm" data-form="cm" style="margin-top:8px"><input id="cmInput" placeholder="Tulis komentar" value="${esc(S.dr.comment)}" autocomplete="off"><button class="btn sm primary" type="submit">Kirim</button></form>
-        <label class="bd-check"><input type="checkbox" id="cmNotify" ${S.dr.notify ? 'checked' : ''} ${c.who ? '' : 'disabled'}> Teruskan ke sesi role yang ditugaskan</label></section>
-      ${links}${hist}
-      <div class="btn-row">
-        ${c.who ? `<button class="btn primary" data-act="bd-shift">Mulai shift ${esc(whoName(c.who))} untuk kartu ini</button>` : ''}
-        <button class="btn danger" data-act="bd-delete">Hapus kartu</button>
-      </div></div>`;
+  // kolom sebelah kosong di baris itu: lompat ke kartu terdekat di arah yang sama
+  return best;
 }
-
-function showDr(focusSel) {
-  const key = 'card:' + (S.dr.id || 'new');
-  const prev = drawerEl() && $('.dr-body', drawerEl());
-  const top = drawerState().open && drawerState().key === key && prev ? prev.scrollTop : 0;
-  const d = showDrawer(drawerHTML(), { wide: false, key, close: () => { S.dr = null; } });
-  bindDrawer(d);
-  if (top) { const b = $('.dr-body', d); if (b) b.scrollTop = top; }
-  if (focusSel) $(focusSel, d)?.focus();
-}
-
-async function savePatch(body) {
-  const dr = S.dr; if (!dr?.id) return;
-  try {
-    const card = await patch(`${base()}/cards/${dr.id}`, body);
-    if (S.dr === dr && card && card.id) {
-      dr.card = { ...dr.card, ...card, checklist: card.checklist ?? dr.card.checklist, comments: card.comments ?? dr.card.comments, history: card.history ?? dr.card.history, children: card.children ?? dr.card.children, links: card.links ?? dr.card.links };
-      const chips = $('.bd-chips', drawerEl()); if (chips) chips.innerHTML = chipsHTML(dr.card);
-    }
-  } catch (e) { toast(e.message, 'bad'); reloadCard(); }
-}
-
-const saveDesc = debounce(() => {
-  const t = $('#cdDesc', drawerEl()); if (!t || !S.dr?.id) return;
-  S.dr.card.desc = t.value;
-  savePatch({ desc: t.value });
-}, 700);
-
-function readNew() {
-  const d = drawerEl(), v = id => $(id, d)?.value ?? '';
-  return { title: v('#cdTitle').trim(), desc: v('#cdDesc'), col: Number(v('#cdCol')), who: v('#cdWho') || null, repo: v('#cdRepo'), prio: v('#cdPrio'), due: v('#cdDue').trim(), epicId: v('#cdEpic') || undefined };
-}
-
-function bindDrawer(d) {
-  if (d._bd) return;
-  d._bd = true;
-  const click = async e => {
-    const t = e.target.closest('[data-act]'); if (!t || !S.dr) return;
-    const a = t.dataset.act, dr = S.dr;
-    try {
-      if (a === 'bd-open') { e.preventDefault(); openCard(t.dataset.id); }
-      else if (a === 'bd-datepick') { const dt = $('#cdDate', d); try { dt.showPicker(); } catch { dt.focus(); } }
-      else if (a === 'bd-preview') {
-        if (!dr.preview) { const ta = $('#cdDesc', d); if (ta) { dr.card.desc = ta.value; if (dr.id) await savePatch({ desc: ta.value }); } }
-        dr.preview = !dr.preview; showDr();
-      }
-      else if (a === 'bd-create') {
-        const b = readNew();
-        if (!b.title) { toast('Judul kartu wajib diisi', 'warn'); $('#cdTitle', d)?.focus(); return; }
-        const card = await post(`${base()}/cards`, b);
-        toast('Kartu dibuat', 'ok');
-        S.dr = { ...dr, id: card.id, card, preview: false };
-        showDr(); refetch();
-      }
-      else if (a === 'bd-ckdel') { await post(`${base()}/cards/${dr.id}/check`, { itemId: t.dataset.ck, remove: true }); await reloadCard(); refetch(); }
-      else if (a === 'bd-split') {
-        confirmDo('Pecah jadi sub-kartu', 'Item checklist yang belum dicentang jadi kartu sendiri, dan kartu ini menjadi epic.', 'Pecah', async () => {
-          try { await post(`${base()}/cards/${dr.id}/split`, {}); toast('Dipecah jadi sub-kartu', 'ok'); await reloadCard(); refetch(); } catch (err) { toast(err.message, 'bad'); }
-        }, 'primary');
-      }
-      else if (a === 'bd-shift') {
-        const c = dr.card; closeDrawer();
-        startShiftDialog(S.ctx, c.who, { cardId: c.id });
-      }
-      else if (a === 'bd-delete') {
-        const c = dr.card;
-        confirmDo('Hapus kartu', `Kartu "${esc(short(c.title, 60))}"${c.epic ? ' beserta sub-kartunya' : ''} akan dihapus dari board.`, 'Hapus', async () => {
-          try { await del(`${base()}/cards/${c.id}`); closeDrawer(); toast('Kartu dihapus', 'ok'); refetch(); } catch (err) { toast(err.message, 'bad'); }
-        });
-      }
-    } catch (err) { toast(err.message, 'bad'); }
-  };
-  const change = async e => {
-    const t = e.target, dr = S.dr; if (!dr) return;
-    if (t.id === 'cdDate') { const due = $('#cdDue', d); due.value = t.value; if (dr.id) { dr.card.due = t.value; savePatch({ due: t.value }); } return; }
-    if (t.dataset.ck) {
-      try { await post(`${base()}/cards/${dr.id}/check`, { itemId: t.dataset.ck, done: t.checked }); await reloadCard(); refetch(); } catch (err) { toast(err.message, 'bad'); reloadCard(); }
-      return;
-    }
-    if (t.id === 'cmNotify') { dr.notify = t.checked; return; }
-    if (t.id === 'cdBlk') {
-      if (t.checked) { dr.blockedOpen = true; showDr('#cdBlkWhy'); }
-      else { dr.blockedOpen = false; dr.card.blocked = ''; if (dr.id) { await savePatch({ blocked: '' }); } showDr(); refetch(); }
-      return;
-    }
-    if (t.id === 'cdBlkWhy') {
-      const why = t.value.trim();
-      if (why !== (dr.card.blocked || '')) { dr.card.blocked = why; await savePatch({ blocked: why }); }
-      return;
-    }
-    const f = t.dataset.f; if (!f) return;
-    let v = t.value;
-    if (f === 'col') v = Number(v);
-    if (f === 'who') v = v || null;
-    if (f === 'title' && !v.trim()) { t.value = dr.card.title; return; }
-    if (f === 'epicId') v = v || '';
-    dr.card[f] = v;
-    if (dr.id) savePatch({ [f]: v });
-  };
-  const input = e => {
-    if (e.target.id === 'cdDesc' && S.dr?.id) saveDesc();
-    if (e.target.id === 'cmInput' && S.dr) S.dr.comment = e.target.value;
-  };
-  const submit = async e => {
-    const f = e.target.closest('form[data-form]'); if (!f || !S.dr?.id) return;
+function onKey(e) {
+  if (!S.el || e.defaultPrevented) return;
+  if (menuKey(e)) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target, typing = /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable;
+  if (e.key === 'Escape') {
+    if (t.matches?.('.kc-qa input')) { S.qa = null; renderMain(); return; }
+    if (S.fp) { S.fp = false; renderControls(); $('#bdFpBtn', S.el)?.focus(); return; }
+    if (!typing && (S.sel.size || S.selMode) && !drawerState().open && $('#modal')?.hidden !== false) { clearSel(); return; }
+    return;
+  }
+  if (typing || drawerState().open || $('#modal')?.hidden === false) return;
+  const card = t.closest?.('.kc[data-card]');
+  const dirs = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+  if (dirs[e.key]) {
+    if (S.f.view !== 'kanban') return;
     e.preventDefault();
-    const dr = S.dr;
-    try {
-      if (f.dataset.form === 'ck') {
-        const v = $('#ckInput', d).value.trim(); if (!v) return;
-        await post(`${base()}/cards/${dr.id}/check`, { text: v });
-        await reloadCard('#ckInput'); refetch();
-      } else {
-        const v = $('#cmInput', d).value.trim(); if (!v) return;
-        await post(`${base()}/cards/${dr.id}/comment`, { text: v, notify: !!($('#cmNotify', d)?.checked && dr.card.who) });
-        dr.comment = '';
-        await reloadCard('#cmInput'); refetch();
-      }
-    } catch (err) { toast(err.message, 'bad'); }
-  };
-  const focusout = e => {
-    if (e.target.id === 'cdDesc' && S.dr?.id && e.target.value !== S.dr.card.desc) { S.dr.card.desc = e.target.value; savePatch({ desc: e.target.value }); }
-    if (!S.dr?.pending) return;
-    setTimeout(() => { if (S.dr?.pending && !inField()) { S.dr.pending = false; reloadCard(); } }, 200);
-  };
-  const keydown = e => { if (e.key === 'Enter' && e.target.matches('#cdTitle,#cdDue,#cdBlkWhy')) e.target.blur(); };
-  const mdclick = e => { const a = e.target.closest('a[data-card]'); if (a) { e.preventDefault(); openCard(a.dataset.card); } };
-  d.addEventListener('click', click); d.addEventListener('click', mdclick);
-  d.addEventListener('change', change); d.addEventListener('input', input);
-  d.addEventListener('submit', submit); d.addEventListener('focusout', focusout); d.addEventListener('keydown', keydown);
-  S.handlers = { d, list: [['click', click], ['click', mdclick], ['change', change], ['input', input], ['submit', submit], ['focusout', focusout], ['keydown', keydown]] };
+    if (e.shiftKey && card) {
+      const c = S.map.get(card.dataset.card), d = dirs[e.key];
+      if (d === 'left' || d === 'right') { const to = colOf(c) + (d === 'left' ? -1 : 1); if (to >= 0 && to < COLN().length) moveToCol([c.id], to).then(() => $(`[data-card="${CSS.escape(c.id)}"]`, S.el)?.focus()); }
+      else reorder(c.id, d === 'up' ? -1 : 1);
+      return;
+    }
+    neighbor(card, dirs[e.key])?.focus(); return;
+  }
+  if (e.key === '/') { e.preventDefault(); $('#bdQ', S.el)?.focus(); }
+  else if (e.key === 'n') { e.preventDefault(); openNew(); }
+  else if (e.key === '?') { e.preventDefault(); helpDialog(); }
+  else if (e.key === 'f') { e.preventDefault(); S.fp = !S.fp; renderControls(); }
+  else if (e.key === 'a' && S.f.view === 'kanban') { e.preventDefault(); openQa(0, lanes(filtered())[0]?.key ?? '', 'top'); }
+  else if (card && (e.key === 'e')) { e.preventDefault(); openCard(card.dataset.card); }
+  else if (card && e.key === 'x') { e.preventDefault(); toggleSel(card.dataset.card); }
+  else if (card && e.key === 'm') { e.preventDefault(); openMenu(card.dataset.card, $('.kc-mb', card) || card); }
 }
 
-/* ---------------- root events ---------------- */
+/* ---------------- event ---------------- */
 function bindRoot(el) {
   const click = e => {
-    const t = e.target.closest('[data-act]'); if (!t || !el.contains(t)) return;
-    const a = t.dataset.act;
-    if (a === 'bd-open') { e.preventDefault(); openCard(t.dataset.id); }
-    else if (a === 'bd-new') openNew();
-    else if (a === 'bd-group' || a === 'bd-view') {
-      S.f[a === 'bd-group' ? 'group' : 'view'] = t.dataset.v;
-      $$(`[data-act="${a}"]`, el).forEach(b => b.setAttribute('aria-pressed', String(b === t)));
-      savePrefs(); renderMain();
+    const t = e.target.closest('[data-act]');
+    if (S.menu && !e.target.closest('.bd-menu')) closeMenu(false);
+    if (S.menu && e.target.closest('.bd-menu')) return menuClick(e);
+    if (e.target.closest('.kc-cb')) { const c = e.target.closest('[data-card]'); toggleSel(c.dataset.card, e.target.checked); return; }
+    if (t && el.contains(t)) {
+      const a = t.dataset.act;
+      if (a === 'bd-open') { e.preventDefault(); openCard(t.dataset.id); }
+      else if (a === 'bd-board') switchBoard(t.dataset.id);
+      else if (a === 'bd-board-new') newBoardDialog();
+      else if (a === 'bd-board-set') boardSettings();
+      else if (a === 'bd-new') openNew();
+      else if (a === 'bd-help') helpDialog();
+      else if (a === 'bd-lblmgr') openLabelManager();
+      else if (a === 'bd-fp') { S.fp = !S.fp; renderControls(); }
+      else if (a === 'bd-f') { toggleF(t.dataset.k, t.dataset.v); persist(); renderMain(); }
+      else if (a === 'bd-q') {
+        if (t.dataset.k === 'mine' && !S.f.me && !S.f.mine) { S.fp = true; renderControls(); toast('Pilih dulu "Saya adalah" di panel Filter', 'warn'); $('#bdMe', el)?.focus(); return; }
+        toggleF(t.dataset.k); persist(); renderMain();
+      }
+      else if (a === 'bd-rm') { removeF(t.dataset.k, t.dataset.v); persist(); renderMain(); }
+      else if (a === 'bd-clear') { clearFilters(); persist(); renderMain(); }
+      else if (a === 'bd-view' || a === 'bd-dens') {
+        S.f[a === 'bd-view' ? 'view' : 'density'] = t.dataset.v;
+        $$(`[data-act="${a}"]`, el).forEach(b => b.setAttribute('aria-pressed', String(b === t)));
+        persist(); renderMain();
+      }
+      else if (a === 'bd-sort') { const k = t.dataset.k; S.f.sort = S.f.sort.k === k ? { k, dir: -S.f.sort.dir } : { k, dir: 1 }; persist(); renderMain(); }
+      else if (a === 'bd-selmode') { S.selMode = !S.selMode; t.setAttribute('aria-pressed', String(S.selMode)); $('#bdMain', el)?.classList.toggle('bd-selecting', S.sel.size > 0 || S.selMode); }
+      else if (a === 'bd-sel-clear') clearSel();
+      else if (a === 'bd-bulk-del') bulkDelete();
+      else if (a === 'bd-fold') { const c = Number(t.dataset.col); S.f.collapsed = S.f.collapsed.includes(c) ? S.f.collapsed.filter(x => x !== c) : [...S.f.collapsed, c]; persist(); renderMain(); }
+      else if (a === 'bd-lane') { const k = S.f.group + ':' + t.dataset.key; S.f.lanesOff = S.f.lanesOff.includes(k) ? S.f.lanesOff.filter(x => x !== k) : [...S.f.lanesOff, k]; persist(); renderMain(); }
+      else if (a === 'bd-wip') wipDialog(Number(t.dataset.col));
+      else if (a === 'bd-qa') openQa(Number(t.dataset.col), t.dataset.lane, t.dataset.pos);
+      else if (a === 'bd-menu') { e.stopPropagation(); openMenu(t.dataset.id, t); }
+      return;
     }
-    else if (a === 'bd-sort') {
-      const k = t.dataset.k;
-      S.f.sort = S.f.sort.k === k ? { k, dir: -S.f.sort.dir } : { k, dir: 1 };
-      renderMain();
+    const card = e.target.closest('.kc[data-card],tr[data-card]');
+    if (card && el.contains(card)) {
+      if (e.shiftKey || e.metaKey || e.ctrlKey || S.sel.size || S.selMode) { e.preventDefault(); toggleSel(card.dataset.card); }
+      else openCard(card.dataset.card);
     }
   };
-  const searchSoon = debounce(() => { S.f.q = $('#bdQ', el).value; savePrefs(); renderMain(); }, 150);
+  const searchSoon = debounce(() => { S.f.q = $('#bdQ', el).value; persist(); renderMain(); }, 150);
   const input = e => { if (e.target.id === 'bdQ') searchSoon(); };
   const change = e => {
-    const m = { bdRole: 'role', bdRepo: 'repo', bdPrio: 'prio' }[e.target.id];
-    if (m) { S.f[m] = e.target.value; savePrefs(); renderMain(); }
+    const t = e.target;
+    if (t.id === 'bdGroup') { S.f.group = t.value; persist(); renderMain(); }
+    else if (t.id === 'bdMe') { S.f.me = t.value; if (!t.value) S.f.mine = false; persist(); renderMain(); }
+    else if (t.dataset.bulk) { const k = t.dataset.bulk, v = t.value; t.value = ''; bulk(k, v); }
   };
   const keydown = e => {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.kc,tr[data-card]')) { e.preventDefault(); openCard(e.target.dataset.card); }
   };
+  const submit = e => { if (e.target.matches('form[data-qa]')) { e.preventDefault(); quickAdd(e.target); } };
+  const focusout = e => {
+    if (e.target.matches?.('.kc-qa input') && S.qa) {
+      const v = e.target.value; S.qa.val = v;
+      setTimeout(() => { if (S.qa && !v.trim() && !$('.kc-qa input:focus', el) && S.el) { S.qa = null; renderMain(); } }, 150);
+    }
+  };
+  /* drag & drop: urut dalam kolom + pindah antar kolom/lane */
+  const ph = document.createElement('div'); ph.className = 'kc-ph';
+  const clearDnD = () => { ph.remove(); $$('.dragging,.kb-cell.over', el).forEach(x => x.classList.remove('dragging', 'over')); };
   const dragstart = e => {
     const k = e.target.closest?.('.kc'); if (!k) return;
-    S.dragId = k.dataset.card; k.classList.add('dragging');
+    const id = k.dataset.card;
+    S.dragIds = S.sel.has(id) && S.sel.size > 1 ? visibleSel() : [id];
+    S.dragLane = k.closest('.kb-cell')?.dataset.lane;
+    S.dragIds.forEach(i => $$(`.kc[data-card="${CSS.escape(i)}"]`, el).forEach(x => x.classList.add('dragging')));
     e.dataTransfer.effectAllowed = 'move';
-    try { e.dataTransfer.setData('text/plain', S.dragId); } catch {}
+    try { e.dataTransfer.setData('text/plain', id); } catch {}
   };
-  const dragend = () => { S.dragId = null; $$('.dragging,.kb-cell.over', el).forEach(x => x.classList.remove('dragging', 'over')); };
+  const dragend = () => { S.dragIds = null; clearDnD(); };
   const dragover = e => {
-    const c = e.target.closest?.('.kb-cell'); if (!c || !S.dragId) return;
+    const c = e.target.closest?.('.kb-cell'); if (!c || !S.dragIds) return;
     e.preventDefault(); e.dataTransfer.dropEffect = 'move';
     if (!c.classList.contains('over')) { $$('.kb-cell.over', el).forEach(x => x.classList.remove('over')); c.classList.add('over'); }
+    if (c.classList.contains('cl')) return;
+    const cards = $$(':scope > .kc:not(.dragging)', c);
+    const ref = cards.find(k => { const r = k.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; });
+    const target = ref || $('.kb-add', c) || $('.kc-qa[data-pos=bottom]', c) || null;
+    if (ph.parentNode !== c || (ref ? ph.nextElementSibling !== ref : (target ? ph.nextElementSibling !== target : ph !== c.lastElementChild))) c.insertBefore(ph, target);
   };
-  const dragleave = e => { const c = e.target.closest?.('.kb-cell'); if (c && !c.contains(e.relatedTarget)) c.classList.remove('over'); };
+  const dragleave = e => { const c = e.target.closest?.('.kb-cell'); if (c && !c.contains(e.relatedTarget)) { c.classList.remove('over'); if (ph.parentNode === c) ph.remove(); } };
+  const live = (node, dir) => { while (node && node.classList.contains('dragging')) node = node[dir]; return node; };
   const dropEv = e => {
-    const c = e.target.closest?.('.kb-cell'); if (!c || !S.dragId) return;
-    e.preventDefault(); const id = S.dragId; dragend(); drop(c, id);
+    const c = e.target.closest?.('.kb-cell'); if (!c || !S.dragIds) return;
+    e.preventDefault();
+    const ids = S.dragIds, fromLane = S.dragLane, col = Number(c.dataset.drop), lane = c.dataset.lane;
+    if (c.classList.contains('cl')) { S.dragIds = null; clearDnD(); moveToCol(ids, col); return; }
+    let pid = null, nid = null;
+    if (ph.parentNode === c) {
+      const p = live(ph.previousElementSibling, 'previousElementSibling'), n = live(ph.nextElementSibling, 'nextElementSibling');
+      pid = p?.classList.contains('kc') ? p.dataset.card : null; nid = n?.classList.contains('kc') ? n.dataset.card : null;
+    } else pid = $$(':scope > .kc', c).filter(k => !ids.includes(k.dataset.card)).pop()?.dataset.card || null;
+    S.dragIds = null; clearDnD();
+    placeCards(ids, col, lane, pid, nid, fromLane);
   };
-  const list = [['click', click], ['input', input], ['change', change], ['keydown', keydown], ['dragstart', dragstart], ['dragend', dragend], ['dragover', dragover], ['dragleave', dragleave], ['drop', dropEv]];
+  const list = [['click', click], ['input', input], ['change', change], ['keydown', keydown], ['submit', submit], ['focusout', focusout], ['dragstart', dragstart], ['dragend', dragend], ['dragover', dragover], ['dragleave', dragleave], ['drop', dropEv]];
   list.forEach(([n, f]) => el.addEventListener(n, f));
-  S.rootHandlers = { el, list };
+  rootH = { el, list };
+  docH = e => onKey(e);
+  document.addEventListener('keydown', docH, true);
 }
 function unbind() {
-  const r = S.rootHandlers; if (r) r.list.forEach(([n, f]) => r.el.removeEventListener(n, f));
-  const h = S.handlers; if (h) { h.list.forEach(([n, f]) => h.d.removeEventListener(n, f)); h.d._bd = false; }
-  S.rootHandlers = S.handlers = null;
+  if (rootH) rootH.list.forEach(([n, f]) => rootH.el.removeEventListener(n, f));
+  if (docH) document.removeEventListener('keydown', docH, true);
+  rootH = docH = null;
+  unbindDetail();
 }
 
 /* ---------------- module interface ---------------- */
 export async function render(el, ctx, route) {
   unbind();
-  Object.assign(S, { ctx, el, oid: ctx.office.id, cards: [], seen: new Map(), flash: new Set(), dr: null, liveSig: '' });
-  S.f = { q: '', role: '', repo: '', prio: '', group: 'none', view: 'kanban', sort: { k: 'col', dir: 1 } };
-  loadPrefs();
+  Object.assign(S, { ctx, el, oid: ctx.office.id, cards: [], labels: [], map: new Map(), seen: new Map(), flash: new Set(), dr: null, liveSig: '', sel: new Set(), selMode: false, qa: null, fp: false, menu: null, dragIds: null });
+  S.f = loadPrefs(S.oid); S.board = loadBoardSel(S.oid);
   el.innerHTML = '<p class="empty-line">Memuat board…</p>';
   try { await fetchBoard(); } catch (e) { el.innerHTML = `<div class="notice">${esc(e.message)}</div>`; return; }
+  boardPrefs();
   S.liveSig = (ctx.office.sessions || []).filter(s => s.status === 'working').map(s => s.role).sort().join(',');
   el.innerHTML = shellHTML();
   bindRoot(el);
@@ -530,8 +800,9 @@ export function live(msg, ctx) {
 }
 
 export function unmount() {
+  closeMenu(false);
   unbind();
   clearTimeout(S.timer);
-  if (S.dr && drawerOwned()) closeDrawer();
+  closeDetail();
   S.dr = null; S.el = null; S.oid = null;
 }

@@ -2,8 +2,8 @@
 // its top WH rows are the wall face. Doors: s = t|b|l|r, at = offset along that side, w = width.
 export const WH = 4;
 
-const FN_WIDTH = { manager: 24, meeting: 21, lib: 19, qa: 18, server: 16, pantry: 24, beku: 15, game: 24 };
-const FLOOR = { manager: 'wood2', meeting: 'carpet', lib: 'carpetGreen', qa: 'tile', server: 'metal', pantry: 'tile', beku: 'frozen', kode: 'wood', game: 'wood' };
+export const FN_WIDTH = { manager: 24, meeting: 21, lib: 19, qa: 18, server: 16, pantry: 24, beku: 15, game: 24, musik: 28, musholla: 20, lounge: 28, gym: 24, taman: 30, telepon: 10, tidur: 18 };
+export const FLOOR = { manager: 'wood2', meeting: 'carpet', lib: 'carpetGreen', qa: 'tile', server: 'metal', pantry: 'tile', beku: 'frozen', kode: 'wood', game: 'wood', musik: 'plum', musholla: 'musholla', lounge: 'lounge', gym: 'gymMat', taman: 'grass', telepon: 'carpet', tidur: 'carpet' };
 
 /**
  * Generic office: lobby on the left, rooms packed into rows that face shared corridors.
@@ -86,7 +86,8 @@ export function railwayLayout(paths) {
     { t: 'water', x: 112, y: 25 }, { t: 'plant', x: 124, y: 33 }, { t: 'plant', x: 124, y: 46 }, { t: 'vending', x: 74, y: 49 }, { t: 'plant', x: 104, y: 50 }, { t: 'bench', x: 30, y: 52 },
   ];
   const runners = [{ x: 0, y: 25 * 8 + 4, w: 128 * 8, h: 12 }, { x: 23 * 8, y: 51 * 8 + 4, w: 105 * 8, h: 12 }, { x: 122 * 8 + 2, y: 23 * 8, w: 12, h: 33 * 8 }];
-  return { w: 128, h: 84, rooms, decor, runners, wings: [{ t: 'Sayap Backend ↑', x: 66, y: 26 }, { t: 'Sayap Game & Tools ↓', x: 26, y: 52 }] };
+  // Ruang Musik: a band below the Game & Tools wing (own corridor, reached from the lobby)
+  return appendRow({ w: 128, h: 84, rooms, decor, runners, wings: [{ t: 'Sayap Backend ↑', x: 66, y: 26 }, { t: 'Sayap Game & Tools ↓', x: 26, y: 52 }] }, [{ id: 'musik', name: 'Ruang Musik', kind: 'musik' }]);
 }
 
 /** Add a band of rooms below an existing plan: a corridor, then rooms whose doors face up. */
@@ -98,7 +99,7 @@ export function appendRow(plan, rooms) {
   let x = x0;
   const placed = [];
   for (const r of rooms) {
-    const w = Math.max(18, FN_WIDTH[r.kind] || 22);
+    const w = Math.max(10, FN_WIDTH[r.kind] || 22);
     if (x + w > Math.max(plan.w, x0 + 60) && placed.length) break;
     placed.push({ ...r, x, y: y0 + CORR, w, h: ROOM_H, floor: FLOOR[r.kind] || 'wood', wall: r.kind === 'meeting' ? 'glass' : undefined, doors: [{ s: 't', at: Math.floor(w / 2) - 1, w: 3 }] });
     x += w - 1;

@@ -43,11 +43,15 @@ function post(server, body, timeoutMs) {
   const server = readServer();
   if (!server) return;
   if (process.env.KANTOR_SID && !data.kantor_sid) data.kantor_sid = process.env.KANTOR_SID;
+  // Codex runs the same script (see server/codex.js); its session ids are its own, so the daemon needs to know
+  if (process.env.KANTOR_ENGINE === 'codex' && !data.kantor_engine) data.kantor_engine = 'codex';
   if (['SessionStart', 'UserPromptSubmit', 'Stop', 'Notification'].includes(data.hook_event_name)) {
     // the hook inherits Claude's controlling terminal; knowing it lets the office type into that tab
     try { const t = require('child_process').execFileSync('ps', ['-o', 'tty=', '-p', String(process.pid)], { encoding: 'utf8', timeout: 800 }).trim(); if (t && t !== '??') data.kantor_tty = '/dev/' + t; } catch {}
   }
   const waits = data.hook_event_name === 'PermissionRequest';
   const out = await post(server, JSON.stringify(data), waits ? 590000 : 1500);
-  if (waits && out && out.trim() && out.trim() !== 'null') process.stdout.write(out.trim());
+  // PermissionRequest answers; PreToolUse / PostToolUse / UserPromptSubmit may return additionalContext (waiting messages, rule changes, repeat warnings)
+  const answers = waits || data.hook_event_name === 'PostToolUse' || data.hook_event_name === 'PreToolUse' || data.hook_event_name === 'UserPromptSubmit';
+  if (answers && out && out.trim() && out.trim() !== 'null') process.stdout.write(out.trim());
 })().catch(() => {}).finally(() => process.exit(0));

@@ -1,0 +1,37 @@
+/* Panel "Agen aktif" lintas kantor */
+.agents-btn{cursor:pointer}
+.agents-btn .ag-wait{background:var(--warn);color:var(--on-warn)}
+.agents-btn.hot .ag-wait{background:var(--warn);color:var(--on-warn)}
+.agents-btn.hot b:not(.ag-wait){background:var(--surface-2);color:var(--ink)}
+.ag-scrim{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.28)}
+.ag-panel{position:fixed;z-index:61;top:54px;right:12px;width:min(440px,calc(100vw - 24px));max-height:calc(100dvh - 70px);display:flex;flex-direction:column;background:var(--surface);color:var(--ink);border:2px solid var(--line);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.25);overflow:hidden}
+.ag-panel header{display:flex;align-items:center;gap:8px;padding:12px 14px 6px}
+.ag-panel header .ag-cnt{flex:1;color:var(--muted);font-size:12px}
+.ag-panel input[type=search]{margin:4px 12px 8px;padding:9px 12px;border:2px solid var(--line);border-radius:10px;background:var(--surface-2);color:var(--ink);font:500 14px var(--f-body);width:auto}
+.ag-list{overflow-y:auto;overflow-x:hidden;padding:0 8px 10px;overscroll-behavior:contain}
+.ag-h{margin:10px 6px 4px;font:800 11px var(--f-label);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.ag-h span{margin-left:4px;color:var(--muted-2)}
+.ag-ul{list-style:none;margin:0;padding:0}
+.ag-li{display:flex;align-items:stretch;gap:2px;border-radius:10px}
+.ag-li.cur,.ag-li:hover{background:var(--surface-2)}
+.ag-open{flex:1;min-width:0;display:flex;align-items:center;gap:10px;background:none;border:0;padding:7px 6px;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.ag-ava{flex:none;width:34px;display:grid;place-items:center}
+.ag-b{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ag-n{display:flex;align-items:center;gap:5px;min-width:0}
+.ag-n b{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ag-n i{font:700 10px var(--f-label);font-style:normal;border-radius:6px;padding:1px 5px;background:var(--surface-2);border:1px solid var(--line);color:var(--muted);white-space:nowrap;flex:none}
+.ag-n i.cx{background:var(--accent-soft);color:var(--accent-text);border-color:transparent}
+.ag-w{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-m{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--muted-2)}
+.ag-dot.s0{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+.ag-dot.s1{background:var(--ok)}
+.ag-btn{flex:none;width:34px;background:none;border:0;border-radius:8px;color:var(--muted);font-size:15px;cursor:pointer}
+.ag-btn:hover{background:var(--line);color:var(--ink)}
+.ag-btn.pin.on{color:var(--warn)}
+.ag-empty{padding:18px 8px}
+@media (max-width:700px){
+  .ag-panel{top:auto;bottom:0;right:0;left:0;width:auto;max-height:82dvh;border-radius:18px 18px 0 0;border-bottom:0;padding-bottom:env(safe-area-inset-bottom)}
+  .ag-btn{width:36px}
+  .ag-open{gap:8px}
+}

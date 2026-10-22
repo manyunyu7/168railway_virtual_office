@@ -16,7 +16,7 @@
 .note .nmeta{color:var(--muted)}
 .note .chip{background:color-mix(in srgb,var(--surface) 55%,transparent);border-color:var(--line);color:var(--ink)}
 .note,.note .md,.note h4{color:var(--ink)}
-.note-editor{background:var(--nc,var(--n-kuning));border-radius:14px;padding:16px 18px;color:var(--ink);border:1px solid color-mix(in srgb,var(--ink) 10%,transparent)}
+.note-editor{background:var(--nc,var(--n-kuning));border-radius:14px;padding:16px 18px;color:var(--ink);border:2px solid color-mix(in srgb,var(--ink) 10%,transparent)}
 .note-editor .ttl{width:100%;border:0;background:transparent;outline:none;color:var(--ink)}
 .note-editor textarea,.note-editor input:not(.ttl),.note-editor select{background:color-mix(in srgb,var(--surface) 7%,transparent);border-color:var(--line);color:var(--ink)}
 .note-editor .btn,.note-editor .seg{background:color-mix(in srgb,var(--surface) 6%,transparent);border-color:var(--line);color:var(--ink)}
@@ -32,6 +32,6 @@
 .nt-pick .chip{cursor:pointer}
 .nt-preview{min-height:240px;background:color-mix(in srgb,var(--surface) 55%,transparent);border-radius:7px;padding:10px 14px}
 .nt-preview .md{color:var(--ink)}
-.note-editor kbd{font:11px var(--f-mono);border:1px solid var(--line);border-radius:3px;padding:0 3px}
+.note-editor kbd{font:11px var(--f-mono);border:2px solid var(--line);border-radius:6px;padding:0 3px}
 .nt-form{display:grid;gap:12px;margin:10px 0}
 @media (max-width:700px){.nt-colors{flex-direction:row}.masonry{columns:1}}

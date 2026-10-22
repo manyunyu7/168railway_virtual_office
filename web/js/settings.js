@@ -1,4 +1,4 @@
-import { $, esc, api, post, toast, confirmDo } from './util.js';
+import { $, esc, api, post, toast, confirmDo, getTheme } from './util.js';
 import { refreshState } from './main.js';
 
 // where this repo lives on the machine running the daemon (filled in from /api/state)
@@ -31,6 +31,10 @@ function draw() {
       <dt>Claude CLI</dt><dd>${flag(st.claude, 'Ditemukan', 'Tidak ditemukan')}${st.claude ? '' : ' <span class="hint">Rapat dan shift butuh perintah <code>claude</code> di PATH.</span>'}</dd>
       <dt>Hooks global</dt><dd>${flag(st.hooks, 'Terpasang', 'Belum dipasang')}</dd></dl></section>
 
+    <section class="card"><h2>Tampilan</h2>
+      <p>Pilih tema warna. "Sistem" mengikuti mode terang atau gelap di perangkatmu. Pilihan ini disimpan di browser ini saja.</p>
+      <div class="theme-seg" role="group" aria-label="Tema warna" style="margin-top:12px">${[['light', '☀', 'Terang'], ['dark', '☾', 'Gelap'], ['system', '◐', 'Sistem']].map(([k, ic, l]) => `<button type="button" class="theme-opt" data-theme-set="${k}" aria-pressed="${getTheme() === k}"><span aria-hidden="true">${ic}</span>${l}</button>`).join('')}</div></section>
+
     <section class="card"><h2>Hooks global</h2>
       <p>Tanpa hooks, hanya shift yang dimulai dari kantor yang terlihat. Dengan hooks, setiap sesi Claude Code di Mac ini muncul di kantor project-nya, termasuk yang kamu jalankan sendiri di iTerm.</p>
       <p class="hint" style="margin:6px 0 10px">Hooks aman: kalau daemon mati, hook langsung selesai tanpa menghambat Claude. Hook milik kamu yang lain (mis. pixel-agents) tetap dipertahankan. Cadangan <code>~/.claude/settings.json</code> dibuat otomatis tiap kali dipasang atau dilepas.</p>
@@ -46,6 +50,14 @@ function draw() {
           <p class="hint">Dipakai saat shift dimulai tanpa memilih mode, termasuk shift yang dimulai manager atau dari kotak "Suruh". Mode "lewati semua izin" sama dengan cara kamu menjalankan Claude di Terminal: tidak ada yang ditanyakan, termasuk perintah ke prod.</p></div>
         <div class="btn-row" style="grid-column:1/-1"><button class="btn primary" type="submit" data-act="st-save">Simpan</button></div></form></section>
 
+    <section class="card"><h2>Musik</h2>
+      <p>Pemutar musik kantor punya stasiun yang dibuat langsung di browser, plus "Folder musikmu" yang memutar file audio (mp3, m4a, wav, ogg, flac) dari folder di Mac ini.</p>
+      <form id="stMusic" class="grid2" style="margin-top:12px">
+        <div class="field" style="grid-column:1/-1"><label for="stMusicDir">Folder musik</label><input id="stMusicDir" type="text" spellcheck="false" value="${esc(st.settings?.musicDir || '')}" placeholder="/Users/kamu/Music"></div>
+        <div class="btn-row" style="grid-column:1/-1"><button class="btn primary" type="submit">Simpan</button></div></form></section>
+
+    <section class="card" id="stPv"><h2>Penyimpanan pratinjau</h2><p class="hint">Memuat…</p></section>
+
     <section class="card"><h2>Akses dari HP</h2>
       <p>Daemon hanya menerima alamat lokal secara bawaan. Untuk membuka dari HP lewat Tailscale, tambahkan IP Tailscale Mac ini ke <code>extraHosts</code> di <code>~/.kantor-claude/config.json</code>, lalu mulai ulang daemon.</p>
       ${cmd('{ "extraHosts": ["100.x.y.z:4317"] }', 'stHost')}
@@ -58,11 +70,37 @@ function draw() {
       <div><p>Pasang tool MCP kantor untuk semua sesi Claude.</p>${cmd(`cd ${REPO} && node bin/kantor.js mcp install`, 'stC3')}</div>
       <div><p>Fungsi <code>kc</code> untuk <code>~/.zshrc</code>. Menjalankan <code>claude</code> lewat <code>kc</code> memasukkannya ke tmux, sehingga kantor bisa menempelkan terminal ke sesi itu.</p>${cmd(KC, 'stC4')}</div></div></section>
   </div></div>`;
+  drawPv();
+}
+
+const mb = n => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`;
+async function drawPv() {
+  const el = root && $('#stPv', root); if (!el) return;
+  let s; try { s = await api('/api/pratinjau/storage'); } catch (e) { el.innerHTML = `<h2>Penyimpanan pratinjau</h2><p class="hint">${esc(e.message)}</p>`; return; }
+  const total = s.offices.reduce((a, o) => a + o.bytes, 0);
+  el.innerHTML = `<h2>Penyimpanan pratinjau</h2>
+    <p>Berkas pratinjau yang sudah selesai (disetujui/dipilih/diarsip, atau info yang sudah dilihat) dibersihkan otomatis setelah beberapa hari; gambar kecilnya tetap ada. Yang 📌 disimpan, baru, revisi, ditunda, atau sudah jadi wiki tidak disentuh.</p>
+    <ul class="hint" style="margin:10px 0">${s.offices.filter(o => o.items).map(o => `<li>${esc(o.name || o.id)}: <b>${mb(o.bytes)}</b> · ${o.items} pratinjau · ${o.files} berkas</li>`).join('') || '<li>Belum ada pratinjau.</li>'}</ul>
+    <p class="hint">Total: <b>${mb(total)}</b></p>
+    <form id="stPvForm" class="grid2" style="margin-top:12px">
+      <div class="field"><label for="stPvDays">Bersihkan setelah (hari, 0 = mati)</label><input id="stPvDays" type="number" min="0" max="3650" value="${s.cleanupDays}"></div>
+      <div class="btn-row" style="grid-column:1/-1"><button class="btn primary" type="submit">Simpan</button><button class="btn" type="button" data-act="st-pvclean">Bersihkan sekarang</button></div></form>`;
+}
+async function pvClean() {
+  try {
+    const r = await post('/api/pratinjau/cleanup', { dryRun: true });
+    if (r.off) { toast('Pembersihan otomatis mati (0 hari). Isi jumlah hari dulu.', 'warn'); return; }
+    if (!r.items.length) { toast(`Tidak ada pratinjau selesai yang lebih tua dari ${r.days} hari.`, 'ok'); return; }
+    confirmDo(`Bersihkan ${r.items.length} pratinjau?`, `Menghemat ${mb(r.bytes)}. Berkas aslinya dihapus; item dan gambar kecilnya tetap ada.`, 'Bersihkan', async () => {
+      try { const d = await post('/api/pratinjau/cleanup', {}); toast(`${d.items.length} pratinjau dibersihkan (${mb(d.bytes)}).`, 'ok'); drawPv(); } catch (err) { toast(err.message, 'bad'); }
+    });
+  } catch (err) { toast(err.message, 'bad'); }
 }
 
 async function onClick(e) {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const act = t.dataset.act;
+  if (act === 'st-pvclean') return pvClean();
   if (act === 'st-copy') {
     const text = $('#' + t.dataset.src, root).textContent;
     try { await navigator.clipboard.writeText(text); toast('Tersalin', 'ok'); } catch { toast('Gagal menyalin, blok teksnya lalu salin manual', 'warn'); }
@@ -86,4 +124,20 @@ document.addEventListener('submit', async e => {
     await post('/api/settings', { approvals: { holdKantorSec: Math.round(k), holdManualSec: Math.round(m) }, defaultPermissionMode: $('#stPerm').value });
     st = await refreshState(); toast('Pengaturan disimpan', 'ok');
   } catch (err) { toast(err.message, 'bad'); }
+});
+
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'stMusic' || !root) return;
+  e.preventDefault();
+  try {
+    await post('/api/settings', { musicDir: $('#stMusicDir').value });
+    st = await refreshState(); toast('Folder musik disimpan', 'ok');
+    window.dispatchEvent(new CustomEvent('kantor-music-dir'));
+  } catch (err) { toast(err.message, 'bad'); }
+});
+
+document.addEventListener('submit', async e => {
+  if (e.target.id !== 'stPvForm' || !root) return;
+  e.preventDefault();
+  try { await api('/api/pratinjau/storage', { method: 'PUT', body: { cleanupDays: Number($('#stPvDays').value) } }); toast('Disimpan', 'ok'); drawPv(); } catch (err) { toast(err.message, 'bad'); }
 });

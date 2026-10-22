@@ -1,0 +1,97 @@
+/* Tema Kantor: token dari design system Ghina (Duolingo-style). Dimuat PERTAMA; gaya komponen ada di chunky.css.
+   Mode: terang (bawaan token), gelap lewat OS (kecuali data-theme=light) atau data-theme=dark.
+   Nama variabel lama (--bg, --surface, --ink, --accent, ...) dipertahankan dan dipetakan ke token Ghina. */
+:root{
+  /* --- Ghina swatches (base / edge / light) --- */
+  --g-green:#58CC02; --g-green-edge:#46A302; --g-green-light:#D7FFB8;
+  --g-blue:#1CB0F6; --g-blue-edge:#1899D6; --g-blue-light:#DDF4FF;
+  --g-red:#FF4B4B; --g-red-edge:#D93A3A; --g-red-light:#FFDFE0;
+  --g-orange:#FF9600; --g-orange-edge:#CD7900; --g-orange-light:#FFF0D5;
+  --g-yellow:#FFC800; --g-yellow-edge:#E0A800; --g-yellow-light:#FFF5D3;
+  --g-purple:#CE82FF; --g-purple-edge:#A568CC; --g-purple-light:#F3E1FF;
+  --g-pink:#FF86D0; --g-pink-edge:#D663AB;
+
+  /* --- bentuk: radius, kedalaman (tepi bawah solid, bukan blur), ketebalan border --- */
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px; --r-xxl:28px; --r-pill:999px;
+  --depth-sm:3px; --depth-md:4px; --depth-lg:6px; --bw:2px;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+  --ease-pop:cubic-bezier(.34,1.56,.64,1); --t-press:70ms; --t-fast:150ms;
+
+  /* --- netral terang (snow / polar / swan / wolf / ink) --- */
+  --bg:#FFFFFF; --band:#F7F7F7; --surface:#FFFFFF; --surface-2:#F7F7F7;
+  --line:#E5E5E5; --edge:#D5D5D5;
+  --ink:#3C3C3C; --muted:#6B6B6B; --muted-2:#8A8A8A;
+
+  /* --- aksen: hijau daun Ghina --- */
+  --accent:#58CC02; --accent-edge:#46A302; --accent-ink:#FFFFFF; --accent-soft:#D7FFB8; --accent-text:#3B8700;
+  --blue:#1CB0F6; --blue-edge:#1899D6; --blue-soft:#DDF4FF; --blue-text:#0B78AD;
+  --teal:#0F8F7E; --teal-soft:#D2F7F1;
+  --ok:#3B8700; --ok-soft:#D7FFB8; --warn:#B96F00; --warn-soft:#FFF0D5; --on-warn:#4A2C00;
+  --bad:#D93A3A; --bad-edge:#B02A2A; --bad-soft:#FFDFE0;
+  --p0:#FF4B4B; --p1:#FF9600; --p2:#1CB0F6; --p3:#AFAFAF;
+
+  /* --- kanvas denah & dekor kantor (kanvas punya palet sendiri; ini bingkai/latar sekitarnya) --- */
+  --roof:#3C3C3C; --stage:#8F8A93; --bezel:#2B3940; --ring:#46555E; --wall:#8B7F8F; --sky:#DDF4FF; --ground:#D7FFB8; --lit:#FFC800; --unlit:#B8C4CA;
+  --b1:#C98B5E; --b2:#1CB0F6; --b3:#58CC02; --b4:#CE82FF; --b5:#FFC800; --b6:#AFAFAF;
+  --n-kuning:#FFF5D3; --n-hijau:#D7FFB8; --n-biru:#DDF4FF; --n-merah:#FFDFE0; --n-ungu:#F3E1FF; --n-abu:#EEEEEE;
+  --term-bg:#131F24; --term-ink:#E8F1F6; --term-dim:#8FA2AC;
+
+  --shadow:0 var(--depth-md) 0 var(--edge);
+  --shadow-sm:0 var(--depth-sm) 0 var(--edge);
+  --shadow-float:0 12px 32px rgba(19,31,36,.14);
+  --scrim:rgba(19,31,36,.45);
+  --glass:rgba(255,255,255,.94); --glass-line:#E5E5E5;
+  --focus-ring:color-mix(in srgb,var(--blue) 35%,transparent);
+
+  /* --- tipografi: Nunito (sama dengan Ghina) --- */
+  --f-display:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-body:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-label:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --f-pixel:"Silkscreen", "JetBrains Mono", ui-monospace, monospace;
+  color-scheme:light;
+}
+/* gelap: navy/arang Ghina */
+:root[data-theme="dark"]{
+  --bg:#131F24; --band:#101A1E; --surface:#1A2A31; --surface-2:#202F36;
+  --line:#37464F; --edge:#0E161A;
+  --ink:#F1F7FB; --muted:#A7B6BE; --muted-2:#7C8E98;
+  --accent:#58CC02; --accent-edge:#46A302; --accent-ink:#0F2200; --accent-soft:#1F3A12; --accent-text:#8BE14A;
+  --blue:#1CB0F6; --blue-edge:#1899D6; --blue-soft:#13303F; --blue-text:#5CC6FA;
+  --teal:#2DD4BC; --teal-soft:#123A38;
+  --ok:#7DDB3A; --ok-soft:#1D3411; --warn:#FFB43A; --warn-soft:#3A2A0E; --on-warn:#2A1A08;
+  --bad:#FF6B6B; --bad-edge:#C93232; --bad-soft:#3F1D20;
+  --p0:#FF6B6B; --p1:#FFB43A; --p2:#5CC6FA; --p3:#7C8E98;
+  --roof:#5B6C75; --stage:#8F8A93; --bezel:#0B1215; --ring:#37464F; --wall:#202F36; --sky:#183241; --ground:#26441A; --lit:#FFC800; --unlit:#37464F;
+  --b1:#8E5F3F; --b2:#1B7FB0; --b3:#46A302; --b4:#8B5FB0; --b5:#B58F00; --b6:#52656D;
+  --n-kuning:#3A3414; --n-hijau:#1F3A12; --n-biru:#13303F; --n-merah:#3F1D20; --n-ungu:#321F42; --n-abu:#26343B;
+  --term-bg:#0B1215;
+  --shadow:0 var(--depth-md) 0 var(--edge); --shadow-sm:0 var(--depth-sm) 0 var(--edge);
+  --shadow-float:0 16px 40px rgba(0,0,0,.5);
+  --scrim:rgba(5,10,12,.62);
+  --glass:rgba(26,42,49,.94); --glass-line:#37464F;
+  --focus-ring:color-mix(in srgb,var(--blue) 45%,transparent);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131F24; --band:#101A1E; --surface:#1A2A31; --surface-2:#202F36;
+    --line:#37464F; --edge:#0E161A;
+    --ink:#F1F7FB; --muted:#A7B6BE; --muted-2:#7C8E98;
+    --accent:#58CC02; --accent-edge:#46A302; --accent-ink:#0F2200; --accent-soft:#1F3A12; --accent-text:#8BE14A;
+    --blue:#1CB0F6; --blue-edge:#1899D6; --blue-soft:#13303F; --blue-text:#5CC6FA;
+    --teal:#2DD4BC; --teal-soft:#123A38;
+    --ok:#7DDB3A; --ok-soft:#1D3411; --warn:#FFB43A; --warn-soft:#3A2A0E; --on-warn:#2A1A08;
+    --bad:#FF6B6B; --bad-edge:#C93232; --bad-soft:#3F1D20;
+    --p0:#FF6B6B; --p1:#FFB43A; --p2:#5CC6FA; --p3:#7C8E98;
+    --roof:#5B6C75; --stage:#8F8A93; --bezel:#0B1215; --ring:#37464F; --wall:#202F36; --sky:#183241; --ground:#26441A; --lit:#FFC800; --unlit:#37464F;
+    --b1:#8E5F3F; --b2:#1B7FB0; --b3:#46A302; --b4:#8B5FB0; --b5:#B58F00; --b6:#52656D;
+    --n-kuning:#3A3414; --n-hijau:#1F3A12; --n-biru:#13303F; --n-merah:#3F1D20; --n-ungu:#321F42; --n-abu:#26343B;
+    --term-bg:#0B1215;
+    --shadow-float:0 16px 40px rgba(0,0,0,.5);
+    --scrim:rgba(5,10,12,.62);
+    --glass:rgba(26,42,49,.94); --glass-line:#37464F;
+    --focus-ring:color-mix(in srgb,var(--blue) 45%,transparent);
+    color-scheme:dark;
+  }
+}

@@ -8,6 +8,7 @@ import { scanRoot, basePlan, registerOffice, officeModel, invalidate } from './o
 import { roomFor } from './seed.js';
 import { createCard, saveWiki } from './store.js';
 import { startShift } from './tmux.js';
+import { generateFrom, applyTemplate } from './templates.js';
 
 const slugDir = s => String(s || '').trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
 
@@ -60,8 +61,13 @@ export function wizardPreview(spec) {
   const v = resolveSpec(spec);
   const plan = basePlan(v.root, v.scan, []);
   const team = (spec.team || []).map((r, i) => ({ ...r, id: r.id || `r${i}`, room: r.isMgr ? 'manager' : roomFor(plan, r.room) }));
-  const withDesks = basePlan(v.root, v.scan, team);
+  let withDesks = basePlan(v.root, v.scan, team);
   const warnings = [];
+  // the chosen office template, laid over the generated rooms exactly as it will be applied after creation
+  if (spec.template) {
+    try { const g = generateFrom({ rooms: withDesks.rooms, roles: team.map(t => ({ id: t.id, room: t.room })), extra: [], hidden: [] }, spec.template, spec.seed || 1); withDesks = { ...g.plan, furniture: g.furniture }; }
+    catch (e) { warnings.push(`Template tidak bisa dipakai: ${e.message}`); }
+  }
   if (spec.mode !== 'existing' && v.exists) warnings.push(`Folder ${v.root} sudah ada. Pilih "Folder yang sudah ada" atau ganti nama.`);
   return { root: v.root, name: v.name, plan: withDesks, team,
     rooms: withDesks.rooms.filter(r => ['kode', 'zone', 'game'].includes(r.kind)).map(r => ({ id: r.id, name: r.name, path: r.path, stack: r.stack || '' })), warnings };
@@ -107,10 +113,15 @@ export function wizardCreate(spec) {
       desc: [spec.description?.trim(), 'Baca CLAUDE.md dan isi folder, lalu pecah pekerjaan awal jadi kartu untuk tiap role.'].filter(Boolean).join('\n\n'),
       checklist: spec.mode === 'existing' ? ['Baca CLAUDE.md dan README', 'Catat stack dan cara menjalankan di wiki', 'Buat kartu untuk pekerjaan yang terlihat'] : ['Tentukan stack dan struktur folder', 'Tulis cara menjalankan di wiki', 'Buat kartu pekerjaan pertama untuk tiap role'] }, 'Kamu');
   }
+  let template = null;
+  if (spec.template) {
+    try { template = applyTemplate(id, spec.template, spec.seed || 1).template; }
+    catch (e) { console.warn('[wizard] template', spec.template, e.message); }
+  }
   let shift = null;
   if (spec.startManager && mgr) {
     const brief = spec.brief?.trim() || (card ? `Kerjakan kartu ${card.id}: ${card.title}` : 'Kenali project ini dan susun rencana kerja di board.');
     shift = startShift(id, mgr.id, { task: brief, cardId: card?.id || null, permissionMode: spec.permissionMode || null });
   }
-  return { id, created, card: card?.id || null, shift: shift?.sid || null };
+  return { id, created, card: card?.id || null, shift: shift?.sid || null, template };
 }

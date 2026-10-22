@@ -5,11 +5,11 @@
 .drawer .sess-actions .btn kbd{font-size:11px}
 .drawer .hist{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13.5px}
 .drawer .hist li{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px}
-.drawer .hist li>span:first-child{font:600 12px var(--f-mono);color:var(--muted)}
+.drawer .hist li>span:first-child{font:800 12px var(--f-label);color:var(--muted)}
 .drawer textarea#drNotes{width:100%;resize:vertical}
 .drawer [data-slot="ended"]{background:var(--warn-soft);color:var(--ink)}
 @media (max-width:480px){.drawer .facts{grid-template-columns:1fr}.drawer .hist li{grid-template-columns:1fr;gap:0}}
-.tr-head{font-size:13.5px;color:var(--muted);background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.tr-head{font-size:13.5px;color:var(--muted);background:var(--surface-2);border:2px solid var(--line);border-radius:12px;padding:9px 12px}
 .tr-head code{color:var(--ink)}
 .tr-box{flex:1;min-height:320px;max-height:none;overflow-y:auto;background:#1F1628;color:#E9E2DA;border-radius:10px;padding:12px 14px;font:12.5px/1.6 var(--f-mono);display:grid;gap:6px;align-content:start}
 .tr-user{color:#F5B76C;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -30,20 +30,20 @@
 /* compact panel, like a terminal harness */
 .dr-head.compact{padding:10px 14px;gap:10px}
 .dr-head.compact .dr-ava{width:38px;height:44px;border-radius:8px}
-.dr-head.compact .dr-ava svg{width:24px;height:39px}
+.dr-head.compact .dr-ava svg{width:29px;height:39px}
 .dr-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dr-head.compact .dr-name{font:700 17px var(--f-body);letter-spacing:-.01em}
-.dr-head.compact .dr-title{font:500 11.5px var(--f-mono);color:var(--muted)}
+.dr-head.compact .dr-title{font:700 11.5px var(--f-label);color:var(--muted)}
 .dr-head.compact .icon-btn{width:30px;height:30px;font-size:14px}
 .drawer .dr-tabs{padding-top:2px}
 .drawer .dr-body:has(> .termbox){gap:8px;padding:10px 14px 12px}
 .ctl-row{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap}
-.ctl-l{font:500 10.5px var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.ctl-l{font:700 10.5px var(--f-label);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-right:4px}
 .btn.halt{background:#E6765F;border-color:#E6765F;color:#2A0F08}
 .more{position:relative}
 .more summary{list-style:none;cursor:pointer}
 .more summary::-webkit-details-marker{display:none}
-.more-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;display:grid;min-width:230px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:4px;box-shadow:var(--shadow)}
+.more-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;display:grid;min-width:230px;background:var(--surface);border:2px solid var(--line);border-radius:12px;padding:4px;box-shadow:var(--shadow)}
 .more-menu button{border:0;background:none;text-align:left;padding:7px 10px;border-radius:7px;font-size:13.5px;color:var(--ink)}
 .more-menu button:hover{background:var(--surface-2)}
 .more-menu button.danger{color:var(--bad)}
@@ -74,15 +74,62 @@
 /* fokus: agent switcher on the left, terminal everywhere else */
 #drawer.full .dr-switch{display:flex;flex-direction:column;gap:6px;width:260px;flex:none;padding:12px;border-right:1px solid var(--line);background:var(--surface-2);overflow-y:auto}
 #drawer.full .dr-switch .btn{justify-content:center;margin-bottom:6px}
-.sw-row{display:grid;grid-template-columns:30px minmax(0,1fr) 10px;gap:8px;align-items:center;text-align:left;border:1px solid transparent;background:none;border-radius:10px;padding:6px 8px;color:var(--ink)}
+.sw-row{display:grid;grid-template-columns:30px minmax(0,1fr) 10px;gap:8px;align-items:center;text-align:left;border:2px solid transparent;background:none;border-radius:12px;padding:6px 8px;color:var(--ink)}
 .sw-row:hover{background:var(--surface)}
 .sw-row.cur{background:var(--surface);border-color:var(--accent)}
 .sw-ava{width:30px;height:36px;display:grid;place-items:center}
 .sw-b{display:grid;min-width:0}
 .sw-b b{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sw-b span{font:500 11px var(--f-mono);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sw-b span{font:700 11px var(--f-label);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sw-st{width:8px;height:8px;border-radius:50%;background:var(--muted-2)}
 .sw-st.bekerja{background:var(--ok)}
 .sw-st.izin{background:var(--accent)}
 #drawer.full .dr-body:has(> .termbox){padding:10px 16px 14px}
 .drawer .dr-body .msgbox textarea{min-height:38px}
+/* pooled terminals: the xterm lives in its own box so it can be moved between drawers */
+.drawer .termbox .xt{position:relative}
+.drawer .xt-in{position:absolute;inset:0}
+.drawer .xt-in .xterm{height:100%}
+/* Phones with a larger system font (Chrome "Text scaling", WebView textZoom) enlarge text after xterm has measured its
+   cells, so glyphs grow past their cells and lines get cut off. A terminal's grid must stay exactly as measured. */
+.xterm,.xterm *{-webkit-text-size-adjust:none;text-size-adjust:none}
+
+/* tombol khusus terminal untuk layar sentuh / sempit */
+.kb-wrap{display:none;flex:none}
+@media (pointer:coarse),(max-width:900px){.kb-wrap{display:flex;align-items:center;gap:6px;min-width:0}}
+.keybar{flex:1;min-width:0;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding:1px 0;touch-action:pan-x}
+.keybar::-webkit-scrollbar{display:none}
+.kb-k{flex:none;min-width:42px;height:38px;padding:0 11px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);font:800 13px var(--f-label);-webkit-tap-highlight-color:transparent;user-select:none}
+.kb-k:active{background:var(--accent-soft);border-color:var(--accent)}
+.kb-k.ctrl[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.kb-k.hide{color:var(--muted)}
+.kb-show{display:none;flex:none;margin-left:auto;height:30px;min-width:42px;border:2px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);font-size:15px}
+.kb-wrap.off .keybar{display:none}
+.kb-wrap.off .kb-show{display:block}
+.kb-wrap.off{justify-content:flex-end}
+.dk-kb{flex:none;padding:5px 8px;background:var(--surface-2);border-top:1px solid var(--line)}
+.dk-kb[hidden]{display:none}
+.dr-back{display:none}
+
+/* HP: panel agen layar penuh, header ringkas, sasaran ketuk besar */
+@media (max-width:900px){
+  #drawer,#drawer.wide,#drawer.full,body.kantor-full #drawer,body.dock-open #drawer{top:var(--dr-top,0)!important;left:0!important;right:0!important;bottom:auto!important;width:100%!important;height:var(--dr-h,100dvh);border-left:0;border-radius:0;box-shadow:none;animation:none;z-index:70}
+  .dr-head.compact{padding:6px 8px;gap:8px;padding-top:max(6px,env(safe-area-inset-top))}
+  .dr-head.compact .dr-title,.dr-head.compact [data-act="dr-full"],.dr-head.compact .dr-ava{display:none}
+  .dr-head.compact .dr-back{display:grid;place-items:center;width:42px;height:42px;font-size:20px}
+  .dr-head.compact [data-act="close-drawer"]:not(.dr-back){display:none}
+  .dr-head.compact .dr-name{font-size:16px}
+  .dr-head.compact .st{font-size:10px}
+  .drawer .dr-tabs{padding:0;gap:0}
+  .drawer .dr-tabs button{flex:1 0 auto;min-height:44px;padding:0 14px;font-size:11.5px;letter-spacing:.06em}
+  .drawer .dr-body:has(> .termbox){padding:6px 6px calc(8px + env(safe-area-inset-bottom));gap:6px}
+  .drawer .termbox{min-height:120px;padding:3px}
+  .term-bar .tb-live{display:none}
+  .term-bar{justify-content:flex-end}
+  .tb-ctl .btn.sm{padding:7px 11px;font-size:13px}
+  .tb-ctl .fs button{width:32px;height:30px}
+  .msgbox textarea{font-size:16px}
+  .msgbox .btn{height:42px;padding:0 16px}
+  .more-menu button{padding:11px 12px}
+  .drawer .dr-body:has(> .termbox) > .hint{display:none}
+}

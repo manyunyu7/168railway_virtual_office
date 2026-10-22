@@ -1,5 +1,6 @@
 import { $, $$, esc, short, usd, api, post, del, toast, modal, closeModal, confirmDo, sprite, mini, onLive, connectLive, hhmm, ago, guestLook, modelName } from './util.js';
 import { createStage } from './office-canvas.js';
+import { isCodex } from './codex.js';
 import { openSession, openRole, drawerOnLive, HOSTS, MODE_LABEL } from './drawer.js';
 import { closeDrawer, drawerState } from './panel.js';
 import * as board from './board.js';
@@ -8,15 +9,30 @@ import * as archive from './archive.js';
 import * as meetings from './meetings.js';
 import * as notes from './notes.js';
 import * as wiki from './wiki.js';
+import * as pratinjau from './pratinjau.js';
+import './docs.js';
 import * as payroll from './payroll.js';
+import * as metrics from './metrics.js';
 import * as settings from './settings.js';
 import * as wizard from './wizard.js';
 import * as files from './files.js';
+import * as gantt from './gantt.js';
+import * as calendar from './calendar.js';
+import * as chatmode from './chatmode.js';
+import { initViewer, viewerLive } from './viewer.js';
+import { initDock, dockLive, openDock } from './dock.js';
+import { initAgents, agentsLive, paintAgentsBadge } from './agents.js';
+import { music, mountPlayer, mountLibrary } from './music.js';
+import { openLayoutEditor } from './layout-editor.js';
+import { bindDmCard, paintDmCard, dmLive } from './dm.js';
+import { minionCardHTML, paintMinionCard, showMinionMenu, closeMinionMenu } from './minions-ui.js';
+import { kunciCardHTML, paintKunciCard, kunciLive } from './kunci-ui.js';
+import { mountTabBar } from './tab-bar.js';
 
 export const ctx = { st: null, office: null, stage: null, view: null, route: null };
 const view = $('#view');
-const TABS = { kantor: 'Kantor', board: 'Board', file: 'File', rapat: 'Rapat', notes: 'Notes', wiki: 'Wiki', payroll: 'Payroll', role: 'Role', arsip: 'Arsip' };
-const MODULES = { board, file: files, role: roles, arsip: archive, rapat: meetings, notes, wiki, payroll };
+const TABS = { kantor: 'Kantor', chat: 'Chat', board: 'Board', timeline: 'Timeline', kalender: 'Kalender', file: 'File', rapat: 'Rapat', notes: 'Notes', wiki: 'Wiki', pratinjau: 'Pratinjau', payroll: 'Payroll', metrik: 'Metrik', role: 'Role', arsip: 'Arsip' };
+const MODULES = { chat: chatmode, board, timeline: gantt, kalender: calendar, file: files, role: roles, arsip: archive, rapat: meetings, notes, wiki, pratinjau, payroll, metrik: metrics };
 
 /* ---------------- routing ---------------- */
 function parse() {
@@ -26,6 +42,7 @@ function parse() {
   if (h[0] === 'baru') return { name: 'wizard' };
   if (h[0] === 'pengaturan') return { name: 'settings' };
   if (h[0] === 'payroll') return { name: 'payroll' };
+  if (h[0] === 'metrik') return { name: 'metrik' };
   return { name: 'map' };
 }
 export const go = hash => { if (location.hash === hash) route(); else location.hash = hash; };
@@ -40,17 +57,97 @@ async function route() {
     closeModal();
   }
   document.body.classList.toggle('kantor-full', r.name === 'office' && r.tab === 'kantor' && r.id !== '_kompleks');
+  document.body.classList.toggle('chat-full', r.name === 'office' && r.tab === 'chat' && r.id !== '_kompleks');
   document.body.classList.toggle('in-office', r.name === 'office');
   try {
     if (r.name === 'map') await renderMap();
     else if (r.name === 'wizard') { crumbs([['Kantor baru']]); ctx.view = wizard; await wizard.render(view, ctx); }
     else if (r.name === 'settings') { crumbs([['Pengaturan']]); ctx.view = settings; await settings.render(view, ctx); }
+    else if (r.name === 'metrik') { crumbs([['Metrik kompleks']]); ctx.view = metrics; await metrics.render(view, { ...ctx, office: null, global: true }); }
     else if (r.name === 'payroll') { crumbs([['Payroll kompleks']]); ctx.view = payroll; await payroll.render(view, { ...ctx, office: null, global: true }); }
     else await renderOffice(r, prev);
   } catch (e) { view.innerHTML = `<div class="wrap"><div class="notice">${esc(e.message)}</div></div>`; }
 }
 window.addEventListener('hashchange', route);
 
+/* ---------------- music: top-bar player, library dialog ---------------- */
+let musicUnmount = null;
+function toggleMusic() {
+  const open = $('#musicPop');
+  if (open) { musicUnmount?.(); musicUnmount = null; open.remove(); $('#musicBtn').setAttribute('aria-expanded', 'false'); return; }
+  $('.top').insertAdjacentHTML('beforeend', '<div class="music-pop" id="musicPop" role="dialog" aria-label="Musik kantor"><div id="musicPlayer"></div><button class="btn sm" data-act="music-lib">Pustaka &amp; playlist</button></div>');
+  const b = $('#musicBtn').getBoundingClientRect();
+  $('#musicPop').style.right = Math.max(8, innerWidth - b.right) + 'px';
+  musicUnmount = mountPlayer($('#musicPlayer'));
+  $('#musicBtn').setAttribute('aria-expanded', 'true');
+}
+function openMusicLibrary() {
+  if ($('#musicPop')) toggleMusic();
+  modal({ title: 'Ruang Musik', html: '<div class="music-lib-host" id="musicLib"></div>', actions: [{ label: 'Tutup' }] });
+  const un = mountLibrary($('#musicLib'));
+  const obs = new MutationObserver(() => { if ($('#modal').hidden) { un?.(); obs.disconnect(); } });
+  obs.observe($('#modal'), { attributes: true, attributeFilter: ['hidden'] });
+}
+music.on(st => { const b = $('#musicBtn'); if (b) { b.classList.toggle('on', !!st.playing); b.title = st.playing ? `Musik: ${st.title || ''}` : 'Musik kantor'; } });
+document.addEventListener('click', e => {
+  if (e.target.closest('#musicBtn')) { toggleMusic(); return; }
+  if (!e.target.closest('#musicPop') && $('#musicPop') && !e.target.closest('[data-act="music-lib"]')) toggleMusic();
+}, true);
+
+// rearrange roles by dragging their cards in the strip (Alt+←/→ on a focused card does the same)
+function saveRoleOrder(ids) {
+  const o = ctx.office, pos = new Map(ids.map((id, i) => [id, i]));
+  o.roles.sort((a, b) => (pos.get(a.id) ?? 999) - (pos.get(b.id) ?? 999));
+  kantorView.strip();
+  post(`/api/offices/${encodeURIComponent(o.id)}/roles-order`, { order: o.roles.map(r => r.id) }).catch(e => toast(e.message, 'bad'));
+}
+function bindStripDrag(el) {
+  if (el.dataset.drag) return;
+  el.dataset.drag = 1;
+  let from = null;
+  const ids = () => [...new Set([...el.querySelectorAll('.kf-card[data-role]')].map(c => c.dataset.role))];
+  el.addEventListener('dragstart', e => { const c = e.target.closest('.kf-card[data-role]'); if (!c) return; from = c.dataset.role; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', from); });
+  el.addEventListener('dragend', () => { from = null; el.querySelectorAll('.dragging,.drop-l,.drop-r').forEach(c => c.classList.remove('dragging', 'drop-l', 'drop-r')); });
+  el.addEventListener('dragover', e => {
+    const c = e.target.closest('.kf-card[data-role]'); if (!from || !c) return;
+    e.preventDefault();
+    const r = c.getBoundingClientRect(), after = e.clientX > r.left + r.width / 2;
+    el.querySelectorAll('.drop-l,.drop-r').forEach(x => x.classList.remove('drop-l', 'drop-r'));
+    if (c.dataset.role !== from) c.classList.add(after ? 'drop-r' : 'drop-l');
+    // auto-scroll near the edges
+    const b = el.getBoundingClientRect(); if (e.clientX < b.left + 40) el.scrollLeft -= 12; else if (e.clientX > b.right - 40) el.scrollLeft += 12;
+  });
+  el.addEventListener('drop', e => {
+    const c = e.target.closest('.kf-card[data-role]'); if (!from || !c || c.dataset.role === from) return;
+    e.preventDefault();
+    const r = c.getBoundingClientRect(), after = e.clientX > r.left + r.width / 2;
+    const list = ids().filter(x => x !== from), at = list.indexOf(c.dataset.role) + (after ? 1 : 0);
+    list.splice(at, 0, from);
+    saveRoleOrder(list);
+  });
+  el.addEventListener('keydown', e => {
+    if (!e.altKey || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const c = e.target.closest('.kf-card[data-role]'); if (!c) return;
+    e.preventDefault();
+    const list = ids(), i = list.indexOf(c.dataset.role), j = i + (e.key === 'ArrowLeft' ? -1 : 1);
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    const id = c.dataset.role;
+    saveRoleOrder(list);
+    requestAnimationFrame(() => el.querySelector(`.kf-card[data-role="${CSS.escape(id)}"] .kf-hit`)?.focus());
+  });
+}
+// show the strip's arrows and how many cards are hidden past the right edge
+function stripEdges(el) {
+  const wrap = el.parentElement; if (!wrap) return;
+  const max = el.scrollWidth - el.clientWidth;
+  const l = el.scrollLeft > 16, r = el.scrollLeft < max - 16;
+  wrap.classList.toggle('can-l', l); wrap.classList.toggle('can-r', r);
+  wrap.querySelector('.kf-arrow.l').hidden = !l; wrap.querySelector('.kf-arrow.r').hidden = !r;
+  const edge = el.getBoundingClientRect().right;
+  const hidden = [...el.children].filter(c => c.getBoundingClientRect().left > edge - 24).length;
+  wrap.querySelector('.kf-arrow.r .n').textContent = hidden ? `+${hidden}` : '';
+}
 function toggleSwitcher() {
   let m = $('#offSwitch');
   if (m) { m.remove(); return; }
@@ -68,6 +165,7 @@ function topCounts() {
   const n = ctx.st?.inbox?.length || 0;
   $('#inboxCount').textContent = n;
   $('#inboxPill').classList.toggle('hot', n > 0);
+  paintAgentsBadge();
 }
 
 /* ---------------- state ---------------- */
@@ -102,7 +200,7 @@ async function renderMap() {
     <header class="hm-head">
       <div><p class="eyebrow">Kantor Claude · ${all.length} kantor</p><h1>Kompleks</h1>
         <p class="hm-stats"><b>${sess.length}</b> sesi aktif <span>·</span> <b>${working}</b> sedang bekerja <span>·</span> <b class="${st.inbox.length ? 'warn' : ''}">${st.inbox.length}</b> izin menunggu <span>·</span> <b>${usd(cost, 0)}</b> bulan ini <span class="hint">(estimasi setara API)</span></p></div>
-      <div class="btn-row"><a class="btn" href="#/payroll">Payroll</a><button class="btn primary" data-act="add-office">Tambah kantor</button></div>
+      <div class="btn-row"><a class="btn" href="#/metrik">Metrik</a><a class="btn" href="#/payroll">Payroll</a><button class="btn primary" data-act="add-office">Tambah kantor</button></div>
     </header>
     <div class="hm-grid">
       <div class="hm-main">
@@ -168,7 +266,7 @@ function rowHTML(o) {
   const ss = o.sessions.filter(x => x.status !== 'ended');
   return `<tr class="click" data-name="${esc(o.name.toLowerCase())}" data-act="go-office" data-id="${esc(o.id)}"><td>${favBtn(o)}</td>
     <td><span class="hm-rowname">${bldHTML(o)}<span><b>${esc(o.name)}</b><span class="hint">${esc(o.style || '')}</span></span></span></td>
-    <td class="num">${ss.length ? `<b>${ss.length}</b>` : '–'}</td><td class="num">${o.cards?.open || 0}</td><td class="num">${usd(o.monthCost, 0)}</td><td class="hint">${o.lastSeen ? ago(o.lastSeen) : '–'}</td></tr>`;
+    <td class="num" data-l="sesi">${ss.length ? `<b>${ss.length}</b>` : '–'}</td><td class="num" data-l="kartu">${o.cards?.open || 0}</td><td class="num" data-l="bln">${usd(o.monthCost, 0)}</td><td class="hint">${o.lastSeen ? ago(o.lastSeen) : '–'}</td></tr>`;
 }
 function addOffice() { go('#/baru'); }
 
@@ -185,19 +283,24 @@ async function renderOffice(r, prev) {
   const o = ctx.office;
   // the tab bar in the header shows which tab is open, so the crumbs stop at the office (a switcher)
   const tabs = r.id === '_kompleks' ? ['notes', 'wiki'] : Object.keys(TABS);
-  const tabNav = cls => `<nav class="tabs ${cls}" role="tablist">${tabs.map(k => `<a role="tab" href="${r.id === '_kompleks' ? `#/kompleks/${k}` : `#/o/${o.id}/${k}`}" aria-selected="${r.tab === k}">${TABS[k]}</a>`).join('')}</nav>`;
+  const tabNav = cls => `<nav class="tabs ${cls}" role="tablist"></nav>`;
   const fav = ctx.st?.offices.find(x => x.id === o.id)?.fav;
   if (r.id === '_kompleks') crumbs([['Bersama']]);
   else { crumbs([]); $('#crumbs').insertAdjacentHTML('beforeend', `<span aria-hidden="true">/</span><button class="off-btn" data-act="office-switch" aria-haspopup="menu" title="Pindah kantor">${fav ? '<span class="fav-ic">★</span>' : ''}${esc(o.name)}<span class="caret" aria-hidden="true">▾</span></button>`); }
   $('#crumbs').insertAdjacentHTML('beforeend', tabNav('top-tabs'));
+  mountTabBar($('.top-tabs'), { tabs, labels: TABS, current: r.tab, href: k => r.id === '_kompleks' ? `#/kompleks/${k}` : `#/o/${o.id}/${k}`, reorder: r.id !== '_kompleks' });
+  if (r.id !== '_kompleks') pratinjau.badge(r.id).then(n => paintPvBadge(r.id, n));
+  // on a phone the tab bar scrolls: keep the open tab in view
+  { const bar = $('.top-tabs'), cur = bar?.querySelector('[aria-selected="true"]'); if (cur) bar.scrollLeft = cur.offsetLeft - (bar.clientWidth - cur.offsetWidth) / 2; }
   if (sameOffice && prev.tab === r.tab) { ctx.view?.route?.(r); return; }
   if (r.tab === 'kantor' && r.id !== '_kompleks') {
     ctx.view = kantorView;
     kantorView.render(view, { eyebrow: o.style || 'Kantor', tabs: '' });
-    if (ctx.pendingSid) { const sid = ctx.pendingSid; ctx.pendingSid = null; setTimeout(() => { if (o.sessions.some(x => x.sid === sid)) openSession(ctx, sid, 'term'); }, 300); }
+    if (ctx.pendingSid) { const sid = ctx.pendingSid, tab = ctx.pendingTab || 'term'; ctx.pendingSid = null; ctx.pendingTab = null; setTimeout(() => { if (o.sessions.some(x => x.sid === sid)) openSession(ctx, sid, tab); }, 300); }
     updateSub();
     return;
   }
+  if (r.tab === 'chat' && r.id !== '_kompleks') { ctx.view = chatmode; await chatmode.render(view, ctx, r); return; }
   view.innerHTML = `<div class="wrap"><div class="office-head"><div><p class="eyebrow">${esc(o.style || (r.id === '_kompleks' ? 'Bersama untuk semua kantor' : 'Kantor'))}</p><h1>${esc(o.name)}</h1><p class="sub" id="officeSub"></p></div></div>
     <div id="tabBody"></div></div>`;
   updateSub();
@@ -205,6 +308,16 @@ async function renderOffice(r, prev) {
   if (r.tab === 'kantor') { ctx.view = kantorView; kantorView.render(body); }
   else { ctx.view = MODULES[r.tab]; await ctx.view.render(body, ctx, r); }
 }
+/** Lencana tab Pratinjau: berapa yang menunggu keputusan. */
+function paintPvBadge(office, n) {
+  if (ctx.office?.id !== office) return;
+  for (const a of $$('.tabs [data-tab="pratinjau"]')) {
+    let b = a.querySelector('.tab-badge');
+    if (!b) { b = document.createElement('b'); b.className = 'tab-badge'; a.appendChild(b); }
+    b.hidden = !n; b.textContent = n > 99 ? '99+' : String(n);
+  }
+}
+document.addEventListener('kantor:pratinjau-count', e => paintPvBadge(e.detail.office, e.detail.n));
 function updateSub() {
   const o = ctx.office, el = $('#officeSub'); if (!o || !el || o.id === '_kompleks') return;
   const mgr = o.roles.find(r => r.isMgr), ss = o.sessions.filter(s => s.status !== 'ended');
@@ -222,19 +335,23 @@ const kantorView = {
         <div class="stage kf-stage" id="stage"></div>
         <div class="kf-top"><div class="roombar kf-rooms" id="roombar"></div></div>
         <div class="kf-chip"><b>${esc(o.name)}</b> <span id="officeSub"></span></div>
-        <div class="stage-tools kf-tools"><button class="zbtn" data-act="zin" aria-label="Perbesar">+</button><button class="zbtn" data-act="zout" aria-label="Perkecil">−</button><button class="zbtn" data-act="zfit">Semua</button><button class="zbtn" data-act="kf-fullscreen" title="Layar penuh (sembunyikan toolbar browser)">⛶</button></div>
+        <div class="stage-tools kf-tools"><button class="zbtn" data-act="zin" aria-label="Perbesar">+</button><button class="zbtn" data-act="zout" aria-label="Perkecil">−</button><button class="zbtn" data-act="zfit">Semua</button><button class="zbtn" data-act="kf-fullscreen" title="Layar penuh (sembunyikan toolbar browser)">⛶</button><button class="zbtn" data-act="layout-edit" title="Pindah, ubah ukuran, dan atur pintu ruangan">Atur denah</button></div>
       </div></section>
+      <div class="kf-alist" id="kfAgents" aria-label="Daftar agen"></div>
       <aside class="kf-side" id="kfSide">
-        ${mgr ? `<div class="card"><p class="eyebrow card-h">Suruh ${esc(mgr.name)}</p><form id="mgrForm" class="kf-ask"><textarea id="mgrInput" rows="2" placeholder="mis. rapikan alur pembayaran lalu siapkan rilis 1.8"></textarea><div class="btn-row"><button class="btn primary sm" type="submit">Kirim</button><span class="hint">Enter untuk kirim · Shift+Enter baris baru</span></div></form></div>` : ''}
-        <div class="card"><p class="eyebrow card-h">Kotak masuk</p><div id="inboxOffice"></div></div>
+        ${mgr ? `<div class="card kf-mgr"><p class="eyebrow card-h">Suruh ${esc(mgr.name)}</p><form id="mgrForm" class="kf-ask"><textarea id="mgrInput" rows="2" placeholder="mis. rapikan alur pembayaran lalu siapkan rilis 1.8"></textarea><div class="btn-row"><button class="btn primary sm" type="submit">Kirim</button><span class="hint">Enter untuk kirim · Shift+Enter baris baru</span></div></form></div>` : ''}
+        <div class="card kf-dm" id="dmCard"></div>
+        <div class="card kf-inbox"><p class="eyebrow card-h">Kotak masuk</p><div id="inboxOffice"></div></div>
         <div class="card agents" id="sessCard"></div>
         <div class="card room-info" id="roomInfo"></div>
+        ${minionCardHTML()}
+        ${kunciCardHTML()}
         <div class="card"><p class="eyebrow card-h">Subagent aktif</p><div id="subList"></div></div>
         <div class="card"><p class="eyebrow card-h">Papan pengumuman</p><ul class="news" id="newsList"></ul><form id="newsForm" class="inline-form" style="margin-top:8px"><input id="newsInput" placeholder="Tempel pengumuman" autocomplete="off"><button class="btn sm">Tempel</button></form></div>
         <div class="card" id="wallCard" hidden><p class="eyebrow card-h">Ditempel di dinding</p><div class="wall-notes" id="wallNotes"></div></div>
         <div class="card"><p class="eyebrow card-h">Aktivitas</p><ol class="feed" id="feed"></ol></div>
       </aside>
-      <nav class="kf-strip" id="kfStrip" aria-label="Agen"></nav>
+      <div class="kf-stripwrap" id="kfStripWrap"><button class="kf-arrow l" data-act="strip-l" aria-label="Geser ke kiri" hidden>‹</button><nav class="kf-strip" id="kfStrip" aria-label="Agen"></nav><button class="kf-arrow r" data-act="strip-r" aria-label="Lihat agen lainnya" hidden>›<span class="n"></span></button></div>
       <div class="kf-resize" id="kfResize" role="separator" aria-orientation="vertical" title="Seret untuk mengubah lebar panel"><span></span></div>
     </div>`;
     document.documentElement.style.setProperty('--kf-top', $('.top').offsetHeight + 'px');
@@ -244,12 +361,26 @@ const kantorView = {
       plan: o.plan, roles: o.roles, sessions: o.sessions, cards: o.cards, fill: true, insets: { left: 10, top: 46, right: 10, bottom: 10 },
       onPick: (sid, sub, roleId) => { if (sid) openSession(ctx, sid, sub ? 'subs' : 'term'); else if (roleId) openRole(ctx, roleId); },
       onRoom: id => { this.sel = id; this.roomInfo(); this.roombar(); },
+      onMinion: (id, sx, sy) => showMinionMenu($('#stage'), ctx.stage, o.id, id, sx, sy),
     });
+    ctx.stage.minions.apply(o.minions);
+    this.minionCard();
+    paintKunciCard(ctx);
     this.strip();
+    bindDmCard(ctx); paintDmCard(ctx);
     this.roombar(); this.inbox(); this.sess(); this.roomInfo(); this.subs(); this.news(); this.wall(); this.feed();
     this.timer = setInterval(() => { this.subs(); }, 1500);
   },
-  unmount() { clearInterval(this.timer); },
+  minionCard() { paintMinionCard(() => ctx.office, () => ctx.stage?.minions.count()); },
+  unmount() { clearInterval(this.timer); closeMinionMenu(); this.le?.close(); this.le = null; },
+  async editLayout() {
+    if (this.le || !ctx.stage) return;
+    const o = ctx.office;
+    try { const L = await api(`/api/offices/${o.id}/layout`); o.plan = L.plan; o.custom = L.custom; } catch (err) { return toast(err.message, 'bad'); }
+    closeDrawer();
+    ctx.stage.fitAll();
+    this.le = openLayoutEditor({ office: o, stage: ctx.stage, host: $('#stage'), onDone: () => { this.le = null; this.roombar(); this.roomInfo(); } });
+  },
   // space covered by the floating panels, so the floor plan centres in what stays visible
   insets(railOff) {
     const narrow = matchMedia('(max-width: 760px)').matches;
@@ -269,7 +400,7 @@ const kantorView = {
     const cnt = id => o.sessions.filter(s => s.room === id && s.status !== 'ended').length;
     el.innerHTML = `<button data-act="zfit" aria-pressed="${!ctx.stage?.focus}">Seluruh lantai</button>` + list.map(r => `<button data-act="focus" data-id="${r.id}" aria-pressed="${ctx.stage?.focus === r.id}">${esc(r.name)}${cnt(r.id) ? `<span class="n">${cnt(r.id)}</span>` : ''}</button>`).join('');
   },
-  inbox() { const el = $('#inboxOffice'); if (el) el.innerHTML = inboxHTML(ctx.st.inbox.filter(i => i.office === ctx.office.id), false); },
+  inbox() { const el = $('#inboxOffice'); if (el) el.innerHTML = inboxHTML(ctx.st.inbox.filter(i => i.office === ctx.office.id), false); this.agents(); },
   sess() {
     const o = ctx.office, el = $('#sessCard'); if (!el) return;
     const ss = o.sessions.filter(s => s.status !== 'ended');
@@ -304,43 +435,92 @@ const kantorView = {
   strip() {
     const o = ctx.office, el = $('#kfStrip'); if (!el) return;
     const live = o.sessions.filter(s => s.status !== 'ended');
-    const roles = [...o.roles].filter(r => !r.archived).sort((a, b) => (b.isMgr ? 1 : 0) - (a.isMgr ? 1 : 0));
+    // roles come in the order you arranged them (drag cards in the strip, or Alt+←/→)
+    const roles = o.roles.filter(r => !r.archived);
     const room = id => o.plan.rooms.find(r => r.id === id)?.name || '';
     const st = s => !s ? 'off' : s.waiting ? 'wait' : s.status === 'working' ? 'work' : s.status === 'starting' ? 'start' : 'idle';
     const what = (s, fallback) => s.waiting ? `minta izin: ${s.waiting.tool || ''}` : s.tool ? `${s.tool.name} ${s.tool.label || ''}` : s.status === 'working' ? 'sedang bekerja' : fallback;
-    const modeTag = s => s?.permMode && !['default', 'auto'].includes(s.permMode)
-      ? `<i class="kf-mode m-${esc(s.permMode)}" title="Mode izin: ${esc(MODE_LABEL[s.permMode] || s.permMode)}">${esc({ bypassPermissions: 'bypass', acceptEdits: 'edit', dontAsk: 'tanpa tanya' }[s.permMode] || s.permMode)}</i>` : '';
+    const cxTag = s => isCodex(s) ? '<i class="kf-mode kf-cx" title="Mesin: OpenAI Codex">Codex</i>' : '';
+    const modeTag = s => cxTag(s) + (s?.permMode && !['default', 'auto'].includes(s.permMode)
+      ? `<i class="kf-mode m-${esc(s.permMode)}" title="Mode izin: ${esc(MODE_LABEL[s.permMode] || s.permMode)}">${esc({ bypassPermissions: 'bypass', acceptEdits: 'edit', dontAsk: 'tanpa tanya', readOnly: 'baca' }[s.permMode] || s.permMode)}</i>` : '');
     // one card: avatar with a status dot, name, and one line of what they are doing
-    const card = (look, name, sub, s, attrs, boss, roleId) => `<div class="kf-card st-${st(s)}">
-        <button class="kf-hit" ${attrs} title="${esc(name + ' · ' + sub)}"></button>
+    const card = (look, name, sub, s, attrs, boss, roleId, job = '') => `<div class="kf-card st-${st(s)}"${roleId ? ` draggable="true" data-role="${esc(roleId)}"` : ''}>
+        <button class="kf-hit" ${attrs} title="${esc([name, job, sub].filter(Boolean).join(' · '))}"></button>
         <span class="kf-ava">${sprite(look, 4)}<i class="kf-dot"></i></span>
-        <span class="kf-txt"><span class="kf-cname"><span class="kf-nm">${esc(name)}</span>${boss ? '<i class="kf-boss">bos</i>' : ''}${modeTag(s)}</span><span class="kf-csub">${esc(sub)}</span></span>
+        <span class="kf-txt"><span class="kf-cname"><span class="kf-nm">${esc(name)}</span>${job ? `<span class="kf-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}${modeTag(s)}</span><span class="kf-csub">${esc(sub)}</span></span>
         ${boss ? `<button class="kf-talk" data-act="kf-talk" data-id="${esc(roleId)}" title="Beri tugas ke ${esc(name)}">Suruh</button>` : ''}
       </div>`;
     // boss first, then whoever is on shift (incl. manual sessions); roles that are off go into one small group
     const boss = [], active = [], off = [];
     for (const r of roles) {
       const ss = live.filter(s => s.role === r.id);
-      if (!ss.length) { if (r.isMgr) boss.push(card(r, r.name, `libur · ${room(r.room) || r.title}`, null, `data-act="open-role" data-id="${r.id}"`, true, r.id)); else off.push(r); continue; }
-      for (const s of ss) (r.isMgr && !s.slot ? boss : active).push(card(r, r.name + (s.slot ? ` #${s.slot + 1}` : ''),
-        what(s, s.title && !s.title.startsWith(r.name) ? s.title : `idle · ${room(r.room) || r.title}`), s, `data-act="open-sess" data-sid="${s.sid}"`, r.isMgr && !s.slot, r.id));
+      if (!ss.length) { if (r.isMgr) active.push(card(r, r.name, ['libur', room(r.room)].filter(Boolean).join(' · '), null, `data-act="open-role" data-id="${r.id}"`, true, r.id)); else off.push(r); continue; }
+      for (const s of ss) active.push(card(r, r.name + (s.slot ? ` #${s.slot + 1}` : ''),
+        what(s, s.title && !s.title.startsWith(r.name) ? s.title : ['idle', room(r.room)].filter(Boolean).join(' · ')), s, `data-act="open-sess" data-sid="${s.sid}"`, r.isMgr && !s.slot, r.id, r.isMgr && !s.slot ? '' : r.title));
     }
     for (const s of live.filter(s => !s.role)) {
       const loose = !s.title || s.title === 'Sesi belum terhubung';
       const where = [room(s.room), s.host && s.host !== 'lain' ? HOSTS[s.host] : ''].filter(Boolean).join(' · ');
-      active.push(card(guestLook(s.sid), loose ? 'Sesi manual' : s.title, what(s, loose ? `belum terhubung${where ? ' · ' + where : ''}` : where || 'manual'), s, `data-act="open-sess" data-sid="${s.sid}"`));
+      const boss = s.boss && o.roles.find(r => r.id === s.boss)?.name;
+      active.push(card(guestLook(s.sid), loose ? 'Sesi manual' : s.title, what(s, loose ? `belum terhubung${where ? ' · ' + where : ''}` : where || 'manual'), s, `data-act="open-sess" data-sid="${s.sid}"`, false, null, boss ? `anak buah ${boss}` : ''));
     }
     const offGroup = off.length ? `<div class="kf-off"><span class="kf-off-h">Libur</span><span class="kf-off-avas">${off.map(r => `<button data-act="open-role" data-id="${r.id}" title="${esc(r.name)} · ${esc(r.title)} · ${esc(room(r.room))}">${sprite(r, 3)}</button>`).join('')}</span></div>` : '';
     el.innerHTML = [...boss, ...active].join('') + offGroup;
-    // a mouse wheel scrolls the strip sideways (no scrollbar eating its height)
-    if (!el.dataset.wheel) { el.dataset.wheel = 1; el.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { el.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false }); }
+    // a mouse wheel scrolls the strip sideways (no scrollbar eating its height); arrows + fades show there is more
+    if (!el.dataset.wheel) {
+      el.dataset.wheel = 1;
+      el.addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { el.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+      el.addEventListener('scroll', () => stripEdges(el), { passive: true });
+      new ResizeObserver(() => stripEdges(el)).observe(el);
+    }
+    stripEdges(el);
+    bindStripDrag(el);
+    this.agents();
+  },
+  /* phone version of the strip: a vertical list grouped by what needs you (waiting, working, idle, off) */
+  agents() {
+    const o = ctx.office, el = $('#kfAgents'); if (!el) return;
+    const live = o.sessions.filter(s => s.status !== 'ended');
+    const room = id => o.plan.rooms.find(r => r.id === id)?.name || '';
+    const inbox = ctx.st.inbox.filter(i => i.office === o.id);
+    const row = (look, name, job, sub, s, attrs, boss, roleId) => `<div class="al-row ${s ? (s.waiting ? 'wait' : s.status === 'working' ? 'work' : 'idle') : 'off'}">
+        <button class="al-hit" ${attrs} aria-label="${esc(name)}"></button>
+        <span class="al-ava">${sprite(look, 4)}<i class="kf-dot"></i></span>
+        <span class="al-txt"><span class="al-name"><b>${esc(name)}</b>${job ? `<span class="al-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}</span><span class="al-sub">${esc(sub)}</span></span>
+        ${boss && roleId ? `<button class="al-talk" data-act="kf-talk" data-id="${esc(roleId)}">Suruh</button>` : ''}</div>`;
+    const waitG = [], workG = [], idleG = [], off = [];
+    const put = (s, look, name, job, boss, roleId, fallback) => {
+      const attrs = `data-act="open-sess" data-sid="${s.sid}"`;
+      if (s.waiting) waitG.push(row(look, name, job, `${s.waiting.tool === 'AskUserQuestion' ? 'bertanya' : 'minta izin'}: ${short(s.waiting.summary || s.waiting.tool || '', 60)}`, s, attrs, boss, roleId));
+      else if (s.status === 'working' || s.status === 'starting') workG.push(row(look, name, job, s.tool ? `${s.tool.name} ${s.tool.label || ''}` : s.status === 'starting' ? 'baru datang' : 'sedang bekerja', s, attrs, boss, roleId));
+      else idleG.push(row(look, name, job, `diam ${(ago(s.lastSeen) || 'baru saja').replace(' lalu', '')}${fallback ? ' · ' + fallback : ''}`, s, attrs, boss, roleId));
+    };
+    for (const r of o.roles.filter(r => !r.archived)) {
+      const ss = live.filter(s => s.role === r.id);
+      if (!ss.length) { off.push(r); continue; }
+      for (const s of ss) { const boss = r.isMgr && !s.slot; put(s, r, r.name + (s.slot ? ` #${s.slot + 1}` : ''), boss ? '' : r.title, boss, r.id, room(r.room)); }
+    }
+    for (const s of live.filter(s => !s.role)) { const loose = !s.title || s.title === 'Sesi belum terhubung'; put(s, guestLook(s.sid), loose ? 'Sesi manual' : short(s.title, 30), '', false, null, room(s.room)); }
+    const group = (title, n, body, cls = '') => n ? `<section class="al-grp ${cls}"><h3>${title} <span>${n}</span></h3>${body}</section>` : '';
+    el.innerHTML = group('Menunggu kamu', waitG.length + inbox.length, (inbox.length ? inboxHTML(inbox, false) : '') + waitG.join(''), 'wait')
+      + group('Bekerja', workG.length, workG.join(''))
+      + group('Idle', idleG.length, idleG.join(''))
+      + (!live.length ? '<p class="empty-line al-empty">Belum ada sesi berjalan.</p>' : '')
+      + (off.length ? `<details class="al-grp al-off"><summary>Libur <span>${off.length}</span></summary>${off.map(r => row(r, r.name, r.title, room(r.room), null, `data-act="open-role" data-id="${r.id}"`, r.isMgr, r.id)).join('')}</details>` : '');
   },
   roomInfo() {
     const o = ctx.office, el = $('#roomInfo'); if (!el) return;
     const r = this.sel && o.plan.rooms.find(x => x.id === this.sel);
     if (!r) { el.innerHTML = '<h2>Ruangan</h2><p class="empty-line">Klik ruangan di denah untuk melihat repo, penghuni, dan kartunya.</p>'; return; }
     const res = o.roles.filter(x => x.room === r.id), ss = o.sessions.filter(s => s.room === r.id && s.status !== 'ended');
-    const cards = o.cards.filter(c => c.repo === r.id && c.col < 4);
+    const cards = o.cards.filter(c => c.repo === r.id && !(c.done ?? c.col >= 4));
+    if (r.kind === 'musik') {
+      const st = music.state();
+      el.innerHTML = `<h2>${esc(r.name)}</h2><p class="hint" style="margin:4px 0 10px">Putar radio kantor atau lagu dan playlist-mu sendiri. Selama musik jalan, agen yang sedang santai nongkrong di sini.</p>
+        <dl><dt>Sekarang</dt><dd>${st.playing ? `♪ ${esc(st.title || '')}` : 'sepi'}</dd></dl>
+        <div class="btn-row" style="margin-top:10px"><button class="btn sm primary" data-act="music-toggle">${st.playing ? 'Jeda' : 'Putar musik'}</button><button class="btn sm" data-act="music-lib">Pustaka &amp; playlist</button></div>`;
+      return;
+    }
     if (r.kind === 'meeting') {
       const now = ss.filter(s => s.kind === 'rapat');
       el.innerHTML = `<h2>${esc(r.name)}</h2><p class="hint" style="margin:4px 0 10px">Tempat rapat antar-role. Saat rapat jalan, pesertanya berjalan ke meja ini dan layar TV menyala. Notulen otomatis masuk wiki. Subagent yang sedang merencanakan (Plan) juga duduk di sini.</p>
@@ -355,7 +535,7 @@ const kantorView = {
       <dt>Penghuni</dt><dd>${res.length ? res.map(x => `<a href="#" data-act="open-role" data-id="${x.id}">${esc(x.name)}</a>`).join(', ') : 'belum ada'}</dd>
       <dt>Sesi</dt><dd>${ss.length}</dd>
       <dt>Kartu</dt><dd>${cards.length ? cards.map(c => esc(short(c.title, 34))).join('<br>') : 'tidak ada'}</dd></dl>
-      <div class="btn-row" style="margin-top:10px">${r.path != null ? `<button class="btn sm" data-act="room-shell" data-id="${r.id}">Buka shell di sini</button>` : ''}<button class="btn sm" data-act="new-shift-room" data-id="${r.id}">Mulai shift di sini</button></div>`;
+      <div class="btn-row" style="margin-top:10px">${r.path != null ? `<button class="btn sm" data-act="room-dock" data-id="${r.id}">Proses &amp; terminal</button><button class="btn sm" data-act="room-shell" data-id="${r.id}">Buka shell di sini</button>` : ''}<button class="btn sm" data-act="new-shift-room" data-id="${r.id}">Mulai shift di sini</button></div>`;
   },
   subs() {
     const o = ctx.office, el = $('#subList'); if (!el) return;
@@ -377,14 +557,25 @@ const feedLi = l => `<li><time>${hhmm(l.at)}</time><span><b>${esc(l.who)}</b> ${
 
 /* ---------------- live events ---------------- */
 onLive(async m => {
-  if (m.t === 'reconnected') { if (ctx.route) { await refreshState().catch(() => {}); if (ctx.office && ctx.office.id !== '_kompleks') { await loadOffice(ctx.office.id).catch(() => {}); ctx.stage?.sync(ctx.office.sessions); } } return; }
+  const o0 = ctx.office;
+  if (m.t === 'dm') dmLive(m, ctx);
+  if (m.t === 'pratinjau' && o0 && m.office === o0.id && ctx.view !== pratinjau) pratinjau.badge(o0.id).then(n => paintPvBadge(o0.id, n));
+  if (m.t === 'pratinjau' && ctx.view !== pratinjau) pratinjau.liveViewer(m); // penampil yang dibuka dari chat
+  try { viewerLive(m, ctx); dockLive(m, ctx); kunciLive(m, ctx); } catch (e) { console.error(e); }
+  if (o0 && m.office === o0.id && ctx.stage?.minions) {
+    if (m.t === 'minions') { o0.minions = m.minions; ctx.stage.minions.apply(m.minions); if (ctx.view === kantorView) kantorView.minionCard(); }
+    else ctx.stage.minions.live(m);
+  }
+  if (m.t === 'reconnected') { if (ctx.route) { await refreshState().catch(() => {}); if (ctx.office && ctx.office.id !== '_kompleks') { await loadOffice(ctx.office.id).catch(() => {}); ctx.stage?.sync(ctx.office.sessions); ctx.stage?.minions?.apply(ctx.office.minions); } } return; }
   if (m.t === 'hello') return;
+  agentsLive(m);
   const o = ctx.office;
   if (m.t === 'session' && o && m.office === o.id) {
     const i = o.sessions.findIndex(s => s.sid === m.session.sid);
     if (i >= 0) o.sessions[i] = m.session; else o.sessions.push(m.session);
     if (m.session.status === 'ended') setTimeout(() => { const k = o.sessions.findIndex(s => s.sid === m.session.sid && s.status === 'ended'); if (k >= 0) { o.sessions.splice(k, 1); ctx.stage?.sync(o.sessions); } }, 9000);
   }
+  if (m.t === 'meeting-typing' && o && m.office === o.id) ctx.stage?.speak?.(m.role, m.done ? '' : m.text ? `…${m.text.replace(/\s+/g, ' ').slice(-28)}` : '…');
   if (m.t === 'session-gone' && o) { const k = o.sessions.findIndex(s => s.sid === m.sid); if (k >= 0) o.sessions.splice(k, 1); }
   if (m.t === 'log' && o && m.office === o.id) { o.log.unshift(m.entry); o.log.length = Math.min(o.log.length, 80); }
   if (m.t === 'inbox') {
@@ -395,8 +586,11 @@ onLive(async m => {
   if (m.t === 'inbox-update' && ctx.st) ctx.st.inbox = ctx.st.inbox.filter(x => x.id !== m.id || m.status === 'open');
   if (m.t?.startsWith('inbox')) { topCounts(); if (ctx.route?.name === 'map') { const el = $('#inboxAll'); if (el) el.innerHTML = inboxHTML(ctx.st.inbox, true); } }
   if (m.t === 'changed' && o && (m.office === o.id || m.office === '*')) {
-    if (m.what === 'plan' || m.what === 'roles') { const fresh = await api(`/api/offices/${o.id}`).catch(() => null); if (fresh) { Object.assign(o, fresh); ctx.stage?.rebuild(o.plan, o.roles); kantorView.roombar?.(); } }
-    if (m.what === 'board') { const b = await api(`/api/offices/${o.id}/board`).catch(() => null); if (b) { o.cards = b.cards.map(c => ({ id: c.id, title: c.title, col: c.col, who: c.who, repo: c.repo, blocked: c.blocked })); ctx.stage?.setCards(o.cards); } }
+    // only the order changed (someone rearranged the strip, maybe in another tab): no need to rebuild the floor
+    if (m.what === 'roles-order' && Array.isArray(m.order)) { const pos = new Map(m.order.map((id, i) => [id, i])); o.roles.sort((a, b) => (pos.get(a.id) ?? 999) - (pos.get(b.id) ?? 999)); kantorView.strip?.(); }
+    if (m.what === 'furniture' && !kantorView.le) { const fresh = await api(`/api/offices/${o.id}`).catch(() => null); if (fresh) { o.plan = fresh.plan; ctx.stage?.setFurniture?.(fresh.plan.furniture || []); } }
+    if ((m.what === 'plan' || m.what === 'roles') && !kantorView.le) { const fresh = await api(`/api/offices/${o.id}`).catch(() => null); if (fresh) { Object.assign(o, fresh); ctx.stage?.rebuild(o.plan, o.roles); kantorView.roombar?.(); } }
+    if (m.what === 'board') { const b = await api(`/api/offices/${o.id}/board?board=all`).catch(() => null); if (b) { const prev = o.cards; o.cards = b.cards.map(c => ({ id: c.id, title: c.title, col: c.col, stage: c.stage, done: c.done, board: c.board, who: c.who, repo: c.repo, blocked: c.blocked })); ctx.stage?.setCards(o.cards); ctx.stage?.minions?.cards(prev, o.cards); } }
     if (m.what === 'news') { o.news = await api(`/api/offices/${o.id}`).then(x => x.news).catch(() => o.news); kantorView.news?.(); }
     if (m.what === 'notes') { o.wall = await api(`/api/offices/${o.id}`).then(x => x.wall).catch(() => o.wall); if (ctx.view === kantorView) kantorView.wall(); }
   }
@@ -424,10 +618,15 @@ document.addEventListener('click', async e => {
       case 'go-office': go(`#/o/${t.dataset.id}`); break;
       case 'go-sess': e.preventDefault(); ctx.pendingSid = t.dataset.sid; if (ctx.route?.name === 'office' && ctx.route.id === t.dataset.office && ctx.route.tab === 'kantor') { openSession(ctx, t.dataset.sid, 'term'); ctx.pendingSid = null; } else go(`#/o/${t.dataset.office}`); break;
       case 'resume-ended': e.preventDefault(); resumeEnded(t.dataset.sid); break;
+      case 'music-lib': e.preventDefault(); openMusicLibrary(); break;
+      case 'music-toggle': e.preventDefault(); music.toggle(); setTimeout(() => kantorView.roomInfo?.(), 300); break;
+      case 'strip-l': case 'strip-r': { const el = $('#kfStrip'); el?.scrollBy({ left: (t.dataset.act === 'strip-l' ? -1 : 1) * el.clientWidth * .8, behavior: 'smooth' }); break; }
+      case 'room-dock': e.preventDefault(); openDock({ office: ctx.office?.id, room: t.dataset.id }); break;
       case 'office-switch': e.preventDefault(); toggleSwitcher(); break;
       case 'zin': ctx.stage?.zoomBy(1.4); kantorView.roombar(); break;
       case 'zout': ctx.stage?.zoomBy(1 / 1.4); kantorView.roombar(); break;
       case 'zfit': ctx.stage?.fitAll(); kantorView.roombar(); break;
+      case 'layout-edit': kantorView.editLayout(); break;
       case 'kf-rail': kantorView.toggleRail(); break;
       case 'kf-fullscreen': if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => toast('Browser menolak layar penuh', 'bad')); break;
       case 'kf-talk': e.stopPropagation(); closeDrawer(); setTimeout(() => { const i = $('#mgrInput'); if (i) { i.focus(); i.scrollIntoView({ block: 'nearest' }); } }, 30); break;
@@ -464,6 +663,9 @@ document.addEventListener('keydown', e => { if (e.target.id === 'mgrInput' && e.
 
 /* boot */
 connectLive();
+initViewer(ctx);
+initDock(ctx);
+initAgents({ ctx, openSession, go, refresh: refreshState });
 refreshState().then(route).catch(e => { view.innerHTML = `<div class="wrap"><div class="notice">${esc(e.message)}</div></div>`; });
 if ('Notification' in window && Notification.permission === 'default') document.addEventListener('click', () => Notification.requestPermission().catch(() => {}), { once: true });
 export { loadOffice, updateSub, kantorView };

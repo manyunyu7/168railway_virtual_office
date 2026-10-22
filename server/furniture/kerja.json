@@ -1,0 +1,3313 @@
+[
+ {
+  "id": "kerja-meja-kayu",
+  "name": "Meja Kerja Kayu",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#5A616E",
+    "e": "#E4C28F",
+    "f": "#D6B07A",
+    "g": "#E9E5DC",
+    "h": "#B64A3D",
+    "i": "#B9B2A6",
+    "j": "#ce9f63",
+    "k": "#B88E58",
+    "l": "#937246",
+    "m": "#D9D0C0",
+    "n": "#4E8FD8",
+    "o": "#E8F2FF",
+    "p": "#FFE08A"
+   },
+   "rows": [
+    "................",
+    "..aaaaaaaa......",
+    "..abbcccca......",
+    "..acccccca......",
+    "..acccccca......",
+    "..acccccca......",
+    "..acccccca......",
+    "..aaaaaaaa......",
+    ".....dd.........",
+    "aaaaaaaaaaaaaaaa",
+    "aeeeeeeeeeeeaaea",
+    "affaggggafffhhfa",
+    "affaiiiiafffhhfa",
+    "affffffffffffffa",
+    "aaaaaaaaaaaaaaaa",
+    "ajjjjjjjjjjjjjja",
+    "akkkkkkkkklmmlka",
+    "akkkkkkkkkllllka"
+   ]
+  },
+  "active": {
+   "rows": [
+    "................",
+    "..aaaaaaaa......",
+    "..annnnnna......",
+    "..anoooona......",
+    "..annnnnna......",
+    "..anpnnnna......",
+    "..annnnnna......",
+    "..aaaaaaaa......",
+    ".....dd.........",
+    "aaaaaaaaaaaaaaaa",
+    "aeeeeeeeeeeeaaea",
+    "affaggggafffhhfa",
+    "affaiiiiafffhhfa",
+    "affffffffffffffa",
+    "aaaaaaaaaaaaaaaa",
+    "ajjjjjjjjjjjjjja",
+    "akkkkkkkkklmmlka",
+    "akkkkkkkkkllllka"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "qa",
+   "manager"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-meja-putih",
+  "name": "Meja Kerja Putih",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#3B3F4A",
+    "c": "#D6D9DE",
+    "d": "#9AA0A8",
+    "e": "#FFFFFF",
+    "f": "#F2EFE8",
+    "g": "#6A8FBF",
+    "h": "#e8e2d7",
+    "i": "#CFCAC0",
+    "j": "#a6a29a",
+    "k": "#D9D0C0",
+    "l": "#4E8FD8",
+    "m": "#E8F2FF",
+    "n": "#FFE08A"
+   },
+   "rows": [
+    "...aaaaaaaaa....",
+    "...abbbbbbba....",
+    "...abbbbbbba....",
+    "...abbbbbbba....",
+    "...abbbbbbba....",
+    "...abbbbbbba....",
+    "..aaaaaaaaaaa...",
+    "aaacdddddddcaaaa",
+    "aeaaaaaaaaaaaaaa",
+    "affffffffffffaga",
+    "affffffffffffaaa",
+    "affffffffffffffa",
+    "aaaaaaaaaaaaaaaa",
+    "ahhhhhhhhhhhhhha",
+    "aiiiiiiiiijkkjia",
+    "aiiiiiiiiijjjjia"
+   ]
+  },
+  "active": {
+   "rows": [
+    "...aaaaaaaaa....",
+    "...allllllla....",
+    "...almmmmlla....",
+    "...allllllla....",
+    "...alnnnnnla....",
+    "...allllllla....",
+    "..aaaaaaaaaaa...",
+    "aaacdddddddcaaaa",
+    "aeaaaaaaaaaaaaaa",
+    "affffffffffffaga",
+    "affffffffffffaaa",
+    "affffffffffffffa",
+    "aaaaaaaaaaaaaaaa",
+    "ahhhhhhhhhhhhhha",
+    "aiiiiiiiiijkkjia",
+    "aiiiiiiiiijjjjia"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "lib",
+   "qa"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-meja-biru",
+  "name": "Meja Kerja Biru",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#5A616E",
+    "e": "#9ABBDC",
+    "f": "#7FA3C9",
+    "g": "#E9E5DC",
+    "h": "#B9B2A6",
+    "i": "#658ebc",
+    "j": "#5A7FA8",
+    "k": "#486686",
+    "l": "#D9D0C0",
+    "m": "#4E8FD8",
+    "n": "#E8F2FF",
+    "o": "#FFE08A"
+   },
+   "rows": [
+    "................",
+    "......aaaaaaaa..",
+    "......abbcccca..",
+    "......acccccca..",
+    ".aaaa.acccccca..",
+    ".aaaa.acccccca..",
+    "..a...acccccca..",
+    "..a...aaaaaaaa..",
+    "..a......dd.....",
+    "aaaaaaaaaaaaaaaa",
+    "aeaaaeeeeeeeeeea",
+    "afffffaggggafffa",
+    "afffffahhhhafffa",
+    "affffffffffffffa",
+    "aaaaaaaaaaaaaaaa",
+    "aiiiiiiiiiiiiiia",
+    "ajjjjjjjjjkllkja",
+    "ajjjjjjjjjkkkkja"
+   ]
+  },
+  "active": {
+   "rows": [
+    "................",
+    "......aaaaaaaa..",
+    "......ammmmmma..",
+    "......amnnnnma..",
+    ".aaaa.ammmmmma..",
+    ".aaaa.amommmma..",
+    "..a...ammmmmma..",
+    "..a...aaaaaaaa..",
+    "..a......dd.....",
+    "aaaaaaaaaaaaaaaa",
+    "aeaaaeeeeeeeeeea",
+    "afffffaggggafffa",
+    "afffffahhhhafffa",
+    "affffffffffffffa",
+    "aaaaaaaaaaaaaaaa",
+    "aiiiiiiiiiiiiiia",
+    "ajjjjjjjjjkllkja",
+    "ajjjjjjjjjkkkkja"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "qa"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-meja-gaming",
+  "name": "Meja Gaming Hitam",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#2A2F3A",
+    "e": "#E05555",
+    "f": "#4FC36A",
+    "g": "#5A616E",
+    "h": "#5F6575",
+    "i": "#4A4F5C",
+    "j": "#E9E5DC",
+    "k": "#B9B2A6",
+    "l": "#6A4F96",
+    "m": "#393e47",
+    "n": "#33373F",
+    "o": "#4E8FD8",
+    "p": "#E8F2FF",
+    "q": "#FFE08A",
+    "r": "#C06BE8"
+   },
+   "rows": [
+    "................",
+    ".aaaaaaaa.......",
+    ".abbcccca.......",
+    ".acccccca..aaaa.",
+    ".acccccca..adda.",
+    ".acccccca..aeea.",
+    ".acccccca..adda.",
+    ".aaaaaaaa..affa.",
+    "....gg.....aaaa.",
+    "aaaaaaaaaaaaaaaa",
+    "ahhhhhhhhhhhhhha",
+    "aiajjjjjaiiiiiia",
+    "aiakkkkkaiiiiiia",
+    "alllllllllllllla",
+    "aaaaaaaaaaaaaaaa",
+    "ammmmmmmmmmmmmma",
+    "annnnnnnnnnnnnna",
+    "annnnnnnnnnnnnna"
+   ]
+  },
+  "active": {
+   "rows": [
+    "................",
+    ".aaaaaaaa.......",
+    ".aooooooa.......",
+    ".aoppppoa..aaaa.",
+    ".aooooooa..adda.",
+    ".aoqooooa..aeea.",
+    ".aooooooa..adda.",
+    ".aaaaaaaa..affa.",
+    "....gg.....aaaa.",
+    "aaaaaaaaaaaaaaaa",
+    "ahhhhhhhhhhhhhha",
+    "aiajjjjjaiiiiiia",
+    "aiakkkkkaiiiiiia",
+    "arrrrrrrrrrrrrra",
+    "aaaaaaaaaaaaaaaa",
+    "ammmmmmmmmmmmmma",
+    "annnnnnnnnnnnnna",
+    "annnnnnnnnnnnnna"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type",
+   "game"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "game",
+   "kode"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-meja-L",
+  "name": "Meja Kerja Bentuk L",
+  "cat": "kerja",
+  "w": 3,
+  "h": 2,
+  "sprite": {
+   "w": 24,
+   "h": 28,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#5A616E",
+    "e": "#DDB27C",
+    "f": "#C99A63",
+    "g": "#E9E5DC",
+    "h": "#B9B2A6",
+    "i": "#a97a49",
+    "j": "#9A6F42",
+    "k": "#b58b59",
+    "l": "#4E8FD8",
+    "m": "#E8F2FF",
+    "n": "#FFE08A",
+    "o": "#C8F0D0"
+   },
+   "rows": [
+    "........................",
+    "........................",
+    "........................",
+    "...aaaaaaaa..aaaaaaaa...",
+    "...abbcccca..abbcccca...",
+    "...acccccca..acccccca...",
+    "...acccccca..acccccca...",
+    "...acccccca..acccccca...",
+    "...acccccca..acccccca...",
+    "...aaaaaaaa..aaaaaaaa...",
+    "......dd........dd......",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "aeeeeeeeeeeeeeeeeeeeeeea",
+    "afffaggggafffffffffffffa",
+    "afffahhhhafffffffffffffa",
+    "affffffffffffffffffffffa",
+    "aiiiiiiiiiiiiiiiaaaaaaaa",
+    "ajjjjjjjjjjjjjjjaeeeeeea",
+    "ajjaajjjjjjjjjjjaffffffa",
+    "aaaaaaaaaaaaaaaaafkkkkfa",
+    "..aaaa..........afkkkkfa",
+    "................affffffa",
+    "..aaaaa.........affffffa",
+    "................aaaaaaaa",
+    "................aiiiiiia",
+    "................ajjjjjja",
+    "................ajjjjjja",
+    "................aaaaaaaa"
+   ]
+  },
+  "active": {
+   "rows": [
+    "........................",
+    "........................",
+    "........................",
+    "...aaaaaaaa..aaaaaaaa...",
+    "...alllllla..alllllla...",
+    "...almmmmla..alnnllla...",
+    "...alllllla..alllllla...",
+    "...alnlllla..alooolla...",
+    "...alllllla..alllllla...",
+    "...aaaaaaaa..aaaaaaaa...",
+    "......dd........dd......",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "aeeeeeeeeeeeeeeeeeeeeeea",
+    "afffaggggafffffffffffffa",
+    "afffahhhhafffffffffffffa",
+    "affffffffffffffffffffffa",
+    "aiiiiiiiiiiiiiiiaaaaaaaa",
+    "ajjjjjjjjjjjjjjjaeeeeeea",
+    "ajjaajjjjjjjjjjjaffffffa",
+    "aaaaaaaaaaaaaaaaafkkkkfa",
+    "..aaaa..........afkkkkfa",
+    "................affffffa",
+    "..aaaaa.........affffffa",
+    "................aaaaaaaa",
+    "................aiiiiiia",
+    "................ajjjjjja",
+    "................ajjjjjja",
+    "................aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "manager"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-meja-berdiri",
+  "name": "Meja Berdiri Elektrik",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#5A616E",
+    "e": "#FFFFFF",
+    "f": "#E9E5DC",
+    "g": "#F2EFE8",
+    "h": "#B9B2A6",
+    "i": "#CFCAC0",
+    "j": "#8A919C",
+    "k": "#4E8FD8",
+    "l": "#E8F2FF",
+    "m": "#FFE08A"
+   },
+   "rows": [
+    "................",
+    "................",
+    "....aaaaaaaa....",
+    "....abbcccca....",
+    "....acccccca....",
+    "....acccccca....",
+    "....acccccca....",
+    "....aaaaaaaa....",
+    ".......dd.......",
+    "......aaaa......",
+    "aaaaaaaaaaaaaaaa",
+    "aeeeeaffffaeeeea",
+    "aggggahhhhaggaaa",
+    "aiiiiiiiiiiiiiia",
+    "..aj........ja..",
+    "..aj.aaaaaa.ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    ".aaaa......aaaa."
+   ]
+  },
+  "active": {
+   "rows": [
+    "................",
+    "................",
+    "....aaaaaaaa....",
+    "....akkkkkka....",
+    "....akllllka....",
+    "....akkkkkka....",
+    "....akmkkkka....",
+    "....aaaaaaaa....",
+    ".......dd.......",
+    "......aaaa......",
+    "aaaaaaaaaaaaaaaa",
+    "aeeeeaffffaeeeea",
+    "aggggahhhhaggaaa",
+    "aiiiiiiiiiiiiiia",
+    "..aj........ja..",
+    "..aj.aaaaaa.ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    "..aj........ja..",
+    ".aaaa......aaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "lib",
+   "qa"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-meja-ganda",
+  "name": "Meja Kerja Ganda",
+  "cat": "kerja",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#FFFFFF",
+    "e": "#C8C3B7",
+    "f": "#7F98A6",
+    "g": "#5A616E",
+    "h": "#E4C28F",
+    "i": "#D6B07A",
+    "j": "#E9E5DC",
+    "k": "#B9B2A6",
+    "l": "#ce9f63",
+    "m": "#B88E58",
+    "n": "#4E8FD8",
+    "o": "#E8F2FF",
+    "p": "#C8F0D0",
+    "q": "#FFE08A",
+    "r": "#B9DAFF"
+   },
+   "rows": [
+    "........................",
+    ".aaaaaaaa......aaaaaaaa.",
+    ".abbcccca......abbcccca.",
+    ".accccccaaaaaaaacccccca.",
+    ".accccccaaddddaacccccca.",
+    ".accccccaaeffeaacccccca.",
+    ".accccccaaeffeaacccccca.",
+    ".aaaaaaaaaeeeeaaaaaaaaa.",
+    "....gg...aeeeea...gg....",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "ahhhhhhhhhhhhhhhhhhhhhha",
+    "aiajjjjaiiiiiiiiajjjjaia",
+    "aiakkkkaiiiaaiiiakkkkaia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "alllllllllllllllllllllla",
+    "ammmmmmmmmmmmmmmmmmmmmma",
+    "ammmmmmmmmmmmmmmmmmmmmma"
+   ]
+  },
+  "active": {
+   "rows": [
+    "........................",
+    ".aaaaaaaa......aaaaaaaa.",
+    ".annnnnna......annnnnna.",
+    ".anoooonaaaaaaaanppppna.",
+    ".annnnnnaaddddaannnnnna.",
+    ".anqnnnnaaeffeaanrnnnna.",
+    ".annnnnnaaeffeaannnnnna.",
+    ".aaaaaaaaaeeeeaaaaaaaaa.",
+    "....gg...aeeeea...gg....",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "ahhhhhhhhhhhhhhhhhhhhhha",
+    "aiajjjjaiiiiiiiiajjjjaia",
+    "aiakkkkaiiiaaiiiakkkkaia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "alllllllllllllllllllllla",
+    "ammmmmmmmmmmmmmmmmmmmmma",
+    "ammmmmmmmmmmmmmmmmmmmmma"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 2,
+    "dy": 1,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "qa"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-meja-manager",
+  "name": "Meja Manajer",
+  "cat": "kerja",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#F2D77A",
+    "e": "#5A616E",
+    "f": "#A47852",
+    "g": "#7A4F96",
+    "h": "#8E6342",
+    "i": "#9B8CAE",
+    "j": "#E9E5DC",
+    "k": "#B9B2A6",
+    "l": "#69452d",
+    "m": "#5E3E28",
+    "n": "#503522",
+    "o": "#D9B64A",
+    "p": "#4E8FD8",
+    "q": "#E8F2FF",
+    "r": "#FFE08A"
+   },
+   "rows": [
+    "........................",
+    "........................",
+    "........aaaaaaaa........",
+    "........abbcccca........",
+    "........acccccca........",
+    "........acccccca........",
+    "........acccccca..aaaaa.",
+    "........acccccca..addda.",
+    "........aaaaaaaa..aaaaa.",
+    "aaaaaaaaaaaeeaaaaaaaaaaa",
+    "affgffffffaaaafffffffffa",
+    "ahagahhhhhhhhhhhhhhhhhha",
+    "ahiiihhhhajjjjahhhhhhhha",
+    "ahaaahhhhakkkkahhhhhhhha",
+    "ahhhhhhhhhhhhhhhhhhhhhha",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "alllllllllllllllllllllla",
+    "amnooonmmmmmmmmmmnooonma",
+    "amnnnnnmmmmmmmmmmnnnnnma",
+    "aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "active": {
+   "rows": [
+    "........................",
+    "........................",
+    "........aaaaaaaa........",
+    "........appppppa........",
+    "........apqqqqpa........",
+    "........appppppa........",
+    "........aprppppa..aaaaa.",
+    "........appppppa..addda.",
+    "........aaaaaaaa..aaaaa.",
+    "aaaaaaaaaaaeeaaaaaaaaaaa",
+    "affgffffffaaaafffffffffa",
+    "ahagahhhhhhhhhhhhhhhhhha",
+    "ahiiihhhhajjjjahhhhhhhha",
+    "ahaaahhhhakkkkahhhhhhhha",
+    "ahhhhhhhhhhhhhhhhhhhhhha",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "alllllllllllllllllllllla",
+    "amnooonmmmmmmmmmmnooonma",
+    "amnnnnnmmmmmmmmmmnnnnnma",
+    "aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "manager"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-kursi-kantor",
+  "name": "Kursi Kantor",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#e2b888",
+    "c": "#D59A55",
+    "d": "#a67842",
+    "e": "#5A616E"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    ".acccca.",
+    ".acccca.",
+    "aaaaaaaa",
+    "abbbbbba",
+    "acccccca",
+    "adddddda",
+    "...ee...",
+    ".aeeeea.",
+    "aa....aa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit"
+  ],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "qa",
+   "lib"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-kursi-ergonomis",
+  "name": "Kursi Ergonomis",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#8A919C",
+    "c": "#7A8292",
+    "d": "#5E6573",
+    "e": "#555B68",
+    "f": "#3B3F4A",
+    "g": "#5A616E"
+   },
+   "rows": [
+    ".abbbba.",
+    ".acdcda.",
+    ".adcdca.",
+    ".acdcda.",
+    ".adcdca.",
+    "aacdcdaa",
+    "aadcdcaa",
+    "aaaaaaaa",
+    "aeeeeeea",
+    "affffffa",
+    "aaaggaaa",
+    "...gg...",
+    ".abbbba.",
+    "aa....aa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit"
+  ],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "qa",
+   "manager"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-kursi-gaming",
+  "name": "Kursi Gaming",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D84A4A",
+    "c": "#2F2A35",
+    "d": "#3B3F4A",
+    "e": "#5A616E",
+    "f": "#8A919C"
+   },
+   "rows": [
+    ".abbbba.",
+    ".abbbba.",
+    ".bcbbcb.",
+    ".bcbbcb.",
+    ".bcbbcb.",
+    ".bcbbcb.",
+    ".acbbca.",
+    "aaaaaaaa",
+    "abbbbbba",
+    "adddddda",
+    "aaaeeaaa",
+    "...ee...",
+    ".affffa.",
+    "aa....aa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "game"
+  ],
+  "spots": [],
+  "rooms": [
+   "game",
+   "kode"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-kursi-manajer",
+  "name": "Kursi Kulit Manajer",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#9A6444",
+    "c": "#7A4B30",
+    "d": "#8E5A3B",
+    "e": "#A87250",
+    "f": "#5A616E",
+    "g": "#8A919C"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abbbbbba",
+    "acddddca",
+    "acdeedca",
+    "acddddca",
+    "acddddca",
+    "acccccca",
+    "aaaaaaaa",
+    "aeeeeeea",
+    "adddddda",
+    "aaaffaaa",
+    "...ff...",
+    ".agggga.",
+    "aa....aa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit"
+  ],
+  "spots": [],
+  "rooms": [
+   "manager"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-kursi-rapat",
+  "name": "Kursi Rapat Biru",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 11,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#84a5cd",
+    "c": "#4F7FB8",
+    "d": "#3e6390",
+    "e": "#5A616E"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    ".acccca.",
+    "aaaaaaaa",
+    "abbbbbba",
+    "acccccca",
+    "adddddda",
+    "...ee...",
+    ".aeeeea.",
+    "aa....aa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "sit",
+   "meeting"
+  ],
+  "spots": [],
+  "rooms": [
+   "meeting",
+   "lobby"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-kursi-tunggu",
+  "name": "Kursi Tunggu",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 13,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#7FA3C9",
+    "c": "#5A7FA8",
+    "d": "#3E6A99",
+    "e": "#4F7FB8",
+    "f": "#8A919C"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaaaa",
+    "adbbbbbddbbbbbda",
+    "adeeeeeddeeeeeda",
+    "adeeeeeddeeeeeda",
+    "aaaaaaaddaaaaaaa",
+    ".a............a.",
+    ".af..........fa.",
+    ".affffffffffffa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "sit",
+   "sofa"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": 0,
+    "pose": "sit",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lobby",
+   "telepon"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-monitor-tunggal",
+  "name": "Monitor Tunggal",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#5A616E",
+    "e": "#4E8FD8",
+    "f": "#E8F2FF",
+    "g": "#FFE08A",
+    "h": "#C8F0D0"
+   },
+   "rows": [
+    "........",
+    "........",
+    "aaaaaaaa",
+    "abbcccca",
+    "acccccca",
+    "acccccca",
+    "acccccca",
+    "aaaaaaaa",
+    "...dd...",
+    "..aaaa..",
+    "..aaaa..",
+    "........"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     "........",
+     "........",
+     "aaaaaaaa",
+     "aeeeeeea",
+     "aeffffea",
+     "aeeeeeea",
+     "aegeeeea",
+     "aaaaaaaa",
+     "...dd...",
+     "..aaaa..",
+     "..aaaa..",
+     "........"
+    ]
+   },
+   {
+    "rows": [
+     "........",
+     "........",
+     "aaaaaaaa",
+     "aeeeeeea",
+     "aeggeeea",
+     "aeeeeeea",
+     "aehhheea",
+     "aaaaaaaa",
+     "...dd...",
+     "..aaaa..",
+     "..aaaa..",
+     "........"
+    ]
+   }
+  ],
+  "fps": 2,
+  "active": {
+   "rows": [
+    "........",
+    "........",
+    "aaaaaaaa",
+    "aeeeeeea",
+    "aeffffea",
+    "aeeeeeea",
+    "aegeeeea",
+    "aaaaaaaa",
+    "...dd...",
+    "..aaaa..",
+    "..aaaa..",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "qa",
+   "server"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-monitor-ganda",
+  "name": "Monitor Ganda",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#5A616E",
+    "e": "#4E8FD8",
+    "f": "#E8F2FF",
+    "g": "#FFE08A",
+    "h": "#C8F0D0"
+   },
+   "rows": [
+    "................",
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbccccaabbcccca",
+    "accccccaacccccca",
+    "accccccaacccccca",
+    "accccccaacccccca",
+    "aaaaaaaaaaaaaaaa",
+    "...dd......dd...",
+    "..aaaa....aaaa..",
+    ".aaaaaaaaaaaaaa.",
+    "................"
+   ]
+  },
+  "active": {
+   "rows": [
+    "................",
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "aeeeeeeaaeeeeeea",
+    "aeffffeaaeggeeea",
+    "aeeeeeeaaeeeeeea",
+    "aegeeeeaaehhheea",
+    "aaaaaaaaaaaaaaaa",
+    "...dd......dd...",
+    "..aaaa....aaaa..",
+    ".aaaaaaaaaaaaaa.",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "qa",
+   "server"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-monitor-ultrawide",
+  "name": "Monitor Ultrawide",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#5A616E",
+    "e": "#8A919C",
+    "f": "#4E8FD8",
+    "g": "#E8F2FF",
+    "h": "#FFE08A"
+   },
+   "rows": [
+    "................",
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbcccccccccccca",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaaaa",
+    ".......dd.......",
+    "......aaaa......",
+    ".....aeeeea.....",
+    "................"
+   ]
+  },
+  "active": {
+   "rows": [
+    "................",
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "affffffffffffffa",
+    "afggggggggggggfa",
+    "affffffffffffffa",
+    "afhhhhhhhhhffffa",
+    "aaaaaaaaaaaaaaaa",
+    ".......dd.......",
+    "......aaaa......",
+    ".....aeeeea.....",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "game",
+   "manager"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-laptop-stand",
+  "name": "Laptop di Stand",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#3B3F4A",
+    "c": "#8A919C",
+    "d": "#4E8FD8",
+    "e": "#E8F2FF",
+    "f": "#FFE08A"
+   },
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "abbbbbba",
+    "abbbbbba",
+    "abbbbbba",
+    "aaaaaaaa",
+    "...cc...",
+    "...cc...",
+    ".aaaaaa.",
+    "aaaaaaaa",
+    "aaaaaaaa"
+   ]
+  },
+  "active": {
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "adddddda",
+    "adeeedda",
+    "adddddda",
+    "adffffda",
+    "aaaaaaaa",
+    "...cc...",
+    "...cc...",
+    ".aaaaaa.",
+    "aaaaaaaa",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "lib",
+   "qa"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-printer",
+  "name": "Printer Kantor",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 11,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C8C3B7",
+    "c": "#F7F4EE",
+    "d": "#FFFFFF",
+    "e": "#E6E3DC",
+    "f": "#3E6BA8",
+    "g": "#E05555",
+    "h": "#9AA0A8",
+    "i": "#4FC36A"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    "aaaaaaaa",
+    "adddddda",
+    "aeffegea",
+    "aeeeeeea",
+    "aaaaaaaa",
+    "ahhhhhha",
+    "aaaaaaaa",
+    "........"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     ".aaaaaa.",
+     ".abbbba.",
+     ".acccca.",
+     "aaaaaaaa",
+     "adddddda",
+     "aeffegea",
+     "aeeeeeea",
+     "aaaaaaaa",
+     "ahhhhhha",
+     "aaaaaaaa",
+     "........"
+    ]
+   },
+   {
+    "rows": [
+     ".aaaaaa.",
+     ".abbbba.",
+     ".acccca.",
+     "aaaaaaaa",
+     "adddddda",
+     "aeffeiea",
+     "aeeeeeea",
+     "aaaaaaaa",
+     "ahhhhhha",
+     "aaaaaaaa",
+     "........"
+    ]
+   }
+  ],
+  "fps": 2,
+  "active": {
+   "rows": [
+    ".aaaaaa.",
+    ".abbbba.",
+    ".acccca.",
+    "aaaaaaaa",
+    "adddddda",
+    "aeffegea",
+    "aeeeeeea",
+    "aaaaaaaa",
+    "ahhhhhha",
+    "aaaaaaaa",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "print"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "qa",
+   "lobby"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-mesin-fotokopi",
+  "name": "Mesin Fotokopi",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 17,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#C8C3B7",
+    "c": "#B9BEC6",
+    "d": "#9FC4D4",
+    "e": "#D9D5CC",
+    "f": "#B9B2A6",
+    "g": "#5F8D80",
+    "h": "#7A8292",
+    "i": "#BFE8F5",
+    "j": "#8EF0C8"
+   },
+   "rows": [
+    ".aaaaaa.........",
+    ".abbbba.........",
+    "aaaaaaaaaaaaaaaa",
+    "acddddddddddddca",
+    "acddddddddddddca",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaaaa",
+    "aeeeeeeeeeeeeeea",
+    "aeeeeeeeeeeeeeea",
+    "aeffffffeeeaaaaa",
+    "aeeeeeeeeeeaggaa",
+    "aeeeeeeeeeeaaaaa",
+    "aeaaaaaaaaaaaaea",
+    "aeahhhhhhhhhhaea",
+    "aeaaaaaaaaaaaaea",
+    "aeeeeeeeeeeeeeea",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "active": {
+   "rows": [
+    ".aaaaaa.........",
+    ".abbbba.........",
+    "aaaaaaaaaaaaaaaa",
+    "aciiiiiiiiiiiica",
+    "aciiiiiiiiiiiica",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaaaa",
+    "aeeeeeeeeeeeeeea",
+    "aeeeeeeeeeeeeeea",
+    "aeffffffeeeaaaaa",
+    "aeeeeeeeeeeajjaa",
+    "aeeeeeeeeeeaaaaa",
+    "aeaaaaaaaaaaaaea",
+    "aeahhhhhhhhhhaea",
+    "aeaaaaaaaaaaaaea",
+    "aeeeeeeeeeeeeeea",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "print"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "lobby",
+   "manager"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-scanner",
+  "name": "Pemindai Dokumen",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 9,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#9FC4D4",
+    "c": "#A8AEB8",
+    "d": "#8A919C",
+    "e": "#E05555",
+    "f": "#BFE8F5",
+    "g": "#4FC36A"
+   },
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "abbbbbba",
+    "abbbbbba",
+    "aaaaaaaa",
+    "acccccca",
+    "aaaaaaaa",
+    "addddeea",
+    "aaaaaaaa"
+   ]
+  },
+  "active": {
+   "rows": [
+    "........",
+    "aaaaaaaa",
+    "affffffa",
+    "affffffa",
+    "aaaaaaaa",
+    "acccccca",
+    "aaaaaaaa",
+    "addddgga",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "print"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "lib",
+   "lobby"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-penghancur-kertas",
+  "name": "Penghancur Kertas",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 12,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F7F4EE",
+    "c": "#A8AEB8",
+    "d": "#4FC36A",
+    "e": "#8A919C",
+    "f": "#6E7685",
+    "g": "#4A505C",
+    "h": "#5A616E"
+   },
+   "rows": [
+    "...b....",
+    "...bb...",
+    "aaabbaaa",
+    "acaaaada",
+    "aeeeeeea",
+    "aaaaaaaa",
+    ".affffa.",
+    ".agggga.",
+    ".ahhhha.",
+    ".agggga.",
+    ".ahhhha.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "manager",
+   "kode",
+   "lobby"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-telepon-meja",
+  "name": "Telepon Meja",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 8,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#555B68",
+    "c": "#C8C3B7",
+    "d": "#3B3F4A",
+    "e": "#E05555"
+   },
+   "rows": [
+    "........",
+    "...aa...",
+    "aaaaaaaa",
+    "abbbbbba",
+    "aaaaaaaa",
+    ".acdcde.",
+    ".acdcda.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "phone"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "telepon",
+   "kode",
+   "manager",
+   "lobby"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-mesin-absen",
+  "name": "Mesin Absen",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 11,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#3B3F4A",
+    "c": "#D8D4CB",
+    "d": "#B9BEC6",
+    "e": "#E05555",
+    "f": "#4FC36A",
+    "g": "#8EC0F0"
+   },
+   "rows": [
+    ".aaaaaa.",
+    ".aaaaaa.",
+    ".aabbaa.",
+    ".aaaaaa.",
+    ".acccca.",
+    ".aaaaaa.",
+    ".aaddaa.",
+    ".aaaaaa.",
+    ".acccca.",
+    ".aaeeaa.",
+    "........"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     ".aaaaaa.",
+     ".aaaaaa.",
+     ".aaggaa.",
+     ".aaaaaa.",
+     ".acccca.",
+     ".aaaaaa.",
+     ".aaffaa.",
+     ".aaaaaa.",
+     ".acccca.",
+     ".aaeeaa.",
+     "........"
+    ]
+   },
+   {
+    "rows": [
+     ".aaaaaa.",
+     ".aaaaaa.",
+     ".aaggaa.",
+     ".aaaaaa.",
+     ".acccca.",
+     ".aaaaaa.",
+     ".aaffaa.",
+     ".aaaaaa.",
+     ".acccca.",
+     ".aaffaa.",
+     "........"
+    ]
+   }
+  ],
+  "fps": 2,
+  "active": {
+   "rows": [
+    ".aaaaaa.",
+    ".aaaaaa.",
+    ".aaggaa.",
+    ".aaaaaa.",
+    ".acccca.",
+    ".aaaaaa.",
+    ".aaffaa.",
+    ".aaaaaa.",
+    ".acccca.",
+    ".aaeeaa.",
+    "........"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "lobby",
+   "kode"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-whiteboard-dinding",
+  "name": "Whiteboard Dinding",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F7F8FA",
+    "c": "#3E6BA8",
+    "d": "#D84A4A",
+    "e": "#4F8F5B",
+    "f": "#B9B2A6"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "abccccccbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abcccccccccbbbba",
+    "abbbbbbbbaaaabba",
+    "abdddddbbaeeabba",
+    "abbbbbbbbaeeabba",
+    "abaaabbbbaaaabba",
+    "abbbbbbbbbbbbbba",
+    "affffffffffffffa",
+    "aaadddacccaaaaaa",
+    "................",
+    "................"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "whiteboard",
+   "think"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "meeting",
+   "kode",
+   "manager",
+   "qa"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-whiteboard-roda",
+  "name": "Whiteboard Beroda",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F7F8FA",
+    "c": "#4F8F5B",
+    "d": "#D84A4A",
+    "e": "#F2C14E",
+    "f": "#3E6BA8",
+    "g": "#8A919C",
+    "h": "#5A616E"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "abcccccbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abaaaaaaaaaabbba",
+    "abbbbbbbbbbbbbba",
+    "abdddddddbeeebba",
+    "abbbbbbbbbeeebba",
+    "abbbbbbbbbeeebba",
+    "abffffbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "aaaaaaaaaaaaaaaa",
+    "..g..........g..",
+    "..g..........g..",
+    "..g..........g..",
+    "..g..........g..",
+    "..g..........g..",
+    "..a..........a..",
+    ".ahhhhhhhhhhhha.",
+    ".aa..........aa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "whiteboard",
+   "think"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "meeting",
+   "kode",
+   "qa"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-papan-kanban",
+  "name": "Papan Kanban",
+  "cat": "kerja",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F2EFE8",
+    "c": "#B9B2A6",
+    "d": "#D84A4A",
+    "e": "#F2C14E",
+    "f": "#4F8F5B",
+    "g": "#8EC0F0",
+    "h": "#F5A3B5",
+    "i": "#B7E3A0"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "abbbbbbbcbbbbbbcbbbbbbba",
+    "abdddddbceeeeebcfffffbba",
+    "abbbbbbbcbbbbbbcbbbbbbba",
+    "abeeeeebcgggggbchhhhhbba",
+    "abeeeeebcgggggbchhhhhbba",
+    "abbbbbbbcbbbbbbcbbbbbbba",
+    "abhhhhhbciiiiibcbbbbbbba",
+    "abhhhhhbciiiiibcbbbbbbba",
+    "abbbbbbbceeeeebcbbbbbbba",
+    "abbbbbbbceeeeebcbbbbbbba",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "........................",
+    "........................"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "whiteboard",
+   "think"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 2,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "manager",
+   "meeting"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-papan-gabus",
+  "name": "Papan Gabus",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 13,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D9AA70",
+    "c": "#C9965A",
+    "d": "#F7F4EE",
+    "e": "#D84A4A",
+    "f": "#F5A3B5",
+    "g": "#3E6BA8",
+    "h": "#9AA0A8",
+    "i": "#8EC0F0",
+    "j": "#F2C14E",
+    "k": "#3E8E4E"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "accddedcccccccca",
+    "accddddccffgffca",
+    "accdhhdccfffffca",
+    "accddddccfffffca",
+    "acccccccccccccca",
+    "accccieiccjjkjca",
+    "acccciiiccjjjjca",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaaaa",
+    "................",
+    "................"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "think"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "kode",
+   "lib",
+   "lobby"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-flip-chart",
+  "name": "Flip Chart",
+  "cat": "kerja",
+  "w": 1,
+  "h": 2,
+  "sprite": {
+   "w": 8,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#8A919C",
+    "c": "#F7F4EE",
+    "d": "#3E6BA8",
+    "e": "#D84A4A",
+    "f": "#5A616E"
+   },
+   "rows": [
+    "abbbbbba",
+    "abbbbbba",
+    "acccccca",
+    "acddddca",
+    "acccccca",
+    "aceeecca",
+    "acccccca",
+    "acaaaaca",
+    "acccccca",
+    "acccccca",
+    "aaaaaaaa",
+    "...aa...",
+    "...aa...",
+    ".a.aa.a.",
+    ".b.ff.b.",
+    ".a....a.",
+    "........",
+    "........",
+    "........",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "whiteboard",
+   "think"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "meeting",
+   "kode"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-layar-proyektor",
+  "name": "Layar Proyektor",
+  "cat": "kerja",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 16,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#8A919C",
+    "c": "#F2F2EE",
+    "d": "#5A616E",
+    "e": "#E8F2FF",
+    "f": "#3E6BA8",
+    "g": "#8EC0F0",
+    "h": "#9AA0A8",
+    "i": "#F2C14E"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..acccccccccccccccccca..",
+    "..aaaaaaaaaaaaaaaaaaaa..",
+    "...........dd...........",
+    "...........aa..........."
+   ]
+  },
+  "active": {
+   "rows": [
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbbbbbbbbbba",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "..aeeeeeeeeeeeeeeeeeea..",
+    "..aeffffffffeeeeeeeeea..",
+    "..aeeeeeeeeeeeeeeeeeea..",
+    "..aegggggehhhhhhhhhhea..",
+    "..aegggggeeeeeeeeeeeea..",
+    "..aegggggehhhhhhhheeea..",
+    "..aegggggeeeeeeeeeeeea..",
+    "..aegggggeiiiiiieeeeea..",
+    "..aeeeeeeeeeeeeeeeeeea..",
+    "..aeeeeeeeeeeeeeeeeeea..",
+    "..aaaaaaaaaaaaaaaaaaaa..",
+    "...........dd...........",
+    "...........aa..........."
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "meeting"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "meeting",
+   "lobby"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-tv-presentasi",
+  "name": "TV Presentasi",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 14,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#3B3F4A",
+    "c": "#2F2A35",
+    "d": "#E05555",
+    "e": "#5A616E",
+    "f": "#2E3B57",
+    "g": "#4E8FD8",
+    "h": "#F2C14E",
+    "i": "#D84A4A",
+    "j": "#4FC36A"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaada",
+    "......aaaa......",
+    ".....aeeeea.....",
+    "................"
+   ]
+  },
+  "active": {
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "affffffffffffffa",
+    "afffffffggfffffa",
+    "afffffffggfffffa",
+    "affffhhfggfffffa",
+    "affffhhfggfiiffa",
+    "afjjfhhfggfiiffa",
+    "afjjfhhfggfiiffa",
+    "afjjfhhfggfiiffa",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaaja",
+    "......aaaa......",
+    ".....aeeeea.....",
+    "................"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [
+   "meeting"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "meeting",
+   "manager",
+   "lobby"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-proyektor-meja",
+  "name": "Proyektor Portabel",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#FFFFFF",
+    "c": "#5A616E",
+    "d": "#E6E3DC",
+    "e": "#9AA0A8",
+    "f": "#E05555",
+    "g": "#4FC36A"
+   },
+   "rows": [
+    "........",
+    "........",
+    "aaaaaaaa",
+    "aaaabbba",
+    "aacadeea",
+    "aaaadfda",
+    "aaaaaaaa",
+    ".a....a.",
+    ".a....a.",
+    "........"
+   ]
+  },
+  "active": {
+   "rows": [
+    "........",
+    "........",
+    "aaaaaaaa",
+    "aaaabbba",
+    "aabadeea",
+    "aaaadgda",
+    "aaaaaaaa",
+    ".a....a.",
+    ".a....a.",
+    "........"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "meeting"
+  ],
+  "spots": [],
+  "rooms": [
+   "meeting"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-lemari-arsip",
+  "name": "Lemari Arsip 2 Laci",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 13,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#adb2ba",
+    "c": "#8A919C",
+    "d": "#D9D0C0",
+    "e": "#61666d"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abbbbbba",
+    "acaddaca",
+    "acccccca",
+    "acccccca",
+    "aeeeeeea",
+    "acccccca",
+    "acaddaca",
+    "acccccca",
+    "acccccca",
+    "aeeeeeea",
+    "acccccca",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "manager",
+   "lib",
+   "lobby"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-lemari-arsip-tinggi",
+  "name": "Lemari Arsip 4 Laci",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 18,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#8fab96",
+    "c": "#5F8769",
+    "d": "#D9D0C0",
+    "e": "#435f4a"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abbbbbba",
+    "acaddaca",
+    "acccccca",
+    "aeeeeeea",
+    "acccccca",
+    "acaddaca",
+    "acccccca",
+    "aeeeeeea",
+    "acccccca",
+    "acaddaca",
+    "acccccca",
+    "aeeeeeea",
+    "acccccca",
+    "acaddaca",
+    "acccccca",
+    "aeeeeeea",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "lib",
+   "manager",
+   "kode"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-lemari-arsip-krem",
+  "name": "Lemari Arsip Krem",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 13,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#e2d9c2",
+    "c": "#D6C9A8",
+    "d": "#D9D0C0",
+    "e": "#968d76"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abbbbbba",
+    "acaddaca",
+    "aeeeeeea",
+    "acccccca",
+    "acaddaca",
+    "aeeeeeea",
+    "acccccca",
+    "acaddaca",
+    "aeeeeeea",
+    "acccccca",
+    "acccccca",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "lib",
+   "manager",
+   "lobby"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-loker",
+  "name": "Loker Karyawan",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#97bcd3",
+    "c": "#8cb1c8",
+    "d": "#6A9FC0",
+    "e": "#405f73",
+    "f": "#5A8FB0",
+    "g": "#36566a",
+    "h": "#507790",
+    "i": "#446b84",
+    "j": "#D9D0C0"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbaacccccca",
+    "adeeeedaafggggfa",
+    "addddddaaffffffa",
+    "adeeeedaafggggfa",
+    "addddddaaffffffa",
+    "adeeeedaafggggfa",
+    "addddddaaffffffa",
+    "addddddaaffffffa",
+    "ahhhhhhaaiiiiiia",
+    "addddddaaffffffa",
+    "addddjjaaffffjja",
+    "addddjjaaffffjja",
+    "addddjjaaffffjja",
+    "addddddaaffffffa",
+    "addddddaaffffffa",
+    "addddddaaffffffa",
+    "ahhhhhhaaiiiiiia",
+    "addddddaaffffffa",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "lobby",
+   "kode",
+   "musik",
+   "gym"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-rak-dokumen",
+  "name": "Rak Dokumen",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A321F",
+    "c": "#7897c2",
+    "d": "#3E6BA8",
+    "e": "#e4bf7a",
+    "f": "#cc8077",
+    "g": "#D9A441",
+    "h": "#84b18c",
+    "i": "#B64A3D",
+    "j": "#4F8F5B",
+    "k": "#6E4B2E",
+    "l": "#a284b6",
+    "m": "#7A4F96",
+    "n": "#e4e0d4",
+    "o": "#D8D2C2",
+    "p": "#6d8e9a",
+    "q": "#2F5D6E"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbcccbbbbbbba",
+    "abbbbdddeebbbbba",
+    "abffbdddgghhhbba",
+    "abiibdddggjjjbba",
+    "abiibdddggjjjbba",
+    "akkkkkkkkkkkkkka",
+    "abbbbbbbllbbbbba",
+    "abeebbbbmmnnnbba",
+    "abgghhhbmmoooppa",
+    "abggjjjbmmoooqqa",
+    "abggjjjbmmoooqqa",
+    "akkkkkkkkkkkkkka",
+    "abllbbbbbbfffbba",
+    "abmmnnnbbbiiicca",
+    "abmmoooppbiiidda",
+    "abmmoooqqbiiidda",
+    "abmmoooqqbiiidda",
+    "akkkkkkkkkkkkkka",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "read"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 1,
+    "pose": "read",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "lib",
+   "manager",
+   "kode"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-brankas",
+  "name": "Brankas",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 11,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#3B3F4A",
+    "c": "#D9D0C0",
+    "d": "#D9B64A",
+    "e": "#4A505C"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "aaaaaaaa",
+    "aabbbbaa",
+    "aaaaacda",
+    "aaaaabda",
+    "aaaaabda",
+    "aabbbbaa",
+    "aabbbbaa",
+    "aaaaaaaa",
+    "aeeeeeea",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "manager",
+   "lobby"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-rak-alat-tulis",
+  "name": "Rak Alat Tulis",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 13,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#DDB27C",
+    "c": "#3E6BA8",
+    "d": "#D84A4A",
+    "e": "#F2C14E",
+    "f": "#C99A63",
+    "g": "#F5F5F0",
+    "h": "#9A6F42",
+    "i": "#4F8F5B",
+    "j": "#F5A3B5",
+    "k": "#F2EFE8",
+    "l": "#B9B2A6"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abcbbbba",
+    "adcefffa",
+    "adcefgga",
+    "adcefgga",
+    "ahhhhhha",
+    "affffffa",
+    "aiiijjja",
+    "aiiijjja",
+    "ahhhhhha",
+    "afkkkkfa",
+    "afllllfa",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "lib",
+   "manager"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-tumpukan-berkas",
+  "name": "Tumpukan Berkas",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#9AA0A8",
+    "c": "#F7F4EE",
+    "d": "#D84A4A",
+    "e": "#DDB27C",
+    "f": "#C99A63"
+   },
+   "rows": [
+    "........",
+    "..aaaaa.",
+    "..abbba.",
+    ".aaaaaa.",
+    ".acccdd.",
+    "aaaaaaaa",
+    "aeeeeeea",
+    "affffffa",
+    "aaaaaaaa",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [
+   "read"
+  ],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "manager",
+   "lib",
+   "lobby"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-jam-dinding",
+  "name": "Jam Dinding",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 9,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#FFFFFF",
+    "c": "#FBF9F4",
+    "d": "#8A919C",
+    "e": "#D84A4A",
+    "f": "#F7F4EE"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abccdcba",
+    "acccecca",
+    "accaacca",
+    "adcaacda",
+    "acccccca",
+    "afccdcfa",
+    "aaaaaaaa",
+    "........"
+   ]
+  },
+  "frames": [
+   {
+    "rows": [
+     "aaaaaaaa",
+     "abccdcba",
+     "acccecca",
+     "accaacca",
+     "adcaacda",
+     "acccccca",
+     "afccdcfa",
+     "aaaaaaaa",
+     "........"
+    ]
+   },
+   {
+    "rows": [
+     "aaaaaaaa",
+     "abccdcba",
+     "acccccca",
+     "accaaeca",
+     "adcaacda",
+     "acccccca",
+     "afccdcfa",
+     "aaaaaaaa",
+     "........"
+    ]
+   }
+  ],
+  "fps": 1,
+  "solid": false,
+  "wall": true,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "lobby",
+   "meeting",
+   "manager",
+   "lib",
+   "qa"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-kalender-dinding",
+  "name": "Kalender Dinding",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#9AA0A8",
+    "c": "#D84A4A",
+    "d": "#F7F4EE"
+   },
+   "rows": [
+    "aabaabaa",
+    "acccccca",
+    "acccccca",
+    "adddddda",
+    "abdbdbda",
+    "adddddda",
+    "abdbdcda",
+    "adddddda",
+    "abdcdcca",
+    "aaaaaaaa"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "lobby",
+   "manager",
+   "lib"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-meja-resepsionis",
+  "name": "Meja Resepsionis",
+  "cat": "kerja",
+  "w": 3,
+  "h": 1,
+  "sprite": {
+   "w": 24,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#4A505C",
+    "c": "#3B3F4A",
+    "d": "#F2EFE8",
+    "e": "#F2D77A",
+    "f": "#9AA0A8",
+    "g": "#5A616E",
+    "h": "#E4C28F",
+    "i": "#D6B07A",
+    "j": "#2F2A35",
+    "k": "#555B68",
+    "l": "#5E3E28",
+    "m": "#7A5236",
+    "n": "#6A452D",
+    "o": "#8E6342",
+    "p": "#4E8FD8",
+    "q": "#E8F2FF",
+    "r": "#FFE08A"
+   },
+   "rows": [
+    ".aaaaaaaa...............",
+    ".abbcccca...............",
+    ".acccccca......dddd.....",
+    ".acccccca......aaaa..e..",
+    ".acccccca......affa.aaa.",
+    ".aaaaaaaa......aaaa.aaa.",
+    "aaaaggaaaaaaaaaaaaaaaaaa",
+    "ahhaaaahhhhhhhhhhhhhhhha",
+    "aiiiiiiiiiiiijkkkjiiiiia",
+    "aiiiiiiiiiiiijjjjjiiiiia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "alllllllllllllllllllllla",
+    "ammmmmmmmmmmmmmmmmmmmmma",
+    "ammnnnnnnnaaaannnnnnnmma",
+    "ammnooooooaeeaoooooonmma",
+    "ammnnnnnnnaaaannnnnnnmma",
+    "ammmmmmmmmmmmmmmmmmmmmma",
+    "aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "active": {
+   "rows": [
+    ".aaaaaaaa...............",
+    ".appppppa...............",
+    ".apqqqqpa......dddd.....",
+    ".appppppa......aaaa..e..",
+    ".aprppppa......affa.aaa.",
+    ".aaaaaaaa......aaaa.aaa.",
+    "aaaaggaaaaaaaaaaaaaaaaaa",
+    "ahhaaaahhhhhhhhhhhhhhhha",
+    "aiiiiiiiiiiiijkkkjiiiiia",
+    "aiiiiiiiiiiiijjjjjiiiiia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aiiiiiiiiiiiiiiiiiiiiiia",
+    "aaaaaaaaaaaaaaaaaaaaaaaa",
+    "alllllllllllllllllllllla",
+    "ammmmmmmmmmmmmmmmmmmmmma",
+    "ammnnnnnnnaaaannnnnnnmma",
+    "ammnooooooaeeaoooooonmma",
+    "ammnnnnnnnaaaannnnnnnmma",
+    "ammmmmmmmmmmmmmmmmmmmmma",
+    "aaaaaaaaaaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "type",
+   "phone"
+  ],
+  "spots": [
+   {
+    "dx": 1,
+    "dy": -1,
+    "pose": "stand",
+    "face": "down"
+   }
+  ],
+  "rooms": [
+   "lobby"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-partisi-kubikel",
+  "name": "Partisi Kubikel",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 22,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#5A7FA8",
+    "c": "#7A8EA0",
+    "d": "#8FA3B5",
+    "e": "#9BAEC0",
+    "f": "#9AA0A8",
+    "g": "#F7F4EE",
+    "h": "#F2C14E",
+    "i": "#5A616E"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "adddddddddddddda",
+    "addededededededa",
+    "adddddddddddddda",
+    "adeaaaadedededda",
+    "addaffadddddddda",
+    "addaggaedaaaaeda",
+    "addaaaaddahhadda",
+    "adedededeaaaadda",
+    "adddddddddddddda",
+    "addededededededa",
+    "adddddddddddddda",
+    "adededededededda",
+    "adddddddddddddda",
+    "addededededededa",
+    "adddddddddddddda",
+    "adededededededda",
+    "aaiiiiiiiiiiiiaa",
+    ".aaaaaaaaaaaaaa.",
+    "................"
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "qa",
+   "telepon"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-lampu-meja",
+  "name": "Lampu Meja",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 11,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#FFE08A",
+    "c": "#FFF3B0",
+    "d": "#3B3F4A"
+   },
+   "rows": [
+    "........",
+    "...aaaaa",
+    "...abbba",
+    "...aaaaa",
+    "...accc.",
+    "...aa...",
+    "...aa...",
+    "...a....",
+    "...a....",
+    "..dad...",
+    ".aaaaa.."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "lib",
+   "manager",
+   "qa"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-tempat-sampah",
+  "name": "Tempat Sampah",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 10,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F7F4EE",
+    "c": "#D84A4A",
+    "d": "#8A919C",
+    "e": "#5A616E",
+    "f": "#6E7685"
+   },
+   "rows": [
+    ".aabbca.",
+    ".aaaaaa.",
+    ".aaaaaa.",
+    ".aaaaaa.",
+    ".adddda.",
+    ".aeeeea.",
+    ".affffa.",
+    ".aeeeea.",
+    ".affffa.",
+    ".aaaaaa."
+   ]
+  },
+  "solid": false,
+  "wall": false,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "kode",
+   "lobby",
+   "manager",
+   "qa",
+   "lib",
+   "pantry"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-kotak-saran",
+  "name": "Kotak Saran",
+  "cat": "kerja",
+  "w": 1,
+  "h": 1,
+  "sprite": {
+   "w": 8,
+   "h": 11,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#F07A7A",
+    "c": "#D84A4A",
+    "d": "#9A6F42"
+   },
+   "rows": [
+    "aaaaaaaa",
+    "abbbbbba",
+    "acaaaaca",
+    "acccccca",
+    "acaaaaca",
+    "acaccaca",
+    "acaaaaca",
+    "aaaaaaaa",
+    ".adddda.",
+    ".a....a.",
+    ".a....a."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": 1,
+    "pose": "stand",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "lobby",
+   "kode"
+  ],
+  "weight": 1
+ },
+ {
+  "id": "kerja-papan-nama",
+  "name": "Papan Nama Departemen",
+  "cat": "kerja",
+  "w": 2,
+  "h": 1,
+  "sprite": {
+   "w": 16,
+   "h": 9,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#D9B64A",
+    "c": "#2F2A35",
+    "d": "#F2D77A",
+    "e": "#C9A24A"
+   },
+   "rows": [
+    "aaaaaaaaaaaaaaaa",
+    "abccccccccccccba",
+    "acccccccccccccca",
+    "accddddddddddcca",
+    "acccccccccccccca",
+    "acccceeeeeecccca",
+    "acccccccccccccca",
+    "abccccccccccccba",
+    "aaaaaaaaaaaaaaaa"
+   ]
+  },
+  "solid": false,
+  "wall": true,
+  "affords": [],
+  "spots": [],
+  "rooms": [
+   "lobby",
+   "kode",
+   "qa",
+   "manager",
+   "server"
+  ],
+  "weight": 2
+ },
+ {
+  "id": "kerja-meja-rapat-kecil",
+  "name": "Meja Rapat Kecil",
+  "cat": "kerja",
+  "w": 2,
+  "h": 2,
+  "sprite": {
+   "w": 16,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#DDB27C",
+    "c": "#C9965A",
+    "d": "#F7F4EE",
+    "e": "#9AA0A8",
+    "f": "#F2C14E",
+    "g": "#9A6F42",
+    "h": "#835e38"
+   },
+   "rows": [
+    "................",
+    "................",
+    "aaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbba",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "acccccddddccccca",
+    "acccccdeedccccca",
+    "acccccddddccccca",
+    "acffccccccaaacca",
+    "acffccccccaaacca",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "acccccccccccccca",
+    "aaaaaaaaaaaaaaaa",
+    ".aghhgggggghhga.",
+    ".aghhgggggghhga.",
+    ".agaaggggggaaga.",
+    ".aaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "meeting"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": -1,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": -1,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 0,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "meeting",
+   "manager",
+   "lobby"
+  ],
+  "weight": 3
+ },
+ {
+  "id": "kerja-meja-rapat-besar",
+  "name": "Meja Rapat Besar",
+  "cat": "kerja",
+  "w": 4,
+  "h": 2,
+  "sprite": {
+   "w": 32,
+   "h": 20,
+   "palette": {
+    "a": "#2A2430",
+    "b": "#8E6342",
+    "c": "#7A5236",
+    "d": "#F7F4EE",
+    "e": "#9AA0A8",
+    "f": "#4F7FB8",
+    "g": "#F2EFE8",
+    "h": "#5E3E28",
+    "i": "#503522"
+   },
+   "rows": [
+    "................................",
+    "................................",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "abbbbbbbbbbbbbbbbbbbbbbbbbbbbbba",
+    "acccccccccccccccccccccccccccccca",
+    "acccccccccccccccccccccccccccccca",
+    "acccccccccccccccccccccccccccccca",
+    "acccdddddcccccaaaaccccccccccccca",
+    "acccdeeedcccccaffaccccdddddcccca",
+    "acccdddddcccccaaaaccccdeeedcccca",
+    "acccccccccccccccccccccdddddcccca",
+    "acaaacccccggcccccccccccccccaaaca",
+    "acaaacccccggcccccccccccccccaaaca",
+    "acccccccccccccccccccccccccccccca",
+    "acccccccccccccccccccccccccccccca",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ".ahiihhhhhhhhhhhhhhhhhhhhhhiiha.",
+    ".ahiihhhhhhhhhhhhhhhhhhhhhhiiha.",
+    ".ahaahhhhhhhhhhhhhhhhhhhhhhaaha.",
+    ".aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa."
+   ]
+  },
+  "solid": true,
+  "wall": false,
+  "affords": [
+   "meeting"
+  ],
+  "spots": [
+   {
+    "dx": 0,
+    "dy": -1,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 1,
+    "dy": -1,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 2,
+    "dy": -1,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 3,
+    "dy": -1,
+    "pose": "sit",
+    "face": "down"
+   },
+   {
+    "dx": 0,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 1,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 2,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   },
+   {
+    "dx": 3,
+    "dy": 2,
+    "pose": "sit",
+    "face": "up"
+   }
+  ],
+  "rooms": [
+   "meeting"
+  ],
+  "weight": 3
+ }
+]
