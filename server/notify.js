@@ -31,7 +31,12 @@ export async function pushGhina(ev) {
   if (now - (last.get(key) || 0) < (Number(c.debounceSec) || 30) * 1000) return false;
   last.set(key, now);
   if (last.size > 500) for (const [k, t] of last) if (now - t > 3600e3) last.delete(k);
-  const body = { event: EVENTS[ev.kind], title: clip(TITLES[ev.kind](ev.who || 'Sesi'), 120), body: clip(ev.text, 500),
+  // which office daemon sent it, so an app with several connections opens the right one:
+  // ghinaNotify.kantor (base URL) and .label, else the public name of a shared office; a single-user Mac sends neither
+  const names = config().akun?.enabled ? config().akun.names || [] : [];
+  const origin = c.kantor || (names[0] ? `https://${names[0]}` : null), label = c.label || null;
+  const body = { event: EVENTS[ev.kind], title: clip((label ? `${label} · ` : '') + TITLES[ev.kind](ev.who || 'Sesi'), 120), body: clip(ev.text, 500),
+    ...(origin ? { kantor: origin } : {}),
     ...(ev.office ? { office: ev.office, path: ev.kind === 'pratinjau' && ev.id ? `#/o/${ev.office}/pratinjau/${ev.id}` : `#/o/${ev.office}/kantor` } : {}), ...(ev.sid ? { sid: ev.sid } : {}), ...(ev.id ? { id: ev.id } : {}) };
   try {
     const r = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
