@@ -989,6 +989,11 @@ body.in-office .top-in{max-width:none}
   .home{padding-top:14px;padding-bottom:calc(32px + env(safe-area-inset-bottom,0px))}
   .hm-sec #hmFilter{max-width:none;min-height:44px;font-size:16px}
 }
+/* small phones (360px): the header icons plus the Agen/Izin pills used to push the settings icon off screen */
+@media (max-width:400px){
+  .top-right{gap:0}
+  .top-right .icon-link{width:28px}
+}
 @media (max-width:600px){
   .top-in{padding:6px 12px;gap:6px}
   .brand{font-size:0;gap:0}

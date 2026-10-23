@@ -30,13 +30,13 @@ function chart(days) {
   const vals = days.map(d => Math.max(0, finite(metric === 'cost' ? d.cost : d.tokens)));
   const max = Math.max(...vals, 0);
   if (!vals.length || max <= 0) return '<p class="empty-line">Belum ada pemakaian.</p>';
-  const W = 700, H = 150, B = 20, bw = W / vals.length;
   const f = v => (metric === 'cost' ? usd(v) : tok(v));
+  // HTML bars at a fixed pixel height: an SVG viewBox would scale its text with the card (huge on desktop, tiny on a phone)
   const bars = vals.map((v, i) => {
-    const h = Math.max(v > 0 ? 1.5 : 0, (v / max) * (H - B - 6));
-    return `<g><rect x="${i * bw + 2}" y="${H - B - h}" width="${Math.max(1, bw - 4)}" height="${h}" rx="2" fill="var(--accent)"><title>${esc(days[i].day)}: ${f(v)}</title></rect>${vals.length <= 7 || i % 5 === 0 ? `<text x="${i * bw + bw / 2}" y="${H - 5}" text-anchor="middle">${esc(String(days[i].day).slice(8))}/${esc(String(days[i].day).slice(5, 7))}</text>` : ''}</g>`;
+    const day = String(days[i].day), lab = vals.length <= 7 || i % 5 === 0 ? `${day.slice(8)}/${day.slice(5, 7)}` : '';
+    return `<div class="us-col" title="${esc(day)}: ${esc(f(v))}"><i style="height:${v > 0 ? Math.max(1, v / max * 100).toFixed(1) : 0}%"></i><small>${esc(lab)}</small></div>`;
   }).join('');
-  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik pemakaian harian"><text x="0" y="10">${f(max)}</text>${bars}</svg>`;
+  return `<div class="us-chart" role="img" aria-label="Grafik pemakaian harian, tertinggi ${esc(f(max))}"><span class="us-chart-max">${esc(f(max))}</span><div class="us-bars">${bars}</div></div>`;
 }
 
 function table(rows, nameKey = 'name') {
@@ -50,13 +50,13 @@ function draw() {
   const stats = s ? (() => {
     const t = s.totals || {};
     const kp = [[tok(t.tokens), 'Total token'], [usd(t.cost), 'Biaya setara API (Claude)'], [num(t.sessions), 'Sesi'], [tok(s.avgPerSession?.tokens), 'Rata-rata token per sesi'], [dur(s.work?.seconds), 'Durasi sesi'], [dur(s.work?.avgSeconds), 'Rata-rata durasi sesi']];
-    const top = (s.topSessions || []).map(x => `<tr><td>${esc((x.title || x.roleName || 'Sesi').slice(0, 48))}</td><td>${esc(x.roleName || '')}</td><td class="num">${tok(x.tokens)}</td><td class="num">${x.cost > 0 ? usd(x.cost) : '-'}</td></tr>`).join('');
+    const top = (s.topSessions || []).map(x => `<tr><td>${esc((x.title || x.roleName || 'Sesi').slice(0, 48))}</td><td class="us-opt">${esc(x.roleName || '')}</td><td class="num">${tok(x.tokens)}</td><td class="num">${x.cost > 0 ? usd(x.cost) : '-'}</td></tr>`).join('');
     return `<div class="kpis">${kp.map(([b, sp]) => `<div class="kpi"><b>${esc(b)}</b><span>${esc(sp)}</span></div>`).join('')}</div>
       <p class="hint">Masuk ${tok(t.input)} · Keluar ${tok(t.output)} · Cache tulis ${tok(t.cacheW)} · Cache baca ${tok(t.cacheR)} · Claude ${tok(s.engines?.claude?.tokens)} · Codex ${tok(s.engines?.codex?.tokens)}</p>
       <div class="btn-row"><button class="btn sm" data-us="m-tokens" ${metric === 'tokens' ? 'disabled' : ''}>Token</button><button class="btn sm" data-us="m-cost" ${metric === 'cost' ? 'disabled' : ''}>Biaya</button></div>
       ${chart(s.daily || [])}
       <div class="pay-grid"><div>${s.byOffice?.length ? '<h3>Per kantor</h3>' + table(s.byOffice) : ''}<h3>Per peran</h3>${table(s.byRole)}<h3>Per mesin</h3>${table(s.byMachine)}</div>
-      <div><h3>Per model</h3>${table(s.byModel, 'label')}<h3>Sesi terboros</h3>${top ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Sesi</th><th>Peran</th><th class="num">Token</th><th class="num">Biaya</th></tr></thead><tbody>${top}</tbody></table></div>` : '<p class="empty-line">Belum ada sesi.</p>'}</div></div>
+      <div><h3>Per model</h3>${table(s.byModel, 'label')}<h3>Sesi terboros</h3>${top ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Sesi</th><th class="us-opt">Peran</th><th class="num">Token</th><th class="num">Biaya</th></tr></thead><tbody>${top}</tbody></table></div>` : '<p class="empty-line">Belum ada sesi.</p>'}</div></div>
       <p class="hint">${esc(s.costNote || '')} Jumlah tool call dan baris yang diedit belum dicatat.</p>`;
   })() : '<p class="hint">Memuat…</p>';
   host.innerHTML = `<div class="card us-card"><h2>Batas pemakaian</h2>

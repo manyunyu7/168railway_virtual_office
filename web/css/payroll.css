@@ -5,3 +5,19 @@
 .py-root #pyMonth{width:auto;min-width:140px}
 .py-root .chart{max-height:320px}
 .py-root .kpi .btn{order:3}
+/* grafik pemakaian harian (usage-card.js): batang HTML setinggi tetap */
+.us-chart{display:grid;gap:4px;margin:6px 0 4px}
+.us-chart-max{font:600 11px var(--f-label);color:var(--muted)}
+.us-bars{display:flex;align-items:stretch;gap:4px;height:150px;border-bottom:2px solid var(--line)}
+.us-col{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;position:relative}
+.us-col i{display:block;background:var(--accent);border-radius:4px 4px 0 0;min-height:0}
+.us-col small{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;font:600 11px var(--f-label);color:var(--muted);white-space:nowrap}
+.us-bars:has(.us-col small:not(:empty)){margin-bottom:20px}
+/* tabel di layar sempit: lebih rapat, kolom pelengkap disembunyikan supaya tidak keluar dari kartu */
+@media (max-width:560px){
+  .py-root .tbl,.us-card .tbl{font-size:12.5px}
+  .py-root .tbl th,.py-root .tbl td,.us-card .tbl th,.us-card .tbl td{padding:8px 7px}
+  .py-root .tbl th,.us-card .tbl th{letter-spacing:.06em}
+  .py-root .us-opt,.us-card .us-opt{display:none}
+  .us-bars{height:120px;gap:2px}
+}

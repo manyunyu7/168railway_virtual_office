@@ -124,7 +124,7 @@ function sessionsTable(rows) {
   if (!rows.length) return '<p class="empty-line">Belum ada sesi.</p>';
   const roleName = id => id ? (ctx.office?.roles.find(r => r.id === id)?.name || id) : 'Manual';
   const days = s => s.first === s.last ? esc(s.first) : `${esc(s.first)} – ${esc(s.last)}`;
-  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Sesi</th><th>Role</th><th>Ruang</th><th>Hari</th><th class="num">Biaya</th></tr></thead><tbody>${rows.map(s => `<tr><td title="${esc(s.sid)}">${esc(short(s.title || s.first_prompt || s.sid.slice(0, 8), 44))}</td><td>${esc(roleName(s.role))}</td><td>${esc(s.room || '-')}</td><td>${days(s)}</td><td class="num">${usd(s.cost)}</td></tr>`).join('')}</tbody></table></div>`;
+  return `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Sesi</th><th>Role</th><th class="us-opt">Ruang</th><th class="us-opt">Hari</th><th class="num">Biaya</th></tr></thead><tbody>${rows.map(s => `<tr><td title="${esc(s.sid)}">${esc(short(s.title || s.first_prompt || s.sid.slice(0, 8), 44))}</td><td>${esc(roleName(s.role))}</td><td class="us-opt">${esc(s.room || '-')}</td><td class="us-opt">${days(s)}</td><td class="num">${usd(s.cost)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 /* ---------------- actions ---------------- */
