@@ -178,7 +178,7 @@ route('GET', '/api/state', () => {
   });
   // sessions outside every office (e.g. claude started in ~/Developer itself)
   const loose = [...live.values()].filter(s => !s.office && s.status !== 'ended').map(s => ({ sid: s.sid, status: s.status, title: s.title, cwd: s.cwd, tool: s.tool, waiting: s.waiting, lastSeen: s.lastSeen, tty: s.tty || null, host: s.host || null }));
-  return { me: meView(), akun: akunOn(), loose, offices, repoDir: ROOT_DIR, inbox: openInbox(), hooks: globalHooksInstalled(), tmux: !!bins().tmux, claude: !!bins().claude, settings: { approvals: cfg.approvals, roots: cfg.roots, extraHosts: cfg.extraHosts, defaultPermissionMode: cfg.defaultPermissionMode || '', musicDir: cfg.musicDir, ghinaNotify: { enabled: cfg.ghinaNotify?.enabled !== false, ready: !!(cfg.ghinaNotify?.url && cfg.ghinaNotify?.token), events: cfg.ghinaNotify?.events || [] } } };
+  return { me: meView(), akun: akunOn(), loose, offices, repoDir: ROOT_DIR, inbox: openInbox(), hooks: globalHooksInstalled(), tmux: !!bins().tmux, claude: !!bins().claude, settings: { approvals: cfg.approvals, roots: cfg.roots, extraHosts: cfg.extraHosts, defaultPermissionMode: cfg.defaultPermissionMode || '', musicDir: cfg.musicDir, sysmon: sysmon.conf().enabled, ghinaNotify: { enabled: cfg.ghinaNotify?.enabled !== false, ready: !!(cfg.ghinaNotify?.url && cfg.ghinaNotify?.token), events: cfg.ghinaNotify?.events || [] } } };
 });
 route('GET', '/api/candidates', () => candidateFolders());
 route('GET', '/api/wizard/folders', () => wizardFolders());

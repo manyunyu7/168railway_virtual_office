@@ -12,6 +12,7 @@ import * as wiki from './wiki.js';
 import * as pratinjau from './pratinjau.js';
 import './docs.js';
 import * as payroll from './payroll.js';
+import * as sysmonView from './sysmon.js';
 import * as metrics from './metrics.js';
 import * as settings from './settings.js';
 import * as akunPage from './akun.js';
@@ -32,8 +33,8 @@ import { mountTabBar, refitTabBar } from './tab-bar.js';
 
 export const ctx = { st: null, office: null, stage: null, view: null, route: null };
 const view = $('#view');
-const TABS = { kantor: 'Kantor', chat: 'Chat', board: 'Board', timeline: 'Timeline', kalender: 'Kalender', file: 'File', rapat: 'Rapat', notes: 'Notes', wiki: 'Wiki', pratinjau: 'Pratinjau', payroll: 'Payroll', metrik: 'Metrik', role: 'Role', arsip: 'Arsip' };
-const MODULES = { chat: chatmode, board, timeline: gantt, kalender: calendar, file: files, role: roles, arsip: archive, rapat: meetings, notes, wiki, pratinjau, payroll, metrik: metrics };
+const TABS = { kantor: 'Kantor', chat: 'Chat', board: 'Board', timeline: 'Timeline', kalender: 'Kalender', file: 'File', rapat: 'Rapat', notes: 'Notes', wiki: 'Wiki', pratinjau: 'Pratinjau', payroll: 'Payroll', metrik: 'Metrik', performa: 'Performa', role: 'Role', arsip: 'Arsip' };
+const MODULES = { chat: chatmode, board, timeline: gantt, kalender: calendar, file: files, role: roles, arsip: archive, rapat: meetings, notes, wiki, pratinjau, payroll, metrik: metrics, performa: sysmonView };
 
 /* ---------------- routing ---------------- */
 function parse() {
@@ -287,7 +288,8 @@ async function renderOffice(r, prev) {
   if (!ctx.st) await refreshState();
   const o = ctx.office;
   // the tab bar in the header shows which tab is open, so the crumbs stop at the office (a switcher)
-  const tabs = r.id === '_kompleks' ? ['notes', 'wiki'] : Object.keys(TABS);
+  // Performa shows the PC the daemon runs on; hidden where the sampler is off (e.g. a shared server)
+  const tabs = r.id === '_kompleks' ? ['notes', 'wiki'] : Object.keys(TABS).filter(k => k !== 'performa' || ctx.st?.settings?.sysmon);
   const tabNav = cls => `<nav class="tabs ${cls}" role="tablist"></nav>`;
   const fav = ctx.st?.offices.find(x => x.id === o.id)?.fav;
   if (r.id === '_kompleks') crumbs([['Bersama']]);
