@@ -624,7 +624,7 @@ export function createStage(host, opts) {
     else if (pl.type === 'leave') { e.q.push({ t: 'go', tx: world.elevator.tx, ty: world.elevator.ty }, { t: 'call', fn: () => { world.elevator.until = performance.now() + 1500; e.fade = true; } }); }
     else { const sp = pl.tile || randomSpot(pl.room, pl.seed); if (sp) e.q.push({ t: 'go', tx: sp.tx, ty: sp.ty }, ...(sp.dy ? [{ t: 'call', fn: () => { e.y += sp.dy; } }] : [])); }
   }
-  const VERB = { Read: 'membaca', Edit: 'mengedit', Write: 'menulis', MultiEdit: 'mengedit', NotebookEdit: 'mengedit', Bash: 'menjalankan', Grep: 'mencari', Glob: 'mencari', WebSearch: 'riset', WebFetch: 'membaca web', Task: 'mendelegasikan', Agent: 'mendelegasikan', TodoWrite: 'menyusun todo', Compact: 'merapikan' };
+  const VERB = { Read: 'membaca', Edit: 'mengedit', Write: 'menulis', MultiEdit: 'mengedit', NotebookEdit: 'mengedit', Bash: 'menjalankan', Grep: 'mencari', Glob: 'mencari', WebSearch: 'riset', WebFetch: 'membaca web', Task: 'mendelegasikan', Agent: 'mendelegasikan', WaitAgent: 'menunggu', TodoWrite: 'menyusun todo', Compact: 'merapikan' };
   const verb = t => VERB[t.name] || t.name;
   function bubbleFor(s) {
     if (s.waiting) return { text: `menunggu izin: ${s.waiting.summary || s.waiting.tool}`.trim(), kind: 'wait' };

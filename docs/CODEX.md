@@ -25,7 +25,7 @@ Diuji dengan Codex CLI 0.163.0, login langganan ChatGPT. Auth dibaca Codex sendi
 ## Yang setara 1:1
 
 - Mulai shift (per role / per sesi), resume, task awal, kartu, worktree (folder kerja sama seperti Claude).
-- Status bekerja / idle, tool yang dipakai (nama dinormalkan: `apply_patch` -> `Edit`/`Write`, `update_plan` -> `TodoWrite`, `spawn_agent` -> `Agent`), waktu, log kantor, subagent.
+- Status bekerja / idle, tool yang dipakai (nama dinormalkan: `apply_patch` -> `Edit`/`Write`, `update_plan` -> `TodoWrite`, `spawn_agent` -> `Agent`, `wait_agent` -> `WaitAgent`; di 0.163 keduanya berawalan `collaboration`), waktu, log kantor, subagent. Pesan `spawn_agent` terenkripsi, jadi keterangan subagent diambil dari `task_name`. Token subagent dibaca dari rollout-nya sendiri (`rollout-…-<agent_id>.jsonl`). Chat menampilkan `SubAgentActivity` (mulai/selesai) dan `CollabAgentToolCall` (menunggu).
 - Kotak masuk izin dengan **hold** (allow/deny dari web atau Ghina) dan notifikasi Ghina. Kalau tidak dijawab dalam `approvals.holdKantorSec` dilepas dan prompt biasa muncul di terminal ("jawab di terminal").
 - Tab Chat: rollout dibaca menjadi item yang sama (`user`, `text`, `tool`, `result`, statistik `+N -M` untuk edit).
 - Kirim teks, Hentikan, `compact`, `clear`, `exit`, `kill`, ganti model/effort/mode saat sesi berjalan.
@@ -55,6 +55,8 @@ codex [resume <id>] --dangerously-bypass-hook-trust
   -c 'projects={"<folder>"={trust_level="trusted"}}'
   -m <model> -c model_reasoning_effort="<effort>"
   <argumen mode>                         (tabel di bawah)
+  -c project_doc_fallback_filenames=["CLAUDE.md"]   (folder tanpa AGENTS.md membaca CLAUDE.md)
+  -c check_for_update_on_startup=false               (menu "Update available" tidak menahan start)
   -c developer_instructions="<prompt role>"
   -c 'mcp_servers.kantor={...}'
   -c 'hooks.<Event>=[{hooks=[{type="command",command="node .../hooks/kantor-hook.cjs",timeout=N}]}]'   (12 event)

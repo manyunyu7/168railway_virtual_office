@@ -36,6 +36,7 @@ test('codex shift arguments: hooks per session, trust, model, effort, instructio
   assert.ok(a.includes('model_reasoning_effort="low"'));
   assert.ok(a.includes('projects={"/work/my repo"={trust_level="trusted"}}'));
   assert.ok(a.includes('project_doc_fallback_filenames=["CLAUDE.md"]'));
+  assert.ok(a.includes('check_for_update_on_startup=false'));
   const instr = a.find(x => x.startsWith('developer_instructions='));
   assert.equal(JSON.parse(instr.slice('developer_instructions='.length)), 'Baris 1\nBaris "2" \\ akhir'); // valid TOML basic string == JSON string
   const mcp = a.find(x => x.startsWith('mcp_servers.kantor='));
@@ -163,6 +164,42 @@ test('hook payloads from Codex are mapped to the names the office already knows'
   const b = cx.normalizeHook({ tool_name: 'Bash', tool_input: { command: 'ls' } });
   assert.equal(b.tool_name, 'Bash'); assert.equal(b.tool_input.command, 'ls');
   assert.equal(cx.normalizeHook(null), null);
+});
+
+test('namespaced multi-agent tools (0.163): spawn shows the readable task, wait has its own name', () => {
+  const sp = cx.normalizeHook({ tool_name: 'collaborationspawn_agent', tool_input: { task_name: 'check_other_file', message: 'gAAAAABq2x5vIyyQa_gKzF9BhLJkMDsvn1r8oT368Xzmz' } });
+  assert.equal(sp.tool_name, 'Agent');
+  assert.deepEqual(sp.tool_input, { subagent_type: 'default', description: 'check other file' });
+  assert.equal(cx.normalizeHook({ tool_name: 'collaborationwait_agent', tool_input: { timeout_ms: 10000 } }).tool_name, 'WaitAgent');
+  assert.equal(cx.agentTask({ message: 'cek README' }), 'cek README');
+  assert.equal(cx.agentTask({ message: 'gAAAAABq2x5vIyyQa_gKzF9BhLJkMDsvn1r8oT368Xzmz' }), '');
+});
+
+test('Codex subagent through the hooks: task as description, done on SubagentStop, tokens from its own rollout', async () => {
+  const sid = 'codex-thread-sub', agent = '01a167ee-e066-7893-9886-12034c94fd61';
+  process.env.CODEX_HOME = path.join(tmp, 'codex-home');
+  const d = new Date(), pad = n => String(n).padStart(2, '0');
+  const dir = path.join(process.env.CODEX_HOME, 'sessions', String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()));
+  fs.mkdirSync(dir, { recursive: true });
+  const roll = path.join(dir, `rollout-2026-10-23T15-44-30-${agent}.jsonl`);
+  fs.writeFileSync(roll, JSON.stringify({ type: 'event_msg', payload: { type: 'token_count', info: { last_token_usage: { total_tokens: 17963 } } } }) + '\n');
+  const base = { session_id: sid, cwd: tmp, kantor_engine: 'codex' };
+  await live.handleHook({ ...base, hook_event_name: 'PreToolUse', tool_name: 'collaborationspawn_agent', tool_use_id: 'call_1', tool_input: { task_name: 'check_other_file', message: 'gAAAAABq2x5vIyyQa_gKzF9BhLJkMDsvn1r8oT368Xzmz' } });
+  await live.handleHook({ ...base, hook_event_name: 'PostToolUse', tool_name: 'collaborationspawn_agent', tool_use_id: 'call_1', tool_input: {} });
+  await live.handleHook({ ...base, hook_event_name: 'SubagentStart', agent_id: agent, agent_type: 'default' });
+  let sub = live.serialize(live.live.get(sid)).subs[0];
+  assert.deepEqual({ type: sub.type, desc: sub.desc, status: sub.status, tokens: sub.tokens }, { type: 'default', desc: 'check other file', status: 'working', tokens: 17963 });
+  await live.handleHook({ ...base, hook_event_name: 'SubagentStop', agent_id: agent, agent_type: 'default', agent_transcript_path: roll, last_assistant_message: 'beres' });
+  sub = live.serialize(live.live.get(sid)).subs[0];
+  assert.equal(sub.status, 'done');
+});
+
+test('rollout subagent items show in the chat', () => {
+  const at = '2026-10-23T08:44:30.000Z', ev = item => ({ type: 'event_msg', timestamp: at, payload: { type: 'item_completed', item } });
+  const label = (n, i) => `${i.subagent_type}: ${i.description}`;
+  assert.deepEqual(cx.rolloutItems(ev({ type: 'SubAgentActivity', kind: 'started', agent_path: '/root/check_other_file' }), label), [{ k: 'tool', s: 'Agent default: check other file', name: 'Agent', at }]);
+  assert.deepEqual(cx.rolloutItems(ev({ type: 'SubAgentActivity', kind: 'completed', agent_path: '/root/check_other_file' }), label), [{ k: 'result', s: 'subagent check other file selesai', at }]);
+  assert.deepEqual(cx.rolloutItems(ev({ type: 'CollabAgentToolCall', tool: 'wait', status: 'completed' }), label), [{ k: 'tool', s: 'WaitAgent subagent', name: 'WaitAgent', at }]);
 });
 
 test('a Codex session through the hook handler: engine, tool, label, permission inbox, interrupt', async () => {

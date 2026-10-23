@@ -92,6 +92,8 @@ export function codexArgs({ resumeSid = null, model = '', effort = '', mode = 'd
   a.push(...codexModeArgs(mode));
   // repos written for Claude often only have CLAUDE.md; Codex reads it where a folder has no AGENTS.md
   a.push('-c', `project_doc_fallback_filenames=${tomlArr(['CLAUDE.md'])}`);
+  // the "Update available" menu would hold an unattended start until someone answers it
+  a.push('-c', 'check_for_update_on_startup=false');
   if (instructions) a.push('-c', `developer_instructions=${tomlStr(instructions)}`);
   if (mcp) a.push('-c', `mcp_servers.kantor={command=${tomlStr(mcp.command)},args=${tomlArr(mcp.args)},env=${tomlTable(mcp.env)},default_tools_approval_mode="approve",tool_timeout_sec=960}`);
   a.push(...codexHookArgs());
@@ -202,6 +204,14 @@ export function patchFiles(patch) {
   return out;
 }
 
+const ENCRYPTED = /^gAAAA[\w-]{20,}/;
+const taskWords = t => String(t || '').replace(/^.*\//, '').replace(/_/g, ' ').trim();
+/** Readable subagent task: task_name ("check_other_file" -> "check other file"), else a plain-text message. */
+export function agentTask(input) {
+  const m = typeof input?.message === 'string' && !ENCRYPTED.test(input.message) ? input.message : '';
+  return taskWords(input?.task_name) || m || String(input?.task || '');
+}
+
 /**
  * Codex hook payload -> the shape the daemon already understands for Claude Code: tool names Claude's UI has verbs
  * and icons for (apply_patch -> Edit, update_plan -> TodoWrite, spawn_agent -> Agent) and file_path for edits.
@@ -209,8 +219,10 @@ export function patchFiles(patch) {
 export function normalizeHook(p) {
   if (!p || typeof p !== 'object') return p;
   const q = { ...p };
-  const name = p.tool_name;
+  // multi-agent tools come namespaced (collaborationspawn_agent, collaborationwait_agent)
+  const name = typeof p.tool_name === 'string' ? p.tool_name.replace(/^collaboration/, '') : p.tool_name;
   const input = p.tool_input;
+  if (name !== p.tool_name) q.tool_name = name;
   if (name === 'apply_patch') {
     const files = patchFiles(typeof input === 'string' ? input : input?.command);
     q.tool_name = files.length === 1 && files[0].op === 'add' ? 'Write' : 'Edit';
@@ -219,8 +231,12 @@ export function normalizeHook(p) {
     q.tool_name = 'TodoWrite';
     q.tool_input = { todos: Array.isArray(input?.plan) ? input.plan : [] };
   } else if (name === 'spawn_agent') {
+    // SubagentStart reports agent_type 'default' when none was asked for; the message is encrypted, task_name is readable
     q.tool_name = 'Agent';
-    q.tool_input = { subagent_type: input?.agent_type || input?.role || 'agent', description: input?.message || input?.task || '' };
+    q.tool_input = { subagent_type: input?.agent_type || input?.role || 'default', description: agentTask(input) };
+  } else if (name === 'wait_agent') {
+    q.tool_name = 'WaitAgent';
+    q.tool_input = {};
   } else if (typeof input === 'string') q.tool_input = { command: input };
   return q;
 }
@@ -300,6 +316,13 @@ export function rolloutItems(d, toolLabel) {
       const p = imgPath(it.path);
       return p ? [{ k: 'image', src: 'view', path: p, name: path.basename(p), at }] : [];
     }
+    case 'SubAgentActivity': { // a subagent started or finished; agent_path ends with its task_name
+      const task = taskWords(it.agent_path) || 'subagent';
+      if (it.kind === 'started') return [{ k: 'tool', s: `Agent ${toolLabel('Agent', { subagent_type: 'default', description: task })}`, name: 'Agent', at }];
+      return it.kind === 'completed' ? [{ k: 'result', s: `subagent ${task} selesai`, at }] : [];
+    }
+    case 'CollabAgentToolCall': // the agent waited for its subagents
+      return it.tool === 'wait' ? [{ k: 'tool', s: 'WaitAgent subagent', name: 'WaitAgent', at }] : [];
     case 'McpToolCall': {
       const name = `mcp__${it.server}__${it.tool}`;
       const out = [{ k: 'tool', s: `${name} ${toolLabel(name, it.arguments || {})}`.trim(), name, at }];

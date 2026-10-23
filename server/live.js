@@ -4,7 +4,7 @@ import { config } from './config.js';
 import { globalDb, officeDb, one, run, all, nowIso, newId } from './db.js';
 import { officeForCwd, officeModel, roomForCwd } from './offices.js';
 import { sessionHealth } from './health.js';
-import { subagentTokens } from './subtokens.js';
+import { subagentTokens, fileTokens, codexSubagentFile } from './subtokens.js';
 import * as gitinfo from './gitinfo.js';
 import { codexHealth, normalizeHook, engineOf, readCodexSettings } from './codex.js';
 import { who as actorName } from './actor.js';
@@ -28,6 +28,7 @@ export function toolLabel(name, input = {}) {
     case 'Glob': return shortStr(input.pattern, 40);
     case 'WebSearch': return shortStr(input.query, 50);
     case 'WebFetch': try { return new URL(input.url).host; } catch { return shortStr(input.url, 40); }
+    case 'WaitAgent': return 'subagent';
     case 'Task': case 'Agent': return shortStr(`${input.subagent_type || 'agent'}: ${input.description || ''}`, 60);
     case 'TodoWrite': return `${(input.todos || []).length} todo`;
     case 'AskUserQuestion': return shortStr((input.questions || []).map(q => q.question || q.header).filter(Boolean).join(' · '), 90);
@@ -44,7 +45,7 @@ export function serialize(s) {
     status: s.status, tool: s.tool, title: s.title, model: s.model, startedAt: s.startedAt, lastSeen: s.lastSeen, tmux: s.tmux || null,
     waiting: s.waiting || null, slot: s.slot || 0, compacting: !!s.compacting, tty: s.tty || null, host: s.host || null, permMode: s.permMode || null, boss: s.boss || null, engine: s.engine || 'claude', effort: s.effort || null,
     tunggu: s.tunggu || null, anggaran: s.anggaran || null,
-    subs: [...s.subs.values()].map(x => ({ id: x.id, type: x.type, desc: x.desc, status: x.status, tool: x.tool, started: x.started, ended: x.ended || null, tokens: s.engine === 'codex' ? null : subagentTokens(s.transcript, x.id) })),
+    subs: [...s.subs.values()].map(x => ({ id: x.id, type: x.type, desc: x.desc, status: x.status, tool: x.tool, started: x.started, ended: x.ended || null, tokens: s.engine === 'codex' ? fileTokens(x.transcript || codexSubagentFile(x.id, x.started)) : subagentTokens(s.transcript, x.id) })),
     bgAgents: [...s.subs.values()].filter(x => x.status !== 'done').length,
     ...(s.engine === 'codex' ? codexHealth(s.transcript) : sessionHealth(s.transcript, s.model)),
   };
@@ -238,7 +239,7 @@ export async function handleHook(p) {
       if (s.office) gitinfo.touch(s.office, gitinfo.roomOfToolUse(s.office, p, s.room));
       break;
     case 'SubagentStart': addSub(s, p.agent_id, p.agent_type); logOffice(s.office, who, `memanggil subagent ${p.agent_type || ''}`.trim(), 'sub'); break;
-    case 'SubagentStop': { const x = s.subs.get(p.agent_id); if (x) { x.result = shortStr(p.last_assistant_message, 120); finishSub(s, x); } break; }
+    case 'SubagentStop': { const x = s.subs.get(p.agent_id); if (x) { if (/\/sessions\/.+\/rollout-[\w.:-]+\.jsonl$/.test(p.agent_transcript_path || '')) x.transcript = p.agent_transcript_path; x.result = shortStr(p.last_assistant_message, 120); finishSub(s, x); } break; }
     case 'Notification':
       if (p.notification_type === 'elicitation_dialog') bus.emit('notify', { kind: 'question', sid: s.sid, office: s.office, who, text: shortStr(p.message, 100) });
       if (p.notification_type === 'idle_prompt') { s.status = 'idle'; s.tool = null; }
