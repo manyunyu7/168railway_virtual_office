@@ -35,6 +35,7 @@ test('codex shift arguments: hooks per session, trust, model, effort, instructio
   assert.deepEqual(a.slice(a.indexOf('-m'), a.indexOf('-m') + 2), ['-m', 'gpt-6.1-sol']);
   assert.ok(a.includes('model_reasoning_effort="low"'));
   assert.ok(a.includes('projects={"/work/my repo"={trust_level="trusted"}}'));
+  assert.ok(a.includes('project_doc_fallback_filenames=["CLAUDE.md"]'));
   const instr = a.find(x => x.startsWith('developer_instructions='));
   assert.equal(JSON.parse(instr.slice('developer_instructions='.length)), 'Baris 1\nBaris "2" \\ akhir'); // valid TOML basic string == JSON string
   const mcp = a.find(x => x.startsWith('mcp_servers.kantor='));

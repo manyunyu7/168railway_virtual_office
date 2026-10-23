@@ -90,6 +90,8 @@ export function codexArgs({ resumeSid = null, model = '', effort = '', mode = 'd
   if (model) a.push('-m', model);
   if (effort && validEffort(effort)) a.push('-c', `model_reasoning_effort=${tomlStr(effort)}`);
   a.push(...codexModeArgs(mode));
+  // repos written for Claude often only have CLAUDE.md; Codex reads it where a folder has no AGENTS.md
+  a.push('-c', `project_doc_fallback_filenames=${tomlArr(['CLAUDE.md'])}`);
   if (instructions) a.push('-c', `developer_instructions=${tomlStr(instructions)}`);
   if (mcp) a.push('-c', `mcp_servers.kantor={command=${tomlStr(mcp.command)},args=${tomlArr(mcp.args)},env=${tomlTable(mcp.env)},default_tools_approval_mode="approve",tool_timeout_sec=960}`);
   a.push(...codexHookArgs());
