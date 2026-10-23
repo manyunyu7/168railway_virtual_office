@@ -379,7 +379,7 @@ test('setCodexModel and setCodexMode drive Codex menus by text, session only', {
   } finally { try { tm.tmux(['kill-session', '-t', name]); } catch {} live.live.delete(sid); }
 });
 
-test('model and mode changes refuse a busy or non-Codex session', { skip: !tmuxOk }, async () => {
+test('model changes refuse a busy session, mode changes do not; non-Codex sessions are refused', { skip: !tmuxOk }, async () => {
   const name = `kcx-test-b-${process.pid}`;
   tm.tmux(['new-session', '-d', '-s', name, '-x', '120', '-y', '30', '/bin/sh', '-c', 'echo "• Working (3s • esc to interrupt)"; echo "› Ask Codex"; sleep 30']);
   try {
@@ -387,7 +387,8 @@ test('model and mode changes refuse a busy or non-Codex session', { skip: !tmuxO
     live.expectSession({ sid: 'cl-1', office: null, role: null, room: null, cwd: tmp, tmux: name, slot: 0, title: 't', engine: 'claude' });
     await new Promise(r => setTimeout(r, 300));
     await assert.rejects(() => setCodexModel('cx-busy', { effort: 'low' }), /sedang bekerja/);
-    await assert.rejects(() => setCodexMode('cx-busy', 'auto'), /sedang bekerja/);
+    // the mode may change mid-turn (Codex allows /permissions while working); this fake pane has no menu, so it fails later
+    await assert.rejects(() => setCodexMode('cx-busy', 'auto'), e => !/sedang bekerja/.test(e.message));
     await assert.rejects(() => setCodexModel('cl-1', { effort: 'low' }), /bukan sesi Codex/);
   } finally { try { tm.tmux(['kill-session', '-t', name]); } catch {} live.live.delete('cx-busy'); live.live.delete('cl-1'); }
 });

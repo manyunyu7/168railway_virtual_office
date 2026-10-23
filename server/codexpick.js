@@ -37,10 +37,11 @@ const CHANGED = /Model changed to (\S+) (\S+) for this session only/g;
 const cursorOf = rows => rows?.find(r => r.cursor)?.index ?? null;
 
 /** Type a slash command and wait for its menu. */
-async function openMenu(name, cmd, parser) {
+async function openMenu(name, cmd, parser, { busyOk = false } = {}) {
   // right after a start or a change Codex is busy for a moment: type only into a ready composer, and try twice
+  const ready = t => { const sc = codexScreen(t); return busyOk ? sc.composer && !sc.picker && !sc.approval : sc.idle; };
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (!await waitFor(name, t => codexScreen(t).idle, 8000)) throw err('Codex belum siap menerima perintah. Coba lagi sebentar.', 504);
+    if (!await waitFor(name, ready, 8000)) throw err('Codex belum siap menerima perintah. Coba lagi sebentar.', 504);
     await sleep(attempt ? 1500 : 400);
     sendKeys(name, ['-l', cmd]);
     await sleep(500);
@@ -80,9 +81,10 @@ function paneOf(sid) {
   if (!name || !hasTmux(name)) throw err('Ganti pengaturan hanya untuk sesi yang jalan di terminal kantor. Untuk sesi lain, ketik perintahnya di jendela terminalnya.');
   return { s, name };
 }
-function requireIdle(name) {
+// busyOk: Codex opens /permissions while a turn runs and applies the choice mid-turn (tested on 0.163); /model waits
+function requireIdle(name, { busyOk = false } = {}) {
   const sc = codexScreen(screen(name));
-  if (sc.busy) throw err('Agen sedang bekerja; hentikan atau tunggu');
+  if (sc.busy && !busyOk) throw err('Agen sedang bekerja; hentikan atau tunggu');
   if (sc.approval) throw err('Sesi sedang menunggu izin di terminalnya. Jawab dulu, lalu coba lagi.');
   if (sc.picker) { try { sendKeys(name, ['Escape']); } catch {} }
   else if (!sc.composer) throw err('Sesi belum siap menerima perintah. Coba lagi sebentar.');
@@ -142,8 +144,8 @@ export async function setCodexModel(sid, { model, effort } = {}) {
 }
 
 /** Open /permissions, read which row is (current), close it. */
-export async function readCodexMode(name) {
-  await openMenu(name, '/permissions', parsePermPicker);
+export async function readCodexMode(name, { busyOk = false } = {}) {
+  await openMenu(name, '/permissions', parsePermPicker, { busyOk });
   const rows = parsePermPicker(screen(name)) || [];
   sendKeys(name, ['Escape']);
   await sleep(250);
@@ -155,8 +157,8 @@ export async function readCodexMode(name) {
 export async function setCodexMode(sid, target) {
   const { s, name } = paneOf(sid);
   if (!CODEX_MODES.includes(target)) throw err(`Mode tidak dikenal. Pilihan: ${CODEX_MODES.join(', ')}`, 400);
-  requireIdle(name);
-  await openMenu(name, '/permissions', parsePermPicker);
+  requireIdle(name, { busyOk: true });
+  await openMenu(name, '/permissions', parsePermPicker, { busyOk: true });
   try {
     const hit = await moveTo(name, parsePermPicker, r => modeLabelRe(target).test(r.label));
     if (!hit) throw err('Mode itu tidak ada di menu /permissions Codex', 400);
@@ -172,7 +174,7 @@ export async function setCodexMode(sid, target) {
     for (let i = 0; i < 3 && codexScreen(screen(name)).picker; i++) { try { sendKeys(name, ['Escape']); } catch {} await sleep(250); }
     throw e;
   }
-  const now = await readCodexMode(name);
+  const now = await readCodexMode(name, { busyOk: true });
   if (now) s.permMode = now;
   bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
   if (now !== target) throw err('Codex tidak menerima mode itu. Cek terminal sesi.', 502);

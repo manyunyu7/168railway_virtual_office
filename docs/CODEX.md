@@ -91,7 +91,7 @@ GET  /api/codex/models
   -> {available, source: 'codex'|'config'|'none', default: {model, effort},
       models: [{slug, name, desc, defaultEffort, efforts: [{effort, desc}]}],
       modes: ['default','auto','readOnly','bypassPermissions']}
-POST /api/sessions/:sid/codex/settings    {model?, effort?, mode?}   (sesi harus idle)
+POST /api/sessions/:sid/codex/settings    {model?, effort?, mode?}   (model/effort: sesi harus idle; mode boleh saat bekerja)
   -> {ok, model, effort, mode}
 POST /api/sessions/:sid/mode              {mode}   (juga untuk Codex: lewat menu /permissions)
 ```

@@ -51,7 +51,7 @@ document.addEventListener('change', async e => {
 export const modeOptions = cur => CODEX_MODES.map(([v, l]) => opt(v, 'Izin: ' + l, cur)).join('');
 export const codexSessSub = s => [s.model || 'model bawaan', s.effort].filter(Boolean).join(' · ');
 
-/** Pilihan model/effort/mode untuk sesi Codex yang sedang jalan (harus idle). */
+/** Pilihan model/effort/mode untuk sesi Codex yang sedang jalan (model/effort harus idle; mode boleh saat bekerja). */
 export async function pickCodexSettings(s) {
   const d = await codexModels(), sid = s.sid;
   modal({ title: 'Model dan effort Codex', body: `Aktif sekarang: ${codexSessSub(s)}. Sesi harus sedang diam (tidak bekerja atau menunggu izin) saat diganti.`,
