@@ -663,6 +663,7 @@ export function createStage(host, opts) {
         const id = `${s.sid}:${sub.id}`;
         seen.add(id);
         let se = ents.get(id);
+        if (!se && sub.status === 'done') continue; // already reported and left by the lift; the server keeps it 60s for the chat, so don't respawn it
         if (!se) {
           se = spawnEnt(id, { ...guestLook(id), color: '#E8E2D0' }, true);
           se.sub = sub; se.parent = s.sid; se.cap = e.look.color;
