@@ -336,50 +336,56 @@ export function rolloutItems(d, toolLabel) {
   }
 }
 
-const TAIL = 1.5 * 1024 * 1024;
-function tailLines(file, bytes = TAIL) {
-  const st = fs.statSync(file);
-  const start = Math.max(0, st.size - bytes);
-  const fd = fs.openSync(file, 'r');
-  const buf = Buffer.alloc(st.size - start);
-  try { fs.readSync(fd, buf, 0, buf.length, start); } finally { fs.closeSync(fd); }
-  let lines = buf.toString('utf8').split('\n');
-  if (start > 0) {
-    // the window starts mid-line; an image generation line alone can be 2+ MB of base64, so finish that line instead of dropping it
-    const head = lineBefore(file, start);
-    if (head != null) lines[0] = head + lines[0]; else lines = lines.slice(1);
-  }
-  return { lines, size: st.size };
-}
-/** Bytes from the previous newline up to `end` (at most 16 MB back), or null when the line is longer than that. */
-function lineBefore(file, end, max = 16 * 1024 * 1024) {
-  const fd = fs.openSync(file, 'r');
-  try {
-    const parts = [];
-    let pos = end;
-    while (pos > 0 && end - pos < max) {
-      const n = Math.min(256 * 1024, pos);
-      const b = Buffer.alloc(n);
-      fs.readSync(fd, b, 0, n, pos - n);
-      const i = b.lastIndexOf(10);
-      if (i >= 0) { parts.unshift(b.subarray(i + 1)); return Buffer.concat(parts).toString('utf8'); }
-      parts.unshift(b); pos -= n;
-    }
-    return pos === 0 ? Buffer.concat(parts).toString('utf8') : null;
-  } finally { fs.closeSync(fd); }
-}
 const parse = l => { try { return JSON.parse(l); } catch { return null; } };
 
+/**
+ * Incremental rollout reader: calls onLine(parsed) for every complete line appended since `state.offset` whose first
+ * bytes contain one of `marks`. Other lines are skipped without being assembled or parsed: a tool output carrying
+ * screenshots can be several MB per line, and a tail window of the file used to fill up with them (the chat then showed
+ * only the last few messages). The first call reads the whole file once; later calls only what was appended.
+ * `reset()` runs first when the file was replaced or truncated. The last, unfinished line is read again next time.
+ */
+const HEAD = 320, CHUNK = 4 << 20;
+function scanAppended(file, state, marks, onLine, reset) {
+  const st = fs.statSync(file);
+  if (state.ino !== st.ino || st.size < state.offset) { state.ino = st.ino; state.offset = 0; reset(); }
+  if (st.size === state.offset) return st;
+  const fd = fs.openSync(file, 'r');
+  try {
+    let pos = state.offset, lineStart = pos, parts = [], keep = null, head = '';
+    const buf = Buffer.alloc(Math.min(CHUNK, st.size - pos));
+    while (pos < st.size) {
+      const got = fs.readSync(fd, buf, 0, Math.min(buf.length, st.size - pos), pos);
+      if (got <= 0) break;
+      for (let from = 0; ;) {
+        const nl = buf.indexOf(10, from), end = nl === -1 || nl >= got ? got : nl;
+        const piece = buf.subarray(from, end);
+        if (keep === null) {
+          head += piece.toString('utf8', 0, Math.min(piece.length, HEAD - head.length));
+          if (head.length >= HEAD || end < got) keep = marks.some(m => head.includes(m));
+        }
+        if (keep !== false) parts.push(Buffer.from(piece));
+        if (end === got) break;
+        if (keep) { const d = parse(Buffer.concat(parts).toString('utf8')); if (d) onLine(d); }
+        parts = []; keep = null; head = ''; from = nl + 1; lineStart = pos + from;
+      }
+      pos += got;
+    }
+    state.offset = lineStart;
+  } finally { fs.closeSync(fd); }
+  return st;
+}
+const capCache = m => { if (m.size > 100) m.delete(m.keys().next().value); };
+
+const chatCache = new Map(); // file -> { ino, offset, items }
+const CHAT_KEEP = 2000;
 export function readRollout(file, n, toolLabel) {
   if (!file || !fs.existsSync(file)) return { items: [], missing: true };
-  const { lines, size } = tailLines(file);
-  const items = [];
-  for (const l of lines) {
-    if (!l.trim() || !l.includes('item_completed')) continue;
-    const d = parse(l);
-    if (d) items.push(...rolloutItems(d, toolLabel));
-  }
-  return { items: items.slice(-n), size };
+  const c = chatCache.get(file) || { ino: null, offset: 0, items: [] };
+  const st = scanAppended(file, c, ['item_completed'], d => { c.items.push(...rolloutItems(d, toolLabel)); }, () => { c.items = []; });
+  if (c.items.length > CHAT_KEEP) c.items = c.items.slice(-CHAT_KEEP);
+  chatCache.set(file, c); capCache(chatCache);
+  return { items: c.items.slice(-n), size: st.size };
 }
 
 /** True for a Codex rollout (first line is session_meta). */
@@ -401,59 +407,48 @@ export function modeFromSettings(s) {
   return 'default';
 }
 
-const settingsCache = new Map();
+const settingsCache = new Map(); // file -> { ino, offset, turn, thread }
 /** {model, effort, mode} from the latest turn_context / thread_settings_applied in a rollout (null if none yet). */
 export function readCodexSettings(file) {
   if (!file) return null;
-  let st; try { st = fs.statSync(file); } catch { return null; }
-  const c = settingsCache.get(file);
-  if (c && c.size === st.size) return c.value;
-  let turn = null, thread = null;
+  const c = settingsCache.get(file) || { ino: null, offset: 0, turn: null, thread: null };
   try {
-    const { lines } = tailLines(file, 768 * 1024);
-    for (let i = lines.length - 1; i >= 0 && !(turn && thread); i--) {
-      const l = lines[i];
-      if (!turn && l.includes('"turn_context"')) { const d = parse(l); if (d?.type === 'turn_context') turn = d.payload; }
-      else if (!thread && l.includes('"thread_settings_applied"')) { const d = parse(l); if (d?.payload?.type === 'thread_settings_applied') thread = d.payload.thread_settings; }
-    }
-  } catch {}
-  const src = { ...(thread || {}), ...(turn || {}) };
-  const value = turn || thread ? { model: src.model || null, effort: src.effort || src.reasoning_effort || null, mode: modeFromSettings(src) } : null;
-  settingsCache.set(file, { size: st.size, value });
-  if (settingsCache.size > 100) settingsCache.delete(settingsCache.keys().next().value);
-  return value;
+    scanAppended(file, c, ['"turn_context"', '"thread_settings_applied"'], d => {
+      if (d.type === 'turn_context') c.turn = d.payload;
+      else if (d.payload?.type === 'thread_settings_applied') c.thread = d.payload.thread_settings;
+    }, () => { c.turn = c.thread = null; });
+  } catch { return null; }
+  settingsCache.set(file, c); capCache(settingsCache);
+  if (!c.turn && !c.thread) return null;
+  const src = { ...(c.thread || {}), ...(c.turn || {}) };
+  return { model: src.model || null, effort: src.effort || src.reasoning_effort || null, mode: modeFromSettings(src) };
 }
 
-const healthCache = new Map();
+const healthCache = new Map(); // file -> { ino, offset, last, limit, compactions }
 const LEVELS = [[50, 'segar'], [75, 'sedang'], [90, 'lelah'], [Infinity, 'kritis']];
 /** Same shape as health.js sessionHealth, from the rollout's token_count events. */
 export function codexHealth(file) {
   const empty = { ctx: null, health: null, errStreak: 0, compactions: 0 };
   if (!file) return empty;
-  let st; try { st = fs.statSync(file); } catch { return empty; }
-  const c = healthCache.get(file);
-  if (c && c.size === st.size) return c.value;
-  let last = null, limit = null, compactions = 0;
+  const c = healthCache.get(file) || { ino: null, offset: 0, last: null, limit: null, compactions: 0 };
   try {
-    const { lines } = tailLines(file, 1024 * 1024);
-    for (const l of lines) {
-      if (l.includes('"ContextCompaction"')) compactions++;
-      if (!l.includes('"token_count"')) continue;
-      const d = parse(l);
-      const info = d?.payload?.type === 'token_count' ? d.payload.info : null;
-      if (!info) continue;
+    scanAppended(file, c, ['"token_count"', 'item_completed'], d => {
+      const p = d.payload;
+      if (p?.type === 'item_completed') { if (p.item?.type === 'ContextCompaction') c.compactions++; return; }
+      const info = p?.type === 'token_count' ? p.info : null;
+      if (!info) return;
       const u = info.last_token_usage || info.total_token_usage;
-      if (u) last = { used: u.input_tokens || 0, at: d.timestamp };
-      if (info.model_context_window) limit = info.model_context_window;
-    }
-  } catch {}
+      if (u) c.last = { used: u.input_tokens || 0, at: d.timestamp };
+      if (info.model_context_window) c.limit = info.model_context_window;
+    }, () => { c.last = c.limit = null; c.compactions = 0; });
+  } catch { return empty; }
+  healthCache.set(file, c); capCache(healthCache);
+  const { last, limit, compactions } = c;
   let value = { ...empty, compactions };
   if (last && last.used > 0) {
     const lim = limit || 258400;
     const pct = Math.round(last.used / lim * 1000) / 10;
     value = { ctx: { used: last.used, limit: lim, pct, at: last.at }, health: LEVELS.find(([max]) => pct < max)[1], errStreak: 0, compactions };
   }
-  healthCache.set(file, { size: st.size, value });
-  if (healthCache.size > 100) healthCache.delete(healthCache.keys().next().value);
   return value;
 }

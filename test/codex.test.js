@@ -270,6 +270,31 @@ function rollout(extra = []) {
   return f;
 }
 
+test('a rollout with MB-sized tool outputs keeps its whole chat; appends are read incrementally; a replaced file starts over', () => {
+  const f = path.join(tmp, 'rollout-big.jsonl');
+  const ev = (i, item) => JSON.stringify({ timestamp: `2026-10-23T15:00:${String(i).padStart(2, '0')}.000Z`, ordinal: i, type: 'event_msg', payload: { type: 'item_completed', item } }) + '\n';
+  const msg = (i, text) => ev(i, { type: 'AgentMessage', content: [{ type: 'output_text', text }] });
+  // screenshots in a tool output: one line of several MB, the case that used to push the whole chat out of the tail window
+  const shot = i => JSON.stringify({ timestamp: '2026-10-23T15:00:00.000Z', ordinal: i, type: 'response_item', payload: { type: 'custom_tool_call_output', output: [{ type: 'input_image', image_url: 'data:image/png;base64,' + 'A'.repeat(3 << 20) }] } }) + '\n';
+  fs.writeFileSync(f, JSON.stringify({ type: 'session_meta', payload: {} }) + '\n' + msg(1, 'pertama') + shot(2) + msg(3, 'kedua') + shot(4) + shot(5)
+    + JSON.stringify({ type: 'turn_context', payload: { model: 'gpt-6-astra', effort: 'high', approval_policy: 'never', sandbox_policy: { type: 'danger-full-access' } } }) + '\n'
+    + JSON.stringify({ timestamp: 't', type: 'event_msg', payload: { type: 'token_count', info: { last_token_usage: { input_tokens: 129200 }, model_context_window: 258400 } } }) + '\n');
+  const label = n => n;
+  assert.deepEqual(cx.readRollout(f, 50, label).items.map(i => i.s), ['pertama', 'kedua']);
+  assert.deepEqual(cx.readCodexSettings(f), { model: 'gpt-6-astra', effort: 'high', mode: 'bypassPermissions' });
+  assert.equal(cx.codexHealth(f).ctx.pct, 50);
+  // a half-written line is not lost: it is read once it is complete
+  const third = msg(6, 'ketiga');
+  fs.appendFileSync(f, third.slice(0, 40));
+  assert.deepEqual(cx.readRollout(f, 50, label).items.map(i => i.s), ['pertama', 'kedua']);
+  fs.appendFileSync(f, third.slice(40));
+  assert.deepEqual(cx.readRollout(f, 50, label).items.map(i => i.s), ['pertama', 'kedua', 'ketiga']);
+  assert.deepEqual(cx.readRollout(f, 2, label).items.map(i => i.s), ['kedua', 'ketiga']);
+  // replaced by a new file (new inode): the cache starts over instead of keeping the old chat
+  fs.rmSync(f); fs.writeFileSync(f, msg(1, 'baru') + '\n');
+  assert.deepEqual(cx.readRollout(f, 50, label).items.map(i => i.s), ['baru']);
+});
+
 test('rollout becomes the same chat items as a Claude transcript', () => {
   const f = rollout();
   assert.ok(cx.isRollout(f));
