@@ -585,7 +585,11 @@ export function drawerOnLive(ctx, msg) {
   if (D.kind === 'role') { liveRole(ctx, msg); return; }
   if (!D.sid) return;
   if (msg.t?.startsWith('inbox')) D.chat?.live(msg);
-  if (msg.t === 'session-gone' && msg.sid === D.sid) { markEnded(ctx); return; }
+  if (msg.t === 'session-gone' && msg.sid === D.sid) {
+    // same terminal, new session id (Codex's first turn, /clear, /resume): reopen on the new id, same tab
+    if (msg.next && findSess(ctx, msg.next)) { openSession(ctx, msg.next, D.tab); return; }
+    markEnded(ctx); return;
+  }
   if (msg.t === 'transcript' && msg.sid === D.sid) { const box = $('#trBox'); if (box && (msg.switched || box.dataset.size !== String(msg.size))) loadTranscript(D.sid); return; }
   if (msg.t !== 'session' || msg.session?.sid !== D.sid) return;
   const s = findSess(ctx, D.sid) || msg.session;

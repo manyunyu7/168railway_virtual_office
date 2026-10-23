@@ -134,7 +134,10 @@ function inheritShift(s, p) {
   if (prev) {
     live.delete(prev.sid);
     run(globalDb(), 'UPDATE sessions SET ended_at = COALESCE(ended_at, ?) WHERE sid = ?', nowIso(), prev.sid);
-    bus.emit('msg', { t: 'session-gone', office: prev.office, sid: prev.sid });
+    // announce the new id first, so a chat or drawer open on the old id can follow it (`next`) instead of showing "ended";
+    // Codex always takes this path on its first hook, since its session id can't be chosen up front like Claude's
+    live.set(s.sid, s); emitSession(s);
+    bus.emit('msg', { t: 'session-gone', office: prev.office, sid: prev.sid, next: s.sid });
   }
 }
 

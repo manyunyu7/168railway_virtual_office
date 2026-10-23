@@ -322,6 +322,8 @@ export function live(m, ctx) {
   repaint();
   if (m.t === 'session' && !M.queue.has(sid)) reloadQueue(sid);
   if (sid !== M.sid) return;
+  // same terminal, new session id (Codex's first turn, /clear, /resume): keep the conversation open on the new id
+  if (m.t === 'session-gone' && m.next && findSess(m.next)) { go(m.next); return; }
   if (m.t === 'session-gone' || m.session?.status === 'ended') {
     // beri jeda: pesan terakhir masih tampil, lalu kolom kanan berubah jadi "sesi selesai"
     M.chat?.update(); paintHead();

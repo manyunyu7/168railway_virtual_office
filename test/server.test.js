@@ -364,6 +364,21 @@ test('/clear keeps the shift: the new session id takes over the pane', async () 
   }
 });
 
+test('Codex first hook: the new id is announced before the old one goes, with next so open chats follow', async () => {
+  const cwd = path.join(root, 'shop/api'), tmuxName = 'kc-shop-codex';
+  live.expectSession({ sid: 'cx-start', office: 'shop', role: 'generalis', room: 'api', cwd, tmux: tmuxName });
+  const evs = [], on = m => { if ((m.t === 'session' && m.session.sid === 'cx-real') || m.t === 'session-gone') evs.push(m); };
+  live.bus.on('msg', on);
+  try {
+    await live.handleHook({ session_id: 'cx-real', hook_event_name: 'UserPromptSubmit', cwd, prompt: 'halo', kantor_sid: 'cx-start', kantor_engine: 'codex' });
+  } finally { live.bus.off('msg', on); }
+  const gone = evs.findIndex(m => m.t === 'session-gone' && m.sid === 'cx-start');
+  assert.ok(gone > 0, 'session-gone for the start id, after the new session');
+  assert.equal(evs[gone].next, 'cx-real');
+  assert.equal(evs[0].t, 'session');
+  assert.equal(live.live.get('cx-real').tmux, tmuxName);
+});
+
 test('AskUserQuestion: answer via hook returns updatedInput with answers, multiSelect, free text and notes', async () => {
   const sid = 'sess-ask', cwd = path.join(root, 'shop/app');
   live.expectSession({ sid, office: 'shop', role: 'generalis', room: 'app', cwd, tmux: 'kc-test-ask' });
