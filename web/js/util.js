@@ -99,6 +99,8 @@ export async function api(path, { method = 'GET', body } = {}) {
   const res = await fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, credentials: 'same-origin' });
   let data = null;
   try { data = await res.json(); } catch {}
+  // akun mode: the session ended (signed out elsewhere, disabled, expired)
+  if (res.status === 401 && /^Belum masuk/.test(data?.error || '')) { location.href = '/masuk'; }
   if (!res.ok) throw new Error(data?.error || `Gagal (${res.status})`);
   return data;
 }

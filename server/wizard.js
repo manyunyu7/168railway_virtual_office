@@ -9,6 +9,7 @@ import { roomFor } from './seed.js';
 import { createCard, saveWiki } from './store.js';
 import { startShift } from './tmux.js';
 import { generateFrom, applyTemplate } from './templates.js';
+import { who } from './actor.js';
 
 const slugDir = s => String(s || '').trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
 
@@ -103,7 +104,7 @@ export function wizardCreate(spec) {
   const db = officeDb(id), t = nowIso();
   if (spec.description?.trim()) {
     const home = one(db, "SELECT body FROM wiki WHERE slug = 'beranda'")?.body || `# ${v.name}\n`;
-    saveWiki(id, { slug: 'beranda', title: 'Beranda', body: home.replace(/\n/, `\n\n## Tentang project\n${spec.description.trim()}\n`), msg: 'Deskripsi dari wizard' }, 'Kamu');
+    saveWiki(id, { slug: 'beranda', title: 'Beranda', body: home.replace(/\n/, `\n\n## Tentang project\n${spec.description.trim()}\n`), msg: 'Deskripsi dari wizard' }, who());
   }
   run(db, 'INSERT INTO news (text, at, author) VALUES (?, ?, ?)', spec.mode === 'existing' ? 'Kantor dibuka untuk project ini.' : 'Project baru dimulai. Selamat datang!', t, 'Sistem');
   const mgr = one(db, 'SELECT id FROM roles WHERE is_mgr = 1 AND archived = 0 ORDER BY ord LIMIT 1');
@@ -111,7 +112,7 @@ export function wizardCreate(spec) {
   if (spec.firstCard) {
     card = createCard(id, { title: spec.mode === 'existing' ? 'Kenali project dan rapikan board' : 'Rancang struktur awal project', who: mgr?.id || null, prio: 'P1', col: 'Siap',
       desc: [spec.description?.trim(), 'Baca CLAUDE.md dan isi folder, lalu pecah pekerjaan awal jadi kartu untuk tiap role.'].filter(Boolean).join('\n\n'),
-      checklist: spec.mode === 'existing' ? ['Baca CLAUDE.md dan README', 'Catat stack dan cara menjalankan di wiki', 'Buat kartu untuk pekerjaan yang terlihat'] : ['Tentukan stack dan struktur folder', 'Tulis cara menjalankan di wiki', 'Buat kartu pekerjaan pertama untuk tiap role'] }, 'Kamu');
+      checklist: spec.mode === 'existing' ? ['Baca CLAUDE.md dan README', 'Catat stack dan cara menjalankan di wiki', 'Buat kartu untuk pekerjaan yang terlihat'] : ['Tentukan stack dan struktur folder', 'Tulis cara menjalankan di wiki', 'Buat kartu pekerjaan pertama untuk tiap role'] }, who());
   }
   let template = null;
   if (spec.template) {

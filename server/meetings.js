@@ -11,6 +11,7 @@ import { boardForRole } from './boards.js';
 import { RUN_DIR } from './config.js';
 import { codexBin, tomlStr } from './codex.js';
 import { createLineParser, createClaudeStream, createTyper, getTyping } from './meeting-stream.js';
+import { who } from './actor.js';
 
 const running = new Map(); // office -> { meetingId, child, cancelled }
 const changed = (office, extra = {}) => bus.emit('msg', { t: 'changed', office, what: 'meetings', ...extra });
@@ -85,7 +86,7 @@ export function continueMeeting(office, id, { rounds = 1, note = '' } = {}) {
   const extra = Math.max(1, Math.min(3, Number(rounds) || 1));
   run(db, "UPDATE meetings SET status = 'berjalan', rounds = ?, error = NULL, ended_at = NULL WHERE id = ?", m.rounds + extra, id);
   addMsg(office, id, 'Sistem', `Rapat dilanjutkan ${extra} ronde lagi.`, 'sistem');
-  if (note.trim()) addMsg(office, id, 'Kamu', note.trim().slice(0, 4000), 'kamu');
+  if (note.trim()) addMsg(office, id, who(), note.trim().slice(0, 4000), 'kamu');
   logOffice(office, chair.name, `melanjutkan rapat: ${m.topic.slice(0, 40)}`, 'meeting');
   launch(office, id, roles, chair, 'continue');
   return getMeeting(office, id);
@@ -109,7 +110,7 @@ export function cancelMeeting(office) {
 export function interject(office, meetingId, text) {
   const st = running.get(office);
   if (!st || st.meetingId !== meetingId) throw new Error('Rapat ini sudah selesai');
-  addMsg(office, meetingId, 'Kamu', text.trim(), 'kamu');
+  addMsg(office, meetingId, who(), text.trim(), 'kamu');
 }
 
 function boardBrief(office) {
@@ -275,7 +276,7 @@ function ask(office, role, prompt, title, state, { tools = true, typing = false 
   });
 }
 
-export function actionToCard(office, meetingId, index, by = 'Kamu') {
+export function actionToCard(office, meetingId, index, by = who()) {
   const db = officeDb(office);
   const meet = one(db, 'SELECT * FROM meetings WHERE id = ?', meetingId);
   if (!meet) throw new Error('Rapat tidak ditemukan');

@@ -168,7 +168,7 @@ function msgHTML(g) {
   const kind = g.kind === 'sistem' ? 'sistem' : g.kind === 'kamu' ? 'kamu' : '';
   if (kind === 'sistem') return `<div class="msg sistem" data-mid="${esc(g.id)}"><div class="bub">${esc(g.text)}</div></div>`;
   return `<div class="msg ${kind}" data-mid="${esc(g.id)}"><div>${kind ? sprite({ color: '#55606E', hair: '#2B1D14', skin: '#F1C9A5', tie: true }, 3) : avatarFor(g.who)}</div>
-    <div><div class="who">${esc(kind ? 'Kamu' : g.who)} · ${esc(hhmm(g.at))}${g.cost ? ` · ${usd(g.cost, 3)}` : ''}</div><div class="bub">${md(g.text, { taskIndex: false })}</div></div></div>`;
+    <div><div class="who">${esc(kind && (!g.who || g.who === 'Kamu') ? 'Kamu' : g.who)} · ${esc(hhmm(g.at))}${g.cost ? ` · ${usd(g.cost, 3)}` : ''}</div><div class="bub">${md(g.text, { taskIndex: false })}</div></div></div>`;
 }
 /* the bubble of whoever is speaking right now: dots until the first words, then the text flows in with a caret */
 function liveInner(t) {

@@ -14,6 +14,7 @@ import './docs.js';
 import * as payroll from './payroll.js';
 import * as metrics from './metrics.js';
 import * as settings from './settings.js';
+import * as akunPage from './akun.js';
 import * as wizard from './wizard.js';
 import * as files from './files.js';
 import * as gantt from './gantt.js';
@@ -41,6 +42,7 @@ function parse() {
   if (h[0] === 'kompleks' && (h[1] === 'notes' || h[1] === 'wiki')) return { name: 'office', id: '_kompleks', tab: h[1], rest: h.slice(2) };
   if (h[0] === 'baru') return { name: 'wizard' };
   if (h[0] === 'pengaturan') return { name: 'settings' };
+  if (h[0] === 'akun') return { name: 'akun', sub: h[1] || '' };
   if (h[0] === 'payroll') return { name: 'payroll' };
   if (h[0] === 'metrik') return { name: 'metrik' };
   return { name: 'map' };
@@ -63,6 +65,7 @@ async function route() {
     if (r.name === 'map') await renderMap();
     else if (r.name === 'wizard') { crumbs([['Kantor baru']]); ctx.view = wizard; await wizard.render(view, ctx); }
     else if (r.name === 'settings') { crumbs([['Pengaturan']]); ctx.view = settings; await settings.render(view, ctx); }
+    else if (r.name === 'akun') { crumbs([['Akun & riwayat']]); ctx.view = akunPage; await akunPage.render(view, ctx, r.sub); }
     else if (r.name === 'metrik') { crumbs([['Metrik kompleks']]); ctx.view = metrics; await metrics.render(view, { ...ctx, office: null, global: true }); }
     else if (r.name === 'payroll') { crumbs([['Payroll kompleks']]); ctx.view = payroll; await payroll.render(view, { ...ctx, office: null, global: true }); }
     else await renderOffice(r, prev);
@@ -166,6 +169,8 @@ function topCounts() {
   $('#inboxCount').textContent = n;
   $('#inboxPill').classList.toggle('hot', n > 0);
   paintAgentsBadge();
+  const me = ctx.st?.akun ? ctx.st.me : null, pill = $('#mePill');
+  if (pill) { pill.hidden = !me; if (me) { pill.textContent = me.name; pill.title = `Masuk sebagai ${me.name} (${me.role})`; } }
 }
 
 /* ---------------- state ---------------- */
@@ -200,7 +205,7 @@ async function renderMap() {
     <header class="hm-head">
       <div><p class="eyebrow">Kantor Claude · ${all.length} kantor</p><h1>Kompleks</h1>
         <p class="hm-stats"><b>${sess.length}</b> sesi aktif <span>·</span> <b>${working}</b> sedang bekerja <span>·</span> <b class="${st.inbox.length ? 'warn' : ''}">${st.inbox.length}</b> izin menunggu <span>·</span> <b>${usd(cost, 0)}</b> bulan ini <span class="hint">(estimasi setara API)</span></p></div>
-      <div class="btn-row"><a class="btn" href="#/metrik">Metrik</a><a class="btn" href="#/payroll">Payroll</a><button class="btn primary" data-act="add-office">Tambah kantor</button></div>
+      <div class="btn-row"><a class="btn" href="#/metrik">Metrik</a><a class="btn" href="#/payroll">Payroll</a><a class="btn" href="#/akun/riwayat">Riwayat</a><button class="btn primary" data-act="add-office">Tambah kantor</button></div>
     </header>
     <div class="hm-grid">
       <div class="hm-main">

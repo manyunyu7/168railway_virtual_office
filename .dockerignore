@@ -1,0 +1,5 @@
+node_modules
+.git
+.kantor
+docs/screenshots
+test

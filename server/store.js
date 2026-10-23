@@ -7,6 +7,7 @@ import { insertRole } from './seed.js';
 import { PROJECTS_DIR, config } from './config.js';
 import crypto from 'node:crypto';
 import * as bd from './boards.js';
+import { who, isHuman } from './actor.js';
 
 export const COLS = ['Backlog', 'Siap', 'Dikerjakan', 'Review', 'Selesai'];
 const PRIOS = ['P0', 'P1', 'P2', 'P3'];
@@ -403,7 +404,7 @@ export function proposeWiki(office, slug, { title, body, reason }, by) {
 }
 export function getProposal(office, id) { return one(officeDb(office), 'SELECT * FROM wiki_proposals WHERE id = ?', id); }
 export function listProposals(office) { return all(officeDb(office), "SELECT p.id, p.slug, p.title, p.reason, p.by, p.at, w.title page FROM wiki_proposals p LEFT JOIN wiki w ON w.slug = p.slug WHERE p.status = 'baru' ORDER BY p.at"); }
-export function decideProposal(office, id, accept, by = 'Kamu') {
+export function decideProposal(office, id, accept, by = who()) {
   const db = officeDb(office);
   const u = one(db, 'SELECT * FROM wiki_proposals WHERE id = ?', id);
   if (!u || u.status !== 'baru') throw new Error('Usulan tidak ditemukan atau sudah diputuskan');
@@ -443,7 +444,7 @@ export function saveNote(office, f, by) {
   const id = newId('n');
   run(db, `INSERT INTO notes (id, title, body, color, tags, pinned, wall, room, author, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id, f.title || '', f.body || '', f.color || 'kuning', JSON.stringify(cleanTags), f.pinned ? 1 : 0, f.wall ? 1 : 0, f.room || null, by, t, t);
-  if (by !== 'Kamu') logOffice(office, by, `menulis catatan "${(f.title || 'tanpa judul').slice(0, 40)}"`, 'notes');
+  if (!isHuman(by)) logOffice(office, by, `menulis catatan "${(f.title || 'tanpa judul').slice(0, 40)}"`, 'notes');
   changed(office, 'notes', { note: id });
   return getNote(office, id);
 }
@@ -516,7 +517,7 @@ export function saveWiki(office, { slug: s, title, body, msg, prevSlug, parent, 
     // which uploaded files this page shows
     run(db, "DELETE FROM media_use WHERE kind = 'wiki' AND ref = ?", target);
     for (const m of [...new Set([...String(body || '').matchAll(/\/media\/([0-9a-f]{20})\b/g)].map(x => x[1]))]) run(db, "INSERT OR IGNORE INTO media_use (media_id, kind, ref, at) VALUES (?, 'wiki', ?, ?)", m, target, t);
-    if (by !== 'Kamu') logOffice(office, by, `${cur ? 'memperbarui' : 'membuat'} wiki "${title.trim().slice(0, 40)}"`, 'wiki');
+    if (!isHuman(by)) logOffice(office, by, `${cur ? 'memperbarui' : 'membuat'} wiki "${title.trim().slice(0, 40)}"`, 'wiki');
     changed(office, 'wiki', { slug: target });
     return getWiki(office, target);
   });

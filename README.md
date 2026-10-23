@@ -143,6 +143,7 @@ flowchart LR
 - **Terminal di browser sama dengan akses shell penuh.** Jangan buka port ini ke internet.
 - File manager terkunci di dalam folder kantor (termasuk terhadap symlink). File mentah dikirim dengan CSP `sandbox`, sehingga file HTML atau SVG dari project tidak bisa menjalankan skrip di halaman kantor.
 - Manager tidak bisa memberi role lain mode izin yang lebih longgar dari modenya sendiri.
+- **Kantor bersama di server**: aktifkan mode akun (username + password + 2FA per orang, peran admin/anggota) dan audit log yang mencatat siapa mengetik prompt, membuka terminal, dan menyetujui izin. Lihat [`docs/AKUN.md`](docs/AKUN.md).
 
 ## Pengembangan
 

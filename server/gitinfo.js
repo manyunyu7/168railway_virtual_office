@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { officeModel, roomForCwd } from './offices.js';
+import { who } from './actor.js';
 
 const TTL = 30e3;
 const PR_TTL = 5 * 60e3;
@@ -313,7 +314,7 @@ export async function gitCommit(office, roomId, { message, files } = {}) {
     const log = await git(['log', '-1', '--format=%h%x00%s%x00%cI'], { cwd: t.top });
     const [hash, subject, at] = log.out.trim().split('\0');
     const info = await snapshot(t, office, true);
-    sink.log(office, 'Kamu', `commit di ${t.room.name || roomId}: ${hash} ${subject} (${picked.length} file)`, 'git');
+    sink.log(office, who(), `commit di ${t.room.name || roomId}: ${hash} ${subject} (${picked.length} file)`, 'git');
     sink.emit({ t: 'changed', office, what: 'git', room: roomId });
     return { ok: true, hash, subject, at, files: picked.length, git: info };
   });
