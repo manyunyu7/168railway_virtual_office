@@ -37,7 +37,7 @@ Media di markdown (wiki/kartu): `![alt](/api/offices/<id>/media/<mid>)` = gambar
 
 ## Drawer (`web/js/panel.js`)
 
-`showDrawer(html, { wide, key, close })` → elemen drawer; `closeDrawer()`; `drawerState()` → `{open, key}`; `drawerEl()`. Struktur isi yang dipakai CSS: `.dr-head` (+ `.dr-ava`, `.dr-id`, `.dr-name`, `.dr-title`, tombol `.icon-btn` dengan `data-act="close-drawer"`), `.dr-tabs` (button `aria-selected`), `.dr-body` (+ `.dr-sec h3`, `dl.facts`).
+`showDrawer(html, { wide, key, close })` → elemen drawer; `closeDrawer()`; `drawerState()` → `{open, key}`; `drawerEl()`. Struktur isi yang dipakai CSS: satu baris `.dr-top` berisi `.dr-head` (+ `.dr-ava`, `.dr-id`, `.dr-name`, `.dr-title`), `.dr-tabbar` (`.dr-tabs` dengan button `aria-selected`; yang tidak muat pindah ke menu `.dr-tmore`), `.dr-tools` (kontrol terminal, hanya di tab Terminal) dan `.dr-btns` (tombol `.icon-btn`, termasuk `data-act="close-drawer"`); lalu `.dr-body` (+ `.dr-sec h3`, `dl.facts`).
 
 ## Event realtime (`onLive` / fungsi `live(msg)`)
 

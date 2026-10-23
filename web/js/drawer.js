@@ -37,7 +37,12 @@ function sessChips(s) {
 }
 
 function headHTML(look, name, sub, chips) {
-  return `<div class="dr-head compact"><button class="icon-btn dr-back" data-act="close-drawer" aria-label="Kembali ke kantor">←</button><div class="dr-ava">${sprite(look, 3)}</div><div class="dr-id"><div class="dr-line"><span class="dr-name">${esc(name)}</span>${chips}</div><div class="dr-title">${esc(sub)}</div></div><button class="icon-btn" data-act="agents-open" aria-label="Pindah agen (semua kantor)" title="Pindah agen, semua kantor (Alt+K)">⇄</button><button class="icon-btn" data-act="dr-full" aria-label="Layar penuh" title="Layar penuh">${drawerEl()?.classList.contains('full') ? '⤡' : '⤢'}</button><button class="icon-btn" data-act="close-drawer" aria-label="Tutup panel">✕</button></div>`;
+  return `<div class="dr-head compact"><button class="icon-btn dr-back" data-act="close-drawer" aria-label="Kembali ke kantor">←</button><div class="dr-ava">${sprite(look, 3)}</div><div class="dr-id"><div class="dr-line"><span class="dr-name" title="${esc(sub)}">${esc(name)}</span>${chips}</div><div class="dr-title">${esc(sub)}</div></div></div>`;
+}
+/** Satu baris di atas panel: identitas, tab (kalau ada), lalu tombol. Menghemat tinggi untuk terminal. */
+function topHTML(head, tabs = null, cur = null) {
+  const full = drawerEl()?.classList.contains('full');
+  return `<div class="dr-top">${head}${tabs ? tabsHTML(tabs, cur) : ''}<div class="dr-tools" data-slot="tools"></div><div class="dr-btns"><button class="icon-btn dr-swbtn" data-act="dr-sw" aria-label="Tampilkan atau sembunyikan daftar agen" title="Daftar agen (tampilkan/sembunyikan)">☰</button><button class="icon-btn" data-act="agents-open" aria-label="Pindah agen (semua kantor)" title="Pindah agen, semua kantor (Alt+K)">⇄</button><button class="icon-btn" data-act="dr-full" aria-label="Layar penuh" title="${full ? 'Kecilkan' : 'Layar penuh'}">${full ? '⤡' : '⤢'}</button><button class="icon-btn" data-act="close-drawer" aria-label="Tutup panel">✕</button></div></div>`;
 }
 function switcherHTML(ctx, curSid) {
   const live = (ctx.office.sessions || []).filter(x => x.status !== 'ended');
@@ -50,12 +55,39 @@ function toggleFull() {
   const d = drawerEl(), on = !d.classList.contains('full');
   d.classList.toggle('full', on);
   try { localStorage.setItem('kc.dr.full', on ? '1' : '0'); } catch {}
-  const b = d.querySelector('.dr-head [data-act="dr-full"]'); if (b) { b.textContent = on ? '⤡' : '⤢'; b.title = on ? 'Kecilkan' : 'Layar penuh'; }
+  const b = d.querySelector('.dr-btns [data-act="dr-full"]'); if (b) { b.textContent = on ? '⤡' : '⤢'; b.title = on ? 'Kecilkan' : 'Layar penuh'; }
   D?.term?.term?.focus();
 }
-try { if (localStorage.getItem('kc.dr.full') === '1') document.getElementById('drawer')?.classList.add('full'); } catch {}
+// daftar agen di kiri (mode layar penuh) bisa disembunyikan supaya terminal lebih lebar
+function toggleSwitcher() {
+  const on = !drawerEl().classList.toggle('sw-hide');
+  try { localStorage.setItem('kc.dr.sw', on ? '1' : '0'); } catch {}
+}
+try {
+  const d = document.getElementById('drawer');
+  if (localStorage.getItem('kc.dr.full') === '1') d?.classList.add('full');
+  if (localStorage.getItem('kc.dr.sw') === '0') d?.classList.add('sw-hide');
+} catch {}
 function tabsHTML(tabs, cur) {
-  return `<div class="dr-tabs" role="tablist">${tabs.map(k => `<button role="tab" aria-selected="${k === cur}" data-act="dr-tab" data-tab="${k}">${TABS[k]}</button>`).join('')}</div>`;
+  return `<div class="dr-tabbar"><div class="dr-tabs" role="tablist">${tabs.map(k => `<button role="tab" aria-selected="${k === cur}" data-act="dr-tab" data-tab="${k}">${TABS[k]}</button>`).join('')}</div><details class="more dr-tmore" hidden><summary title="Tab lainnya" aria-label="Tab lainnya"></summary><div class="more-menu"></div></details></div>`;
+}
+/** Tab yang tidak muat di baris atas pindah ke menu ⋯; tab yang terbuka selalu terlihat. */
+function fitTabs() {
+  const bar = drawerEl()?.querySelector('.dr-tabbar'); if (!bar) return;
+  const row = bar.querySelector('.dr-tabs'), more = bar.querySelector('.dr-tmore'), btns = [...row.querySelectorAll('button')];
+  btns.forEach(b => { b.hidden = false; });
+  more.hidden = true;
+  const over = () => row.scrollWidth > row.clientWidth + 1, hid = [];
+  if (over()) {
+    more.hidden = false;
+    for (const b of [...btns].reverse()) {
+      if (!over()) break;
+      if (b.getAttribute('aria-selected') === 'true') continue;
+      b.hidden = true; hid.unshift(b);
+    }
+  }
+  more.querySelector('summary').textContent = `+${hid.length} ▾`;
+  more.querySelector('.more-menu').innerHTML = hid.map(b => `<button data-act="dr-tab" data-tab="${esc(b.dataset.tab)}">${esc(TABS[b.dataset.tab])}</button>`).join('');
 }
 
 /* ---------------- tombol khusus layar sentuh ---------------- */
@@ -198,11 +230,14 @@ export function openSession(ctx, sid, tab = 'term', opts = {}) {
   if (!tabs.includes(tab)) tab = tabs[0];
   const head = s ? headHTML(sessLook(ctx, s), sessName(ctx, s), sessSub(ctx, s), sessChips(s))
     : headHTML(guestLook('shell:' + room), 'Shell ' + roomName(ctx, room), 'zsh biasa di folder ruangan, tanpa Claude', '<span class="st manual">Shell</span>');
-  const html = switcherHTML(ctx, sid) + `<div class="dr-main">${head}${tabsHTML(tabs, tab)}<div class="dr-body" id="drBody"></div></div>`;
+  const html = switcherHTML(ctx, sid) + `<div class="dr-main">${topHTML(head, tabs, tab)}<div class="dr-body" id="drBody"></div></div>`;
   const state = { ctx, key, kind: 'session', sid, room, tab, tabs, term: null };
-  const d = showDrawer(html, { wide: true, key, close: () => { const own = D; if (own === state) { disposeTerm(); D = null; } } });
+  const d = showDrawer(html, { wide: true, key, close: () => { state.ro?.disconnect(); const own = D; if (own === state) { disposeTerm(); D = null; } } });
   D = state;
   bindOnce(d);
+  fitTabs();
+  state.ro = new ResizeObserver(() => requestAnimationFrame(fitTabs));
+  state.ro.observe(d.querySelector('.dr-tabbar'));
   fitViewport();
   renderBody();
 }
@@ -212,6 +247,7 @@ function switchTab(tab) {
   D.tab = tab;
   const d = drawerEl();
   d.querySelectorAll('.dr-tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+  fitTabs();
   renderBody();
 }
 
@@ -220,6 +256,7 @@ function renderBody() {
   disposeTerm();
   D.dm?.destroy(); D.dm = null;
   const body = $('#drBody'); if (!body) return;
+  const tools = drawerEl().querySelector('[data-slot="tools"]'); if (tools) tools.innerHTML = '';
   const { ctx, sid, tab } = D;
   const s = sid ? findSess(ctx, sid) : null;
   if (D.kind === 'role') { body.innerHTML = roleBodyHTML(ctx, D.roleId); paintRolePb(); return; }
@@ -240,21 +277,21 @@ function termTab(body, ctx, s) {
   if (s.status === 'ended') { body.innerHTML = endedBanner(); return; }
   if (!s.tmux) { body.innerHTML = readonlyHTML(ctx, s); loadTranscript(s.sid); trTimer = setInterval(() => loadTranscript(s.sid), 10000); return; } // cadangan; { t: 'transcript' } memicu muat ulang
   const cmd = `tmux attach -t ${s.tmux}`;
-  body.innerHTML = `<div class="term-bar"><span class="tb-live"><i class="dot"></i>live · ${esc(s.tmux)}</span>
-      <span class="tb-ctl">
-        <span data-slot="mode">${modeSelect(s)}</span>
-        <button class="btn sm halt" data-act="dr-action" data-a="esc" title="Hentikan pekerjaan yang sedang jalan (Esc)">Hentikan</button>${bgCount(s) > 0 ? `<span class="st working" data-slot="bg" title="Subagent masih jalan di latar">${bgCount(s)} subagent latar</span>` : ''}
-        <button class="btn sm" data-act="dr-action" data-a="compact" title="/compact">Ringkas</button>
-        <button class="btn sm" data-act="dr-action" data-a="clear" title="/clear">Reset</button>
-        <details class="more"><summary class="btn sm" title="Lainnya">⋯</summary><div class="more-menu">
-          <button data-act="dr-action" data-a="exit">Selesaikan sesi (/exit)</button>
-          <button data-act="dr-action" data-a="kill" class="danger">Paksa tutup</button>
-          <button data-act="dr-copy" data-text="${esc(cmd)}">Salin <code>${esc(cmd)}</code></button></div></details>
-        <span class="fs"><button data-act="dr-fs" data-d="-1" aria-label="Perkecil huruf">−</button><span data-slot="fs">${termFont()}</span><button data-act="dr-fs" data-d="1" aria-label="Perbesar huruf">+</button></span>
-      </span></div>
-    <div class="termbox"><div class="xt" id="xt"></div></div>
-    ${keybarHTML()}
-    <form class="msgbox" id="drQuick"><textarea id="drQuickIn" rows="1" aria-label="Pesan untuk ${esc(sessName(ctx, s))}" placeholder="Pesan untuk ${esc(sessName(ctx, s))}… (Enter kirim)"></textarea><button class="btn primary sm" type="submit">Kirim</button></form>`;
+  // kontrol terminal duduk di baris atas panel (bukan baris sendiri), supaya terminal dapat tinggi penuh
+  const tools = drawerEl().querySelector('[data-slot="tools"]');
+  if (tools) tools.innerHTML = `<span data-slot="mode">${modeSelect(s)}</span>
+    <button class="btn sm halt" data-act="dr-action" data-a="esc" title="Hentikan pekerjaan yang sedang jalan (Esc)">■<span class="halt-l"> Hentikan</span></button>${bgCount(s) > 0 ? `<span class="st working" data-slot="bg" title="Subagent masih jalan di latar">${bgCount(s)} latar</span>` : ''}
+    <details class="more"><summary class="btn sm" title="Kontrol lainnya" aria-label="Kontrol lainnya">⋯</summary><div class="more-menu">
+      <button data-act="dr-model">${isCodex(s) ? `Ganti model (${esc(codexSessSub(s))})…` : 'Ganti model…'}</button>
+      <button data-act="dr-action" data-a="compact">Ringkas (/compact)</button>
+      <button data-act="dr-action" data-a="clear">Reset (/clear)</button>
+      <div class="mm-fs">Ukuran huruf <span class="fs"><button data-act="dr-fs" data-d="-1" aria-label="Perkecil huruf">−</button><span data-slot="fs">${termFont()}</span><button data-act="dr-fs" data-d="1" aria-label="Perbesar huruf">+</button></span></div>
+      <hr>
+      <button data-act="dr-action" data-a="exit">Selesaikan sesi (/exit)</button>
+      <button data-act="dr-action" data-a="kill" class="danger">Paksa tutup</button>
+      <button data-act="dr-copy" data-text="${esc(cmd)}">Salin <code>${esc(cmd)}</code></button></div></details>`;
+  body.innerHTML = `<div class="termbox"><div class="xt" id="xt"></div></div>
+    ${keybarHTML()}`;
   mountTerm($('#xt'), `kind=session&sid=${encodeURIComponent(s.sid)}`);
   bindKeybar($('.kb-wrap', body), () => D?.term);
 }
@@ -268,7 +305,7 @@ function chatTab(body, ctx, s) {
 }
 
 export const MODE_LABEL = { readOnly: 'Hanya baca', default: 'Selalu tanya', acceptEdits: 'Edit otomatis', auto: 'Auto', plan: 'Plan', dontAsk: 'Tanpa tanya', bypassPermissions: 'Bypass' };
-const modeSelect = s => isCodex(s) ? `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label><button class="btn sm" data-act="dr-model" title="Ganti model dan effort Codex (sesi harus diam)">Model: ${esc(codexSessSub(s))}</button>` : `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label>${modelBtn}`;
+const modeSelect = s => isCodex(s) ? `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label>` : `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label>`;
 /** Ganti model sesi lewat pemilih /model milik Claude Code sendiri; daftarnya diambil dari layar, bukan buatan kita. */
 let pmOff = null;
 export async function pickModel(sid) {
@@ -291,7 +328,6 @@ export async function pickModel(sid) {
   card.addEventListener('click', onPick);
   pmOff = () => card.removeEventListener('click', onPick);
 }
-const modelBtn = '<button class="btn sm" data-act="dr-model" title="Ganti model sesi ini (/model)">Ganti model</button>';
 const HOSTS = { vscode: 'VS Code', terminal: 'Terminal', iterm: 'iTerm2', tmux: 'tmux', lain: 'aplikasi terminal lain' };
 function readonlyHTML(ctx, s) {
   const tty = s.tty ? s.tty.replace('/dev/', '') : null;
@@ -481,7 +517,7 @@ export function openRole(ctx, roleId) {
   if (!r) { toast('Role tidak ditemukan', 'warn'); return; }
   const key = 'role:' + roleId;
   if (D && D.key === key && drawerState().open) return;
-  const html = switcherHTML(ctx, null) + `<div class="dr-main">${roleHead(ctx, r)}<div class="dr-body" id="drBody"></div></div>`;
+  const html = switcherHTML(ctx, null) + `<div class="dr-main">${topHTML(roleHead(ctx, r))}<div class="dr-body" id="drBody"></div></div>`;
   const state = { ctx, key, kind: 'role', roleId, sid: null, tab: 'profil', tabs: [], term: null };
   const d = showDrawer(html, { wide: false, key, close: () => { if (D === state) { disposeTerm(); D = null; } } });
   D = state;
@@ -506,13 +542,14 @@ function bindOnce(d) {
 function onClick(e) {
   const b = e.target.closest('[data-act]'); if (!b || !D) return;
   const act = b.dataset.act, ctx = D.ctx;
-  b.closest('details.more')?.removeAttribute('open');
+  if (act !== 'dr-fs') b.closest('details.more')?.removeAttribute('open');
   if (act === 'dr-tab') switchTab(b.dataset.tab);
   else if (act === 'dr-action') doAction(b.dataset.a);
   else if (act === 'dr-copy') copyText(b.dataset.text);
   else if (act === 'dr-adopt') adoptDialog();
   else if (act === 'dr-model') { const cs = findSess(ctx, D.sid); if (isCodex(cs)) pickCodexSettings(cs); else pickModel(D.sid); }
   else if (act === 'dr-full') toggleFull();
+  else if (act === 'dr-sw') toggleSwitcher();
   else if (act === 'dr-fs') setTermFont(Number(b.dataset.d));
   else if (act === 'dr-sess') openSession(ctx, b.dataset.sid, 'term');
   else if (act === 'dr-role') openRole(ctx, b.dataset.role);
@@ -564,7 +601,7 @@ export function drawerOnLive(ctx, msg) {
 function markEnded(ctx) {
   if (D.tab === 'chat') { D.chat?.update(); const h = drawerEl().querySelector('.dr-head .btn-row'); if (h) h.innerHTML = '<span class="st ended">Selesai</span>'; return; }
   if (D.tab === 'term' || D.tab === 'subs') {
-    if (D.tab === 'term') { disposeTerm(true); const body = $('#drBody'); if (body) body.innerHTML = endedBanner(); }
+    if (D.tab === 'term') { disposeTerm(true); const body = $('#drBody'); if (body) body.innerHTML = endedBanner(); const t = drawerEl().querySelector('[data-slot="tools"]'); if (t) t.innerHTML = ''; }
     else { const body = $('#drBody'); if (body && !body.querySelector('[data-slot="ended"]')) body.insertAdjacentHTML('afterbegin', endedBanner()); }
   } else { const body = $('#drBody'); if (body && !body.querySelector('[data-slot="ended"]')) body.insertAdjacentHTML('afterbegin', endedBanner()); }
   const head = drawerEl().querySelector('.dr-head .btn-row');

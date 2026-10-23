@@ -243,3 +243,16 @@ body.in-office .top-tabs a{flex:none}
 .tab-order-list li{display:flex;align-items:center;gap:6px;padding:6px 8px;border-bottom:1px solid var(--line)}
 .tab-order-list li span{flex:1;font:800 12.5px var(--f-label);letter-spacing:.07em;text-transform:uppercase}
 .tab-order-list .btn{min-width:36px;padding:4px 8px}
+
+/* tab yang tidak muat pindah ke menu "Lainnya" (web/js/tab-bar.js), deretan tab tidak lagi digeser */
+.top-tabs [hidden]{display:none!important}
+body.in-office .top-tabs{overflow:hidden}
+.top-tabs .tab-more{flex:none;margin-left:2px;border:0;background:none;border-radius:var(--r-pill);padding:5px 10px;font:800 11px var(--f-label);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);cursor:pointer;white-space:nowrap;position:relative}
+.top-tabs .tab-more:hover,.top-tabs .tab-more[aria-expanded="true"]{background:var(--surface);color:var(--ink)}
+.top-tabs .tab-more.dot::after{content:"";position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.tab-more-menu{position:fixed;z-index:80;display:grid;min-width:200px;max-height:70vh;overflow:auto;background:var(--surface);border:2px solid var(--line);border-radius:14px;padding:4px;box-shadow:0 var(--depth-md) 0 var(--edge),var(--shadow-float)}
+.tab-more-menu a,.tab-more-menu button{display:flex;align-items:center;gap:8px;border:0;background:none;text-align:left;padding:9px 12px;border-radius:9px;font:800 12px var(--f-label);letter-spacing:.07em;text-transform:uppercase;color:var(--ink);text-decoration:none;cursor:pointer}
+.tab-more-menu button{color:var(--muted);text-transform:none;letter-spacing:0;font-weight:700}
+.tab-more-menu a:hover,.tab-more-menu button:hover,.tab-more-menu :focus-visible{background:var(--surface-2)}
+.tab-more-menu hr{border:0;border-top:1px solid var(--line);margin:4px 6px}
+@media (max-width:900px){.top-tabs .tab-more{min-height:34px}.tab-more-menu a,.tab-more-menu button{padding:12px 14px}}
