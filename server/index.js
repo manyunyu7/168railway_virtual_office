@@ -12,7 +12,7 @@ import { prayerTimes } from './prayer.js';
 import { bus, handleHook, decide, answerAsk, openInbox, liveFor, live, serialize, whoOf } from './live.js';
 import * as st from './store.js';
 import * as bd from './boards.js';
-import { startShift, sessionAction, adoptSession, setSessionBoss, setPermMode, paneMode, paneModeAsync, adoptRunning, adoptManual, ensureShell, tmux, bins, hasTmux, capture, globalHooksInstalled, hookSettings } from './tmux.js';
+import { startShift, sessionAction, adoptSession, setSessionBoss, setPermMode, paneMode, paneModeAsync, adoptRunning, adoptManual, reapGoneTmux, ensureShell, tmux, bins, hasTmux, capture, globalHooksInstalled, hookSettings } from './tmux.js';
 import * as sysmon from './sysmon.js';
 import { scanCodexUsage } from './codexusage.js';
 import { limits as usageLimits, recordClaudeLimits, summary as usageSummary, pollCodexLimits } from './usage.js';
@@ -962,6 +962,8 @@ startOwnerSweep();
 try { pr.discoverProcs(); } catch (e) { console.error('proses:', e.message); }
 for (const o of listOffices()) try { markInterrupted(o.id); } catch {}
 if (!DEMO) { setTimeout(() => scanProcesses(), 1500); setInterval(() => scanProcesses(), 20e3).unref(); }
+// own timer: a slow or stuck process scan must not keep dead shift sessions on the board
+if (!DEMO) setInterval(() => { try { reapGoneTmux(); } catch (e) { console.error('reap tmux:', e.message); } }, 20e3).unref();
 if (!DEMO) startTailWatch(); // pushes { t: 'transcript' } to chat views when a session's transcript grows
 // keep the permission mode of office panes current (it changes with Shift+Tab, which sends no hook)
 // async and one pane at a time, so the terminal bridge never waits on tmux
