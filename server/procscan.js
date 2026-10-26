@@ -9,7 +9,7 @@ import { run as dbRun } from './db.js';
 import { globalDb, officeDb, all, one, nowIso } from './db.js';
 import { live, expectSession, bus, serialize } from './live.js';
 import { officeForCwd, officeModel, roomForCwd } from './offices.js';
-import { tmux } from './tmux.js';
+import { tmux, reapGoneTmux } from './tmux.js';
 
 const run = (cmd, args) => new Promise(resolve => execFile(cmd, args, { timeout: 8000, maxBuffer: 4 << 20 }, (err, out) => resolve(err && !out ? '' : String(out || ''))));
 
@@ -124,6 +124,7 @@ export async function scanProcesses() {
     const liveTtys = new Set([...live.values()].filter(s => s.tty && s.status !== 'ended').map(s => s.tty));
     const g = globalDb();
     recoverPanes(g);
+    try { reapGoneTmux(); } catch (e) { console.error('reap tmux:', e.message); }
     const claimed = new Set();
     for (const p of procs) {
       if (liveTtys.has(p.tty)) continue;

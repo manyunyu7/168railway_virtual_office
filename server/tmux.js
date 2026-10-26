@@ -518,6 +518,23 @@ function markEnded(sid) {
   if (s.office && s.role) try { run(officeDb(s.office), "UPDATE shifts SET ended_at = ?, status = 'selesai' WHERE sid = ?", nowIso(), sid); } catch {}
 }
 
+/** While running: end shift sessions whose tmux session is gone (killed outside the kantor), so they stop showing as idle. */
+export function reapGoneTmux() {
+  const names = tmuxSessions();
+  if (!names.length) return 0; // tmux unreadable: never end sessions on a failed listing
+  const present = new Set(names);
+  const fresh = Date.now() - 60e3;
+  let n = 0;
+  for (const s of [...live.values()]) {
+    if (!s.tmux || s.status === 'ended' || s.status === 'starting' || s.sid.startsWith('pane-')) continue;
+    if (present.has(s.tmux) || Date.parse(s.startedAt) > fresh) continue;
+    markEnded(s.sid);
+    bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
+    n++;
+  }
+  return n;
+}
+
 /** On daemon start: re-adopt kantor tmux sessions that are still running. */
 export function adoptRunning() {
   const names = new Set(tmuxSessions().filter(n => n.startsWith('kc-')));
