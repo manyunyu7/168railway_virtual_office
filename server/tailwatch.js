@@ -114,7 +114,7 @@ function unwatch(file) {
 
 function maybeFollow(s, w) {
   const now = Date.now();
-  if (isRollout(s.transcript) || s.engine === 'codex') return;
+  if (isRollout(s.transcript) || s.engine === 'codex' || s.engine === 'antigravity') return;
   if (now - w.changedAt < STALE_MS || now - (w.lastSucc || 0) < SUCCESSOR_EVERY) return;
   w.lastSucc = now;
   const reported = reportedSessionId(s);

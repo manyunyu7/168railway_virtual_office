@@ -2,6 +2,7 @@
 import { $, esc, short, sprite, guestLook, modelName, api, post, toast, confirmDo, debounce } from './util.js';
 import { mountChat } from './chat.js';
 import { isCodex, codexBadge, modeOptions, pickCodexSettings, codexSessSub } from './codex.js';
+import { isAntigravity } from './antigravity.js';
 import { openSession, pickModel, MODE_LABEL, HOSTS, stopFlow, bgCount } from './drawer.js';
 import { startShiftDialog } from './roles.js';
 import { drawerState, closeDrawer } from './panel.js';
@@ -38,6 +39,7 @@ function nameOf(s) {
 }
 function subOf(s) {
   const r = roleOf(s.role), model = s.model ? modelName(s.model) : '';
+  if (isAntigravity(s)) return [r?.title, s.model || 'Gemini bawaan'].filter(Boolean).join(' · ');
   if (isCodex(s)) return [r?.title || 'Tanpa role', codexSessSub(s), r ? '' : roomName(s.room)].filter(Boolean).join(' · ');
   if (r) return [r.title, modelName(r.model)].filter(Boolean).join(' · ');
   return ['Tanpa role', model, roomName(s.room)].filter(Boolean).join(' · ');
@@ -187,6 +189,7 @@ function mountSel() {
   M.focusNext = false;
 }
 function modeSelect(s) {
+  if (isAntigravity(s)) return '<button class="btn sm" data-act="cm-term" title="Gunakan /model atau /permissions di terminal">Model & izin Gemini</button>';
   if (isCodex(s)) return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="cm-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label><button class="btn sm" data-act="cm-model" title="Ganti model dan effort Codex (sesi harus diam)">Model: ${esc(codexSessSub(s))}</button>`;
   return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="cm-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label><button class="btn sm" data-act="cm-model" title="Ganti model sesi ini (/model)">Ganti model</button>`;
 }

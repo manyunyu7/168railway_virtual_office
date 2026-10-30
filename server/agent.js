@@ -254,7 +254,7 @@ async function runTool(ident, name, a = {}) {
     case 'roles_list': {
       const active = new Set([...live.values()].filter(s => s.office === office && s.status !== 'ended').map(s => s.role));
       const m = officeModel(office);
-      return text(st.listRoles(office).map(r => ({ id: r.id, nama: r.name, jabatan: r.title, ruangan: m.plan.rooms.find(x => x.id === r.room)?.name || r.room, model: r.model, ...(r.engine === 'codex' ? { mesin: 'codex', effort: r.effort || undefined } : {}), sedang_shift: active.has(r.id), atasan: r.reportsTo || undefined, mode_izin: [...live.values()].find(x => x.office === office && x.role === r.id && x.status !== 'ended')?.permMode || undefined })));
+      return text(st.listRoles(office).map(r => ({ id: r.id, nama: r.name, jabatan: r.title, ruangan: m.plan.rooms.find(x => x.id === r.room)?.name || r.room, model: r.model, ...(r.engine && r.engine !== 'claude' ? { mesin: r.engine, effort: r.effort || undefined } : {}), sedang_shift: active.has(r.id), atasan: r.reportsTo || undefined, mode_izin: [...live.values()].find(x => x.office === office && x.role === r.id && x.status !== 'ended')?.permMode || undefined })));
     }
     case 'shift_start': {
       if (!role?.isMgr) throw new Error('Hanya manager yang boleh memulai shift role lain.');

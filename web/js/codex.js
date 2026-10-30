@@ -5,7 +5,7 @@ export const CODEX_MODES = [['default', 'Tanya dulu'], ['auto', 'Auto (Approve f
 export const CODEX_MODE_LABEL = Object.fromEntries(CODEX_MODES);
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh'];
 export const isCodex = x => x?.engine === 'codex';
-export const codexBadge = x => isCodex(x) ? '<span class="st cx-badge" title="Mesin: OpenAI Codex">Codex</span>' : '';
+export const codexBadge = x => x?.engine === 'antigravity' ? '<span class="st cx-badge" title="Mesin: Gemini melalui Antigravity">Gemini</span>' : isCodex(x) ? '<span class="st cx-badge" title="Mesin: OpenAI Codex">Codex</span>' : '';
 
 let cache = null;
 export function codexModels(force) {

@@ -145,6 +145,10 @@ flowchart LR
 - Manager tidak bisa memberi role lain mode izin yang lebih longgar dari modenya sendiri.
 - **Kantor bersama di server**: aktifkan mode akun (username + password + 2FA per orang, peran admin/anggota) dan audit log yang mencatat siapa mengetik prompt, membuka terminal, dan menyetujui izin. Lihat [`docs/AKUN.md`](docs/AKUN.md).
 
+## Gemini di Kantor
+
+Selain Claude Code dan Codex, role dapat memakai **Gemini (Antigravity)** melalui akun Google yang login di PC daemon. Pilih mesin dan model di **Role** atau **Mulai shift**. Panduan, izin, dan batas integrasi ada di [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md).
+
 ## Pengembangan
 
 ```bash

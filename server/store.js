@@ -7,6 +7,7 @@ import { insertRole } from './seed.js';
 import { PROJECTS_DIR, config } from './config.js';
 import crypto from 'node:crypto';
 import * as bd from './boards.js';
+import { engineOf } from './codex.js';
 import { who, isHuman } from './actor.js';
 
 export const COLS = ['Backlog', 'Siap', 'Dikerjakan', 'Review', 'Selesai'];
@@ -25,7 +26,7 @@ export function colIndex(v, board) {
 /* ---------------- roles ---------------- */
 export function roleRow(r) {
   return { id: r.id, name: r.name, title: r.title, model: r.model, room: r.room, color: r.color, hair: r.hair, skin: r.skin, hairStyle: r.hair_style, outfit: r.outfit || 'kemeja', acc: r.acc || '', hijab: r.hijab || '#E8EEF8',
-    engine: r.engine === 'codex' ? 'codex' : 'claude', effort: r.effort || null, tie: !!r.tie, isMgr: !!r.is_mgr, persona: r.persona, skills: j(r.skills, []), notes: r.notes, budget: r.budget_usd, archived: !!r.archived, reportsTo: r.reports_to || null };
+    engine: engineOf(r.engine), effort: r.effort || null, tie: !!r.tie, isMgr: !!r.is_mgr, persona: r.persona, skills: j(r.skills, []), notes: r.notes, budget: r.budget_usd, archived: !!r.archived, reportsTo: r.reports_to || null };
 }
 export function listRoles(office, { archived = false } = {}) {
   return all(officeDb(office), `SELECT * FROM roles ${archived ? '' : 'WHERE archived = 0'} ORDER BY ord, created_at`).map(roleRow);
@@ -37,9 +38,9 @@ export function createRole(office, f) {
   let id = slug(f.name).replace(/-/g, '') || newId('r');
   while (one(db, 'SELECT 1 FROM roles WHERE id = ?', id)) id = id + Math.floor(Math.random() * 9);
   const ord = (one(db, 'SELECT MAX(ord) m FROM roles')?.m ?? 0) + 1;
-  insertRole(db, { id, name: f.name.trim(), title: f.title.trim(), model: f.model || (f.engine === 'codex' ? '' : 'sonnet'), room: f.room, color: f.color || '#2F5D9E', hair: f.hair || '#2B1D14', skin: f.skin || '#F1C9A5',
+  insertRole(db, { id, name: f.name.trim(), title: f.title.trim(), model: f.model || (engineOf(f.engine) !== 'claude' ? '' : 'sonnet'), room: f.room, color: f.color || '#2F5D9E', hair: f.hair || '#2B1D14', skin: f.skin || '#F1C9A5',
     hairStyle: f.hairStyle || 'short', outfit: f.outfit, acc: f.acc, hijab: f.hijab, tie: !!f.tie, isMgr: !!f.isMgr, persona: f.persona || '', skills: f.skills || [], notes: '' }, ord);
-  if (f.engine === 'codex') run(db, 'UPDATE roles SET engine = ?, effort = ? WHERE id = ?', 'codex', f.effort || null, id);
+  if (engineOf(f.engine) !== 'claude') run(db, 'UPDATE roles SET engine = ?, effort = ? WHERE id = ?', engineOf(f.engine), f.effort || null, id);
   if (Number(f.budget) > 0) run(db, 'UPDATE roles SET budget_usd = ? WHERE id = ?', Number(f.budget), id);
   if (f.reportsTo) setBoss(db, id, f.reportsTo);
   logOffice(office, f.name.trim(), `bergabung sebagai ${f.title.trim()}${f.reportsTo ? `, anak buah ${one(db, 'SELECT name FROM roles WHERE id = ?', f.reportsTo)?.name || f.reportsTo}` : ''}`, 'role');
@@ -63,7 +64,7 @@ export function updateRole(office, id, f) {
   if (f.budget !== undefined) { const n = Number(f.budget); f = { ...f, budget: Number.isFinite(n) && n > 0 ? n : null }; } // empty or 0 = no limit
   const map = { name: 'name', title: 'title', model: 'model', room: 'room', color: 'color', hair: 'hair', skin: 'skin', hairStyle: 'hair_style', outfit: 'outfit', acc: 'acc', hijab: 'hijab', persona: 'persona', notes: 'notes', budget: 'budget_usd', effort: 'effort' };
   for (const [k, col] of Object.entries(map)) if (f[k] !== undefined) run(db, `UPDATE roles SET ${col} = ? WHERE id = ?`, f[k], id);
-  if (f.engine !== undefined) run(db, 'UPDATE roles SET engine = ? WHERE id = ?', f.engine === 'codex' ? 'codex' : null, id);
+  if (f.engine !== undefined) run(db, 'UPDATE roles SET engine = ? WHERE id = ?', engineOf(f.engine) === 'claude' ? null : engineOf(f.engine), id);
   if (f.skills !== undefined) run(db, 'UPDATE roles SET skills = ? WHERE id = ?', JSON.stringify(f.skills), id);
   if (f.tie !== undefined) run(db, 'UPDATE roles SET tie = ? WHERE id = ?', f.tie ? 1 : 0, id);
   if (f.isMgr !== undefined) run(db, 'UPDATE roles SET is_mgr = ? WHERE id = ?', f.isMgr ? 1 : 0, id);

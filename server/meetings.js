@@ -9,6 +9,7 @@ import { bins, globalHooksInstalled, hookSettings } from './tmux.js';
 import { listCards, getRole, saveWiki, COLS, createCard } from './store.js';
 import { boardForRole } from './boards.js';
 import { RUN_DIR } from './config.js';
+import { agyBin, agySettings } from './antigravity.js';
 import { codexBin, tomlStr } from './codex.js';
 import { createLineParser, createClaudeStream, createTyper, getTyping } from './meeting-stream.js';
 import { who } from './actor.js';
@@ -232,7 +233,51 @@ export function askCodex(office, role, prompt, title, state, { tools = true, typ
   });
 }
 
+// Rapat Gemini uses the same subscription. Deny writes, commands and MCP;
+// meeting turns may only research files, never perform work on behalf of the role.
+export function askAntigravity(office, role, prompt, title, state, { tools = true, typing = false } = {}) {
+  const bin = agyBin(); if (!bin) throw new Error('Antigravity CLI belum terpasang');
+  const m = officeModel(office), room = m.plan.rooms.find(r => r.id === role.room);
+  let cwd = room?.path ? path.join(m.root, room.path) : m.root;
+  if (!fs.existsSync(cwd)) cwd = m.root;
+  const sid = crypto.randomUUID(), file = path.join(RUN_DIR, `${sid}.meeting-agy.json`);
+  const settings = agySettings(cwd, { deny: ['write_file(*)', 'command(*)', 'mcp(*)', 'read_url(*)', 'execute_url(*)', ...(tools ? [] : ['read_file(*)'])], allow: tools ? ['read_file(*)'] : [] });
+  settings.permissions.allow = tools ? ['read_file(*)'] : [];
+  fs.writeFileSync(file, JSON.stringify(settings), { mode: 0o600 });
+  const persona = `Kamu ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}.\n${role.notes || ''}\nIni rapat: jawab pendapatmu, jangan mengubah file, menjalankan perintah atau memakai MCP.`;
+  const args = ['--settings', file, '--mode', 'plan', '--output-format', 'stream-json', '--print-timeout', '240s'];
+  if (role.model) args.push('--model', role.model);
+  if (role.effort) args.push('--effort', role.effort);
+  args.push('--print', persona + '\n\n' + prompt);
+  expectSession({ sid, office, role: role.id, room: 'meeting', cwd, title, engine: 'antigravity' });
+  const session = live.get(sid); session.kind = 'rapat'; session.status = 'working';
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, { cwd, env: { ...process.env, KANTOR_ENGINE: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    state.child = child;
+    let err = '', last = '';
+    const typer = typing ? createTyper(office, state.meetingId, role) : null; typer?.start();
+    const lines = createLineParser(o => {
+      if (o.event === 'result') { last = o.result?.response || ''; err = o.result?.error || err; }
+      if (o.event === 'step_update' && o.step_update?.text_delta) typer?.text(o.step_update.text_delta);
+    });
+    const timer = setTimeout(() => child.kill('SIGTERM'), 245000);
+    let finished = false;
+    const finish = error => {
+      if (finished) return; finished = true;
+      clearTimeout(timer); state.child = null; fs.rmSync(file, { force: true });
+      live.delete(sid); bus.emit('msg', { t: 'session-gone', office, sid });
+      if (error) { typer?.end(); reject(error); }
+      else resolve({ text: last, cost: 0, done: () => typer?.end() });
+    };
+    child.stdout.on('data', d => lines.feed(String(d)));
+    child.stderr.on('data', d => { err = (err + d).slice(-1000); });
+    child.on('error', finish);
+    child.on('close', code => { lines.flush(); finish(state.cancelled ? new Error('dibatalkan') : !last ? new Error(`${role.name} tidak menjawab (${err.trim().slice(-200) || 'exit ' + code})`) : null); });
+  });
+}
+
 function ask(office, role, prompt, title, state, { tools = true, typing = false } = {}) {
+  if (role.engine === 'antigravity') return askAntigravity(office, role, prompt, title, state, { tools, typing });
   if (role.engine === 'codex') return askCodex(office, role, prompt, title, state, { tools, typing });
   const { claude } = bins();
   if (!claude) throw new Error('Perintah claude tidak ditemukan');

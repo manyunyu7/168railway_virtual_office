@@ -20,7 +20,7 @@ export function activeAgents() {
   return out.sort((a, b) => rank(a) - rank(b) || String(b.lastSeen || '').localeCompare(String(a.lastSeen || '')));
 }
 const nameOf = s => s.look?.name || (s.title && s.title !== 'Sesi belum terhubung' ? short(s.title, 34) : 'Sesi manual');
-const searchText = s => [nameOf(s), s.title, s.look?.title, s.office.name, s.room, s.model, isCodex(s) ? 'codex' : 'claude', toolText(s.tool), s.waiting?.summary].join(' ').toLowerCase();
+const searchText = s => [nameOf(s), s.title, s.look?.title, s.office.name, s.room, s.model, s.engine || 'claude', toolText(s.tool), s.waiting?.summary].join(' ').toLowerCase();
 function whatOf(s) {
   if (s.waiting) return `${s.waiting.tool === 'AskUserQuestion' ? 'bertanya' : 'minta izin'}: ${short(s.waiting.summary || s.waiting.tool, 60)}`;
   const t = toolText(s.tool);
@@ -35,7 +35,7 @@ function rowHTML(s, i) {
   return `<li class="ag-li${i === cursor ? ' cur' : ''}" data-i="${i}">
     <button class="ag-open" type="button" data-ag="open" data-office="${esc(s.office.id)}" data-sid="${esc(s.sid)}">
       <span class="ag-ava">${sprite(look, 2)}</span>
-      <span class="ag-b"><span class="ag-n"><b>${esc(nameOf(s))}</b><i class="ag-eng${isCodex(s) ? ' cx' : ''}">${isCodex(s) ? 'Codex' : 'Claude'}</i>${s.model ? `<i class="ag-mod">${esc(modelName(s.model))}</i>` : ''}${s.bgAgents ? `<i class="ag-sub" title="${s.bgAgents} subagent bekerja">⛓ ${s.bgAgents}</i>` : ''}</span>
+      <span class="ag-b"><span class="ag-n"><b>${esc(nameOf(s))}</b><i class="ag-eng${isCodex(s) ? ' cx' : ''}">${s.engine === 'antigravity' ? 'Gemini' : isCodex(s) ? 'Codex' : 'Claude'}</i>${s.model ? `<i class="ag-mod">${esc(modelName(s.model))}</i>` : ''}${s.bgAgents ? `<i class="ag-sub" title="${s.bgAgents} subagent bekerja">⛓ ${s.bgAgents}</i>` : ''}</span>
       <span class="ag-w">${esc(whatOf(s))}</span><span class="ag-m">${meta}</span></span>
       <i class="ag-dot s${st}" title="${['menunggu izin', 'bekerja', 'idle'][st]}"></i>
     </button>

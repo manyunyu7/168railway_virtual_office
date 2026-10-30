@@ -4,6 +4,7 @@ import { openSession, openRole } from './drawer.js';
 import { loadPlaybooks, newPlaybookFor } from './playbooks.js';
 import { createStage } from './office-canvas.js';
 import { isCodex, codexBadge, mountCodexFields, codexValues, codexModels, codexFieldsHTML, CODEX_MODES } from './codex.js';
+import { isAntigravity, mountAgyFields, agyValues, AGY_MODES } from './antigravity.js';
 import { HAIR_STYLES, OUTFITS, ACCS, HIJABS, TEMPLATES, templateOf, applyLook, randomLook } from './chars.js';
 
 const SKILL_SUGS = ['frontend', 'backend', 'review', 'testing', 'dokumentasi', 'debugging', 'refactor', 'database', 'devops', 'delegasi'];
@@ -60,7 +61,7 @@ function roleCardHTML(r) {
     <p class="rc-persona">${esc(r.persona || 'Belum ada kepribadian.')}</p>
     ${r.skills?.length ? `<div class="chips">${r.skills.map(s => `<span class="chip">${esc(s)}</span>`).join('')}</div>` : ''}
     <div class="rc-pb">📘 ${(M.pbs || []).filter(p => p.roles?.includes(r.id)).map(p => `<a href="#/o/${encodeURIComponent(oid(M.ctx))}/wiki/${encodeURIComponent(p.slug)}">${esc(p.title)}</a>`).join(', ') || '<span class="hint">belum ada playbook</span>'}${r.archived ? '' : ` <button class="btn sm ghost" data-act="rl-pb-new" data-role="${esc(r.id)}">+ Playbook</button>`}</div>
-    <div class="rc-meta"><span>${esc(isCodex(r) ? (r.model || 'Codex bawaan') + (r.effort ? ' · ' + r.effort : '') : modelName(r.model))}</span><span>${esc(roomName(ctx, r.room))}</span>${r.reportsTo ? `<span>anak buah ${esc(M.roles.find(x => x.id === r.reportsTo)?.name || r.reportsTo)}</span>` : ''}${M.roles.some(x => x.reportsTo === r.id && !x.archived) ? `<span>${M.roles.filter(x => x.reportsTo === r.id && !x.archived).length} anak buah</span>` : ''}</div>
+    <div class="rc-meta"><span>${esc((isCodex(r) || isAntigravity(r)) ? (r.model || 'Codex bawaan') + (r.effort ? ' · ' + r.effort : '') : modelName(r.model))}</span><span>${esc(roomName(ctx, r.room))}</span>${r.reportsTo ? `<span>anak buah ${esc(M.roles.find(x => x.id === r.reportsTo)?.name || r.reportsTo)}</span>` : ''}${M.roles.some(x => x.reportsTo === r.id && !x.archived) ? `<span>${M.roles.filter(x => x.reportsTo === r.id && !x.archived).length} anak buah</span>` : ''}</div>
     <div class="btn-row">${r.archived
       ? `<button class="btn sm" data-act="rl-archive" data-role="${esc(r.id)}" data-v="0">Pulihkan</button>`
       : `<button class="btn sm" data-act="rl-profile" data-role="${esc(r.id)}">Profil</button><button class="btn sm primary" data-act="rl-shift" data-role="${esc(r.id)}">Mulai shift</button><button class="btn sm" data-act="rl-edit" data-role="${esc(r.id)}">Ubah</button><button class="btn sm ghost" data-act="rl-archive" data-role="${esc(r.id)}" data-v="1">Arsipkan</button>`}</div></article>`;
@@ -249,16 +250,17 @@ export function openRoleEditor(ctx, roleId) {
       <div class="field"><label for="rf-name">Nama</label><input id="rf-name" value="${esc(cur?.name || '')}" placeholder="mis. Gilang" autocomplete="off"></div>
       <div class="field"><label for="rf-title">Jabatan</label><input id="rf-title" value="${esc(cur?.title || '')}" placeholder="mis. Desainer UI" autocomplete="off"></div>
       <div class="field"><label for="rf-persona">Kepribadian</label><textarea id="rf-persona" rows="4" placeholder="Cara dia bicara, apa yang dia pedulikan, apa yang tidak pernah dia lakukan">${esc(cur?.persona || '')}</textarea>
-        <p class="hint">Teks ini menjadi system prompt role: Claude membacanya setiap kali shift dimulai.</p></div>
+        <p class="hint">Teks ini menjadi system prompt role: Agen membacanya setiap kali shift dimulai.</p></div>
       <div class="field"><label for="rf-skill">Skills</label><div class="skill-box"><div class="chips" id="rfSkills"></div><input id="rf-skill" placeholder="Ketik lalu Enter" autocomplete="off"></div>
         <div class="sugs">${SKILL_SUGS.map(s => `<button type="button" data-act="rl-skill-sug" data-skill="${s}">+ ${s}</button>`).join('')}</div></div>
-      <div class="field"><label for="rf-engine">Mesin</label><select id="rf-engine">${sel([['claude', 'Claude Code'], ['codex', 'OpenAI Codex']], cur?.engine === 'codex' ? 'codex' : 'claude')}</select></div>
+      <div class="field"><label for="rf-engine">Mesin</label><select id="rf-engine">${sel([['claude', 'Claude Code'], ['codex', 'OpenAI Codex'], ['antigravity', 'Gemini (Antigravity)']], cur?.engine || 'claude')}</select></div>
+      <div id="rf-agy"${isAntigravity(cur) ? '' : ' hidden'}></div>
       <div id="rf-cx"${cur?.engine === 'codex' ? '' : ' hidden'}></div>
-      <div class="grid2"><div class="field" id="rf-claude-model"${cur?.engine === 'codex' ? ' hidden' : ''}><label for="rf-model">Model</label><select id="rf-model">${sel(MODEL_OPTS, cur?.engine === 'codex' ? 'sonnet' : cur?.model || 'sonnet')}</select></div>
+      <div class="grid2"><div class="field" id="rf-claude-model"${cur?.engine && cur.engine !== 'claude' ? ' hidden' : ''}><label for="rf-model">Model</label><select id="rf-model">${sel(MODEL_OPTS, cur?.engine && cur.engine !== 'claude' ? 'sonnet' : cur?.model || 'sonnet')}</select></div>
         <div class="field"><label for="rf-room">Ruangan</label><select id="rf-room">${sel(rooms.map(r => [r.id, r.name + (r.path ? ' · ' + r.path : '')]), cur?.room || rooms.find(r => r.kind === 'kode')?.id || rooms[0]?.id)}</select></div></div>
       ${cur?.isMgr ? '' : `<div class="field"><label for="rf-boss">Atasan</label><select id="rf-boss"><option value="">Langsung di bawah manager</option>${(M.roles.length ? M.roles : ctx.office.roles).filter(r => !r.archived && !r.isMgr && r.id !== roleId).map(r => `<option value="${esc(r.id)}"${cur?.reportsTo === r.id ? ' selected' : ''}>${esc(r.name)} · ${esc(r.title)}</option>`).join('')}</select></div>`}
       <div class="field"><label for="rf-budget">Anggaran harian</label><input id="rf-budget" type="number" min="0" step="any" value="${cur?.budget || ''}" placeholder="kosong = tanpa batas" inputmode="decimal">
-        <p class="hint">Role Claude: dolar per hari (setara tarif API). Role Codex: jumlah token per hari. Di 80% agen diingatkan, di 100% diminta menyimpan pekerjaan dan berhenti.</p></div>
+        <p class="hint">Role Claude: dolar per hari (setara tarif API). Role Codex: jumlah token per hari. Di 80% agen diingatkan, di 100% diminta menyimpan pekerjaan dan berhenti. Pemakaian Gemini belum diimpor; cek /usage di terminal.</p></div>
       <div class="field"><label>Template karakter</label><div class="tpl-grid" id="rfTpl">${TEMPLATES.map(t => `<button type="button" class="tpl" data-act="rl-tpl" data-id="${t.id}" title="${esc(t.name)}">${sprite(t.look, 2)}<span>${esc(t.name)}</span></button>`).join('')}</div>
         <button type="button" class="btn sm" data-act="rl-rand" style="margin-top:8px">🎲 Acak</button></div>
       <div class="field"><label>Warna seragam</label><div class="swatches" id="rfColors">${swatch(SWATCHES, 'rl-sw-color', rf.color)}</div></div>
@@ -273,7 +275,8 @@ export function openRoleEditor(ctx, roleId) {
     </div></div>`,
     actions: [{ label: cur ? 'Simpan' : 'Buat role', kind: 'primary', fn: () => { saveRole(); return false; } }, { label: 'Batal' }] });
   refreshSkills(); refreshPreview();
-  rf.cx = { model: cur?.model, effort: cur?.effort };
+  rf.cx = { model: cur?.model, effort: cur?.effort, engine: cur?.engine };
+  if (isAntigravity(cur)) mountAgyFields($('#rf-agy'), 'ragy', cur);
   if (cur?.engine === 'codex') mountCodexFields($('#rf-cx'), 'rcx', rf.cx);
 }
 const rfLook = () => ({ color: rf.color, hair: rf.hair, skin: rf.skin, hairStyle: $('#rf-style')?.value || rf.hairStyle, outfit: $('#rf-outfit')?.value || rf.outfit, acc: $('#rf-acc')?.value ?? rf.acc, hijab: rf.hijab, tie: rf.tie });
@@ -299,14 +302,17 @@ function addSkill(s) { s = s.trim().toLowerCase().replace(/\s+/g, '-'); if (s &&
 function pressSwatch(box, c) { $$('.sw', $(box)).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.c === c))); }
 
 function roleEngineBody() {
+  if ($('#rf-engine')?.value === 'antigravity') return agyValues('ragy');
   if ($('#rf-engine')?.value !== 'codex') return { engine: 'claude', model: $('#rf-model').value };
   const v = codexValues('rcx');
   return { engine: 'codex', model: v.model, effort: v.effort };
 }
 function toggleEngine() {
   const cx = $('#rf-engine').value === 'codex';
-  $('#rf-cx').hidden = !cx; $('#rf-claude-model').hidden = cx;
-  if (cx && !$('#rcx-model')) mountCodexFields($('#rf-cx'), 'rcx', rf.cx || {});
+  const agy = $('#rf-engine').value === 'antigravity';
+  $('#rf-cx').hidden = !cx; $('#rf-agy').hidden = !agy; $('#rf-claude-model').hidden = cx || agy;
+  if (agy && !$('#ragy-model')) mountAgyFields($('#rf-agy'), 'ragy', isAntigravity(rf.cx) ? rf.cx : {});
+  if (cx && !$('#rcx-model')) mountCodexFields($('#rf-cx'), 'rcx', isCodex(rf.cx) ? rf.cx : {});
 }
 async function saveRole() {
   const name = $('#rf-name').value.trim(), title = $('#rf-title').value.trim();
@@ -336,8 +342,8 @@ export async function startShiftDialog(ctx, roleId, opts = {}) {
   shift = { ctx, cards };
   modal({ title: 'Mulai shift', html: `<div class="rf-fields">
       <div class="field"><label for="sh-role">Role</label><select id="sh-role">${roles.map(r => `<option value="${esc(r.id)}"${r.id === pick ? ' selected' : ''}>${esc(r.name)} · ${esc(r.title)}${opts.room && r.room === opts.room ? ' (ruangan ini)' : ''}</option>`).join('')}</select></div>
-      <div class="field"><label for="sh-engine">Mesin</label><select id="sh-engine"><option value="claude">Claude Code</option><option value="codex">OpenAI Codex</option></select></div>
-      <div id="sh-cx" hidden></div>
+      <div class="field"><label for="sh-engine">Mesin</label><select id="sh-engine"><option value="claude">Claude Code</option><option value="codex">OpenAI Codex</option><option value="antigravity">Gemini (Antigravity)</option></select></div>
+      <div id="sh-cx" hidden></div><div id="sh-agy" hidden></div>
       <div id="sh-par"></div>
       <div class="field"><label for="sh-task">Tugas pertama (opsional)</label><textarea id="sh-task" rows="3" placeholder="mis. perbaiki bug login lalu jalankan tes"></textarea></div>
       <div class="field"><label for="sh-card">Kartu (opsional)</label><select id="sh-card"></select></div>
@@ -349,16 +355,18 @@ export async function startShiftDialog(ctx, roleId, opts = {}) {
 function refreshShift() {
   if (!shift) return;
   const { ctx, cards } = shift, id = $('#sh-role').value, n = liveSessions(ctx, id).length;
-  if (shift.last !== id) { shift.last = id; const r = ctx.office.roles.find(x => x.id === id); $('#sh-engine').value = isCodex(r) ? 'codex' : 'claude'; shift.role = r; syncShiftEngine(); }
+  if (shift.last !== id) { shift.last = id; const r = ctx.office.roles.find(x => x.id === id); $('#sh-engine').value = r?.engine || 'claude'; shift.role = r; syncShiftEngine(); }
   $('#sh-par').innerHTML = n ? `<div class="note-ro">Ini sesi paralel ke-${n + 1} untuk role ini.</div><label class="check" style="margin-top:8px"><input type="checkbox" id="sh-wt" checked> Pakai worktree terpisah</label><p class="hint">Disarankan kalau dua sesi mengedit repo yang sama, supaya perubahannya tidak bertabrakan.</p>` : '';
   const mine = cards.filter(c => !c.who || c.who === id);
   $('#sh-card').innerHTML = `<option value="">Tanpa kartu</option>${mine.map(c => `<option value="${esc(c.id)}">${esc(short(c.title, 60))}${c.who ? '' : ' (belum ditugaskan)'}</option>`).join('')}`;
 }
 async function syncShiftEngine() {
   const cx = $('#sh-engine').value === 'codex', box = $('#sh-cx'), perm = $('#sh-perm');
-  box.hidden = !cx;
+  const agy = $('#sh-engine').value === 'antigravity';
+  box.hidden = !cx; $('#sh-agy').hidden = !agy;
+  if (agy) mountAgyFields($('#sh-agy'), 'sagy', isAntigravity(shift.role) ? shift.role : {});
   const old = perm.value;
-  perm.innerHTML = cx ? CODEX_MODES.map(([v, l]) => `<option value="${v}"${v === 'default' ? ' selected' : ''}>${esc(l)}</option>`).join('')
+  perm.innerHTML = agy ? AGY_MODES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('') : cx ? CODEX_MODES.map(([v, l]) => `<option value="${v}"${v === 'default' ? ' selected' : ''}>${esc(l)}</option>`).join('')
     : PERMS.map(([v, l]) => `<option value="${v}"${v === lastPerm() ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const w = $('#sh-perm-warn'); if (w) w.hidden = perm.value !== 'bypassPermissions';
   if (cx) { const r = shift.role; await mountCodexFields(box, 'scx', isCodex(r) ? { model: r.model, effort: r.effort } : {}); }
@@ -368,9 +376,10 @@ async function submitShift() {
   const body = {};
   const task = $('#sh-task').value.trim(), card = $('#sh-card').value, perm = $('#sh-perm').value;
   const cx = $('#sh-engine').value === 'codex';
-  if (!cx) try { localStorage.setItem('kc.perm', perm); } catch {}
+  if (!cx && $('#sh-engine').value === 'claude') try { localStorage.setItem('kc.perm', perm); } catch {}
   if (cx) { const v = codexValues('scx'); body.engine = 'codex'; if (v.model) body.model = v.model; if (v.effort) body.effort = v.effort; }
-  else if (shift.role?.engine === 'codex') body.engine = 'claude';
+  else if ($('#sh-engine').value === 'antigravity') Object.assign(body, agyValues('sagy'));
+  else body.engine = 'claude';
   if (task) body.task = task;
   if (card) body.cardId = card;
   if (perm) body.permissionMode = perm;

@@ -131,6 +131,7 @@ export async function cancelPicker(name) {
 function paneOf(sid) {
   const s = live.get(sid), name = s?.tmux;
   if (!s) throw err('Sesi tidak ditemukan', 404);
+  if (s.engine === 'antigravity') throw err('Ganti model Gemini lewat /model di tab Terminal sesi ini.', 400);
   if (s.engine === 'codex') throw err('Sesi Codex: ganti model lewat POST /api/sessions/:sid/codex/settings', 400);
   if (!name || !hasTmux(name)) throw err('Ganti model hanya untuk sesi yang jalan di terminal kantor. Untuk sesi lain, ketik /model di jendelanya.');
   return { s, name };

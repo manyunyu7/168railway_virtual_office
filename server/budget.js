@@ -25,6 +25,7 @@ export function fmt(v, unit) {
 
 /** Budget picture of one role, or null when it has none. */
 export function status(office, role, now = Date.now()) {
+  if (role.engine === 'antigravity') return null; // native token/payroll ingestion is not available yet
   const limit = Number(role.budget);
   if (!(limit > 0)) return null;
   const unit = role.engine === 'codex' ? 'token' : 'usd';

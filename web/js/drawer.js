@@ -4,6 +4,7 @@ import { showDrawer, drawerState, drawerEl } from './panel.js';
 import { loadPlaybooks, playbookListHTML, newPlaybookFor } from './playbooks.js';
 import { mountChat } from './chat.js';
 import { mountDm } from './dm.js';
+import { isAntigravity } from './antigravity.js';
 import { isCodex, codexBadge, modeOptions, pickCodexSettings, codexSessSub } from './codex.js';
 import { startShiftDialog, openRoleEditor, roleState, PERMS } from './roles.js';
 
@@ -27,6 +28,7 @@ function sessName(ctx, s) {
 function sessSub(ctx, s) {
   const r = roleOf(ctx, s.role);
   const model = s.model ? modelName(s.model) : '';
+  if (isAntigravity(s)) return [r?.title, s.model || 'Gemini bawaan'].filter(Boolean).join(' · ');
   if (isCodex(s)) return [r?.title || 'Tanpa role', codexSessSub(s), r ? '' : roomName(ctx, s.room)].filter(Boolean).join(' · ');
   if (r) return [r.title, modelName(r.model)].join(' · ');
   return ['Tanpa role', model, roomName(ctx, s.room)].filter(Boolean).join(' · ');
@@ -305,7 +307,7 @@ function chatTab(body, ctx, s) {
 }
 
 export const MODE_LABEL = { readOnly: 'Hanya baca', default: 'Selalu tanya', acceptEdits: 'Edit otomatis', auto: 'Auto', plan: 'Plan', dontAsk: 'Tanpa tanya', bypassPermissions: 'Bypass' };
-const modeSelect = s => isCodex(s) ? `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label>` : `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label>`;
+const modeSelect = s => isAntigravity(s) ? '<span class="hint">Gemini · /permissions di terminal</span>' : isCodex(s) ? `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label>` : `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label>`;
 /** Ganti model sesi lewat pemilih /model milik Claude Code sendiri; daftarnya diambil dari layar, bukan buatan kita. */
 let pmOff = null;
 export async function pickModel(sid) {
@@ -547,7 +549,7 @@ function onClick(e) {
   else if (act === 'dr-action') doAction(b.dataset.a);
   else if (act === 'dr-copy') copyText(b.dataset.text);
   else if (act === 'dr-adopt') adoptDialog();
-  else if (act === 'dr-model') { const cs = findSess(ctx, D.sid); if (isCodex(cs)) pickCodexSettings(cs); else pickModel(D.sid); }
+  else if (act === 'dr-model') { const cs = findSess(ctx, D.sid); if (isAntigravity(cs)) { switchTab('term'); toast('Ketik /model atau /permissions di terminal Gemini'); } else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(D.sid); }
   else if (act === 'dr-full') toggleFull();
   else if (act === 'dr-sw') toggleSwitcher();
   else if (act === 'dr-fs') setTermFont(Number(b.dataset.d));

@@ -12,6 +12,7 @@ import { typeInto, claudePid } from './termapp.js';
 import { recordOutgoing } from './outbox.js';
 import { rulesBlock } from './aturan.js';
 import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, readCodexSettings } from './codex.js';
+import { agyBin, agyMode, agyArgs, agySettings, installAgyIntegration } from './antigravity.js';
 import { who as actorName } from './actor.js';
 
 const which = bin => {
@@ -93,9 +94,10 @@ export function rolePrompt(officeId, role, extra = '', engine = 'claude') {
     '- Saat mengerjakan kartu: pindahkan ke Dikerjakan, centang checklist yang selesai, tulis komentar singkat untuk temuan penting, lalu pindahkan ke Review saat siap dicek.',
     '- Menunggu kerja (kartu baru, pesan, commit, review): panggil `tunggu_kerja` lalu akhiri gilirannya; harness membangunkanmu dengan satu prompt tanpa biaya selama menunggu. Pakai `tunggu_kerja`, jangan sleep, polling, Monitor, atau ScheduleWakeup.',
     '- Sebelum berhenti, atau saat ada keputusan penting, perbarui buku catatanmu dengan role_notes_write supaya shift berikutnya tahu posisi terakhir.',
-    engine === 'codex' ? '- Ikuti AGENTS.md (dan CLAUDE.md bila ada) di repo dan halaman wiki "Aturan Kantor". Jawab dan tulis dalam Bahasa Indonesia. Tool MCP kantor muncul dengan awalan `mcp__kantor__`.'
+    engine === 'antigravity' ? '- Ikuti AGENTS.md, GEMINI.md, dan CLAUDE.md bila ada, serta wiki Aturan Kantor. Jawab dan tulis dalam Bahasa Indonesia. Gunakan tool pada server MCP kantor (misalnya sessions_list, board_list).'
+      : engine !== 'claude' ? '- Ikuti AGENTS.md (dan CLAUDE.md bila ada) di repo dan halaman wiki "Aturan Kantor". Jawab dan tulis dalam Bahasa Indonesia. Tool MCP kantor muncul dengan awalan `mcp__kantor__`.'
       : '- Ikuti CLAUDE.md di repo dan halaman wiki "Aturan Kantor". Jawab dan tulis dalam Bahasa Indonesia.',
-    engine === 'codex' ? '- Kerjakan sampai tuntas dalam satu giliran: jangan berhenti di tengah untuk bertanya "lanjut?" atau menunggu konfirmasi, kecuali hal berisiko (menghapus data, kirim keluar, uang, produksi). Kalau ada beberapa cara, pilih yang paling wajar, lanjutkan, lalu laporkan hasilnya. Jangan mengirim Ctrl+C atau input ke terminal latar kecuali perlu; perintah yang lama jalankan dengan batas waktu sendiri.' : '',
+    engine !== 'claude' ? '- Kerjakan sampai tuntas dalam satu giliran: jangan berhenti di tengah untuk bertanya "lanjut?" atau menunggu konfirmasi, kecuali hal berisiko (menghapus data, kirim keluar, uang, produksi). Kalau ada beberapa cara, pilih yang paling wajar, lanjutkan, lalu laporkan hasilnya. Jangan mengirim Ctrl+C atau input ke terminal latar kecuali perlu; perintah yang lama jalankan dengan batas waktu sendiri.' : '',
     ...chain(db, role),
     role.is_mgr ? '- Kamu manager. Pecah permintaan jadi kartu dan tunjuk role yang tepat (field who). Kamu boleh memulai shift role lain dengan shift_start bila pekerjaannya jelas, dan membuka rapat antar-role dengan meeting_start. Jangan mengerjakan semua sendiri.' : '',
     '',
@@ -157,6 +159,7 @@ export function paneModeAsync(name) {
 export async function setPermMode(sid, target) {
   const s = live.get(sid), name = s?.tmux;
   if (!name || !hasTmux(name)) throw new Error('Mode izin hanya bisa diganti dari sini untuk sesi yang jalan di terminal kantor. Untuk sesi lain, tekan Shift+Tab di jendelanya.');
+  if (s.engine === 'antigravity') throw new Error('Ganti izin Gemini lewat /permissions di tab Terminal sesi ini.');
   if (s.engine === 'codex') return (await import('./codexpick.js')).setCodexMode(sid, target); // /permissions menu instead of Shift+Tab
   if (!MODES.includes(target)) throw new Error('Mode tidak dikenal');
   const start = paneMode(name);
@@ -195,9 +198,13 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
   const role = one(db, 'SELECT * FROM roles WHERE id = ? AND archived = 0', roleId);
   if (!role) throw new Error('Role tidak ditemukan');
   // engine of this shift: the one asked for at start, else the role's own
-  const eng = engineOf(engine || role.engine);
+  const previous = resumeSid ? one(globalDb(), 'SELECT engine, office FROM sessions WHERE sid = ?', resumeSid) : null;
+  if (previous && previous.office !== officeId) throw new Error('Sesi resume berasal dari kantor lain');
+  if (previous && engine && engineOf(engine) !== engineOf(previous.engine)) throw new Error('Resume harus memakai mesin sesi asal');
+  const eng = engineOf(engine || (previous ? engineOf(previous.engine) : role.engine));
   const { claude } = bins();
   if (eng === 'claude' && !claude) throw new Error('Perintah claude tidak ditemukan. Atur "claudeBin" di ~/.kantor-claude/config.json');
+  if (eng === 'antigravity' && !agyBin()) throw new Error('Antigravity CLI belum terpasang. Pasang dari https://antigravity.google/cli lalu login Google dengan agy.');
   if (eng === 'codex' && !codexBin()) throw new Error('Perintah codex tidak ditemukan. Pasang Codex CLI (brew install codex) atau atur "codex.bin" di ~/.kantor-claude/config.json');
   const m = officeModel(officeId);
   const room = m.plan.rooms.find(r => r.id === role.room);
@@ -214,6 +221,7 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
   if (hasTmux(name)) throw new Error(`Sesi tmux ${name} masih ada`);
 
   const card = cardId ? one(db, 'SELECT id, title, desc FROM cards WHERE id = ?', cardId) : null;
+  if (eng === 'antigravity') return launchAntigravity({ officeId, role, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort });
   if (eng === 'codex') return launchCodex({ officeId, role, m, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort });
   const promptFile = path.join(RUN_DIR, `${sid}.prompt.md`);
   fs.writeFileSync(promptFile, rolePrompt(officeId, role, card ? `\n## Kartu shift ini\n${card.id}: ${card.title}\n${card.desc || ''}` : ''), { mode: 0o600 });
@@ -272,6 +280,29 @@ function launchCodex({ officeId, role, m, cwd, slot, sid, name, card, task, resu
   return { sid, tmux: name, slot, engine: 'codex' };
 }
 
+function launchAntigravity({ officeId, role, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort }) {
+  installAgyIntegration();
+  const own = role.engine === 'antigravity', mdl = model || (own ? role.model : '') || '';
+  const eff = effort || (own ? role.effort : '') || '';
+  const mode = agyMode(permissionMode), first = task || (card ? `Kerjakan kartu ${card.id}: ${card.title}` : '');
+  const promptFile = path.join(RUN_DIR, `${sid}.prompt.md`), settingsFile = path.join(RUN_DIR, `${sid}.antigravity.json`);
+  fs.writeFileSync(promptFile, rolePrompt(officeId, role, card ? `\n## Kartu shift ini\n${card.id}: ${card.title}\n${card.desc || ''}` : '', 'antigravity'), { mode: 0o600 });
+  fs.writeFileSync(settingsFile, JSON.stringify(agySettings(cwd)), { mode: 0o600 });
+  const args = agyArgs({ cwd, model: mdl, effort: eff, mode, resumeSid, task: first, settingsFile });
+  const env = { KANTOR_SID: sid, KANTOR_ENGINE: 'antigravity', KANTOR_OFFICE: officeId, KANTOR_ROLE: role.id,
+    KANTOR_PROMPT_FILE: promptFile, KANTOR_RESUME: resumeSid ? '1' : '', KANTOR_HOME: process.env.KANTOR_HOME };
+  const script = path.join(RUN_DIR, `${sid}.antigravity.sh`);
+  fs.writeFileSync(script, codexScript({ bin: agyBin(), args, env }), { mode: 0o700 });
+  tmux(['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '60', '/bin/zsh', '-lc', `exec ${q(script)}`]);
+  try { tmux(['set-option', '-t', name, 'status', 'off']); tmux(['set-option', '-t', name, 'mouse', 'on']); tmux(['set-option', '-t', name, 'history-limit', '20000']); } catch {}
+  expectSession({ sid, office: officeId, role: role.id, room: role.room, cwd, tmux: name, slot, title: first || card?.title || null, engine: 'antigravity', model: mdl, effort: eff, permMode: mode });
+  run(officeDb(officeId), `INSERT INTO shifts (sid, role, title, card, started_at, cwd, tmux, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'aktif')
+    ON CONFLICT(sid) DO UPDATE SET started_at = excluded.started_at, ended_at = NULL, tmux = excluded.tmux, status = 'aktif'`,
+    sid, role.id, first || card?.title || '', card?.id || null, nowIso(), cwd, name);
+  logOffice(officeId, role.name, resumeSid ? 'melanjutkan sesi Gemini (Antigravity)' : 'mulai shift Gemini (Antigravity)', 'session');
+  return { sid, tmux: name, slot, engine: 'antigravity' };
+}
+
 function addWorktree(repoDir, roleId, slot) {
   const base = path.basename(repoDir);
   const target = path.join(path.dirname(repoDir), `${base}-kc-${roleId}-${slot + 1}`);
@@ -300,9 +331,9 @@ export function pendingInput(screen, text) {
   while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
   const tail = lines.slice(-25);
   let i = -1;
-  for (let k = tail.length - 1; k >= 0; k--) if (/^\s*[❯›]( |$)/.test(tail[k])) { i = k; break; }
+  for (let k = tail.length - 1; k >= 0; k--) if (/^\s*[❯›>]( |$)/.test(tail[k])) { i = k; break; }
   if (i < 0) return false;
-  const first = tail[i].replace(/^\s*[❯›]\s?/, '');
+  const first = tail[i].replace(/^\s*[❯›>]\s?/, '');
   if (!first.trim()) return false;
   const box = [first];
   for (let k = i + 1; k < tail.length && k < i + 8; k++) { if (/^[\s─━-]*[─━]{3,}/.test(tail[k])) break; box.push(tail[k]); }
@@ -343,7 +374,7 @@ export function stopHard(name) {
   sendKeys(name, ['Escape']);
   setTimeout(() => {
     try {
-      if (!hasTmux(name) || !/esc to interrupt/i.test(capture(name, 15))) return;
+      if (!hasTmux(name) || !/esc to (?:interrupt|cancel)/i.test(capture(name, 15))) return;
       if (Date.now() - (lastCtrlC.get(name) || 0) < 3000) return;
       lastCtrlC.set(name, Date.now());
       sendKeys(name, ['C-c']);
@@ -364,7 +395,7 @@ const visible = name => { try { return tmux(['capture-pane', '-p', '-t', name]);
 // Esc for the main agent if busy, then chat:killAgents (Ctrl+X Ctrl+K, pressed twice within 3 s to confirm).
 export async function stopAll(name, liveCount = 0) {
   const screen = capture(name, 15);
-  const busy = /esc to interrupt/i.test(screen);
+  const busy = /esc to (?:interrupt|cancel)/i.test(screen);
   const agentsBefore = Math.max(screenAgents(visible(name)), liveCount);
   let stoppedMain = false;
   if (busy) {
@@ -388,10 +419,11 @@ export async function sessionAction(sid, action, text) {
   if (name && hasTmux(name)) {
     switch (action) {
       case 'esc': {
+        if (s?.engine === 'antigravity') { const busy = /esc to (?:interrupt|cancel)/i.test(capture(name, 15)); if (busy) sendKeys(name, ['Escape']); return { via: 'tmux', sent: busy, idle: !busy }; }
         // released a held permission with interrupt: Claude already stopped, an extra Esc on the idle prompt would arm the rewind menu
         const released = stopHeld(sid);
         // nothing running: an Esc on the idle prompt only arms Claude Code's rewind menu (a second one opens it)
-        const busy = /esc to interrupt/i.test(capture(name, 15));
+        const busy = /esc to (?:interrupt|cancel)/i.test(capture(name, 15));
         if (!released && !busy) return { via: 'tmux', idle: true };
         // Claude stops on the denied hook (interrupt); Codex only gets the denial and carries on, so it still needs the Esc
         const sent = released && s?.engine !== 'codex' ? false : stopHard(name);
@@ -399,9 +431,10 @@ export async function sessionAction(sid, action, text) {
         return { via: 'tmux', released, sent, debounced: !released && !sent };
       }
       case 'stop-all': case 'kill-agents': {
+        if (s?.engine === 'antigravity') { const busy = /esc to (?:interrupt|cancel)/i.test(capture(name, 15)); if (busy) sendKeys(name, ['Escape']); return { via: 'tmux', stoppedMain: busy, agentsBefore: 0, agentsAfter: 0 }; }
         stopHeld(sid);
         if (s?.engine === 'codex') { // no Ctrl+X Ctrl+K sweep in Codex: Esc (then one Ctrl+C) is the whole stop
-          const busy = /esc to interrupt/i.test(capture(name, 15));
+          const busy = /esc to (?:interrupt|cancel)/i.test(capture(name, 15));
           const stoppedMain = busy ? stopHard(name) : false;
           // commands left running in Codex's background terminals are its "background agents"
           if (/background terminals? running/i.test(capture(name, 15))) { setTimeout(() => { try { sendText(name, '/stop'); } catch {} }, busy ? 2200 : 0); }
@@ -543,8 +576,9 @@ export function adoptRunning() {
     if (!names.has(r.tmux)) { run(globalDb(), "UPDATE sessions SET status = 'ended', ended_at = COALESCE(ended_at, ?) WHERE sid = ?", nowIso(), r.sid); continue; }
     const base = `kc-${r.office}-${r.role}`;
     const slot = r.tmux.startsWith(base + '-') ? Math.max(0, Number(r.tmux.slice(base.length + 1)) - 1 || 0) : 0;
-    expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine === 'codex' ? r.model : null });
+    expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine !== 'claude' ? r.model : null });
     const s = live.get(r.sid); s.status = 'idle'; s.startedAt = r.started_at;
+    if (r.engine === 'antigravity') s.transcript = r.transcript || null;
     if (r.engine === 'codex') { s.transcript = r.transcript || null; const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
   }
 }

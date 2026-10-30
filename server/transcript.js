@@ -1,6 +1,7 @@
 // Read the tail of a Claude Code transcript as a simple, watchable conversation.
 import fs from 'node:fs';
 import { toolLabel } from './live.js';
+import { isAgyTranscript, readAgyTranscript } from './antigravity.js';
 import { isRollout, readRollout } from './codex.js';
 
 const TAIL = 1.5 * 1024 * 1024;
@@ -12,6 +13,7 @@ const textOf = c => typeof c === 'string' ? c : Array.isArray(c) ? c.filter(b =>
 
 export function readTranscript(file, n = 120) {
   if (!file || !fs.existsSync(file)) return { items: [], missing: true };
+  if (isAgyTranscript(file)) return readAgyTranscript(file, n);
   if (isRollout(file)) return readRollout(file, n, toolLabel); // OpenAI Codex rollout, same items
   const st = fs.statSync(file);
   const start = Math.max(0, st.size - TAIL);

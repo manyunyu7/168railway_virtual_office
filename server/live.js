@@ -47,7 +47,7 @@ export function serialize(s) {
     tunggu: s.tunggu || null, anggaran: s.anggaran || null,
     subs: [...s.subs.values()].map(x => ({ id: x.id, type: x.type, desc: x.desc, status: x.status, tool: x.tool, started: x.started, ended: x.ended || null, tokens: s.engine === 'codex' ? fileTokens(x.transcript || codexSubagentFile(x.id, x.started)) : subagentTokens(s.transcript, x.id) })),
     bgAgents: [...s.subs.values()].filter(x => x.status !== 'done').length,
-    ...(s.engine === 'codex' ? codexHealth(s.transcript) : sessionHealth(s.transcript, s.model)),
+    ...(s.engine === 'codex' ? codexHealth(s.transcript) : s.engine === 'antigravity' ? { ctx: null, health: null, errStreak: 0, compactions: 0 } : sessionHealth(s.transcript, s.model)),
   };
 }
 
@@ -116,7 +116,7 @@ function persist(s) {
       transcript=COALESCE(excluded.transcript, sessions.transcript), tmux=COALESCE(excluded.tmux, sessions.tmux), title=COALESCE(excluded.title, sessions.title),
       model=COALESCE(excluded.model, sessions.model), status=excluded.status, last_seen=excluded.last_seen, tty=COALESCE(excluded.tty, sessions.tty), engine=excluded.engine, effort=COALESCE(excluded.effort, sessions.effort),
       ended_at=CASE WHEN excluded.status = 'ended' THEN sessions.ended_at ELSE NULL END`,
-    s.sid, s.office, s.room, s.role, s.cwd, s.transcript || null, s.kind, s.tmux || null, s.title, s.model, s.status, s.startedAt, s.lastSeen, s.tty || null, s.engine === 'codex' ? 'codex' : null, s.effort || null);
+    s.sid, s.office, s.room, s.role, s.cwd, s.transcript || null, s.kind, s.tmux || null, s.title, s.model, s.status, s.startedAt, s.lastSeen, s.tty || null, engineOf(s.engine) === 'claude' ? null : s.engine, s.effort || null);
 }
 
 // /clear and /resume give the conversation a new session id inside the same tmux pane. The hook carries the id
@@ -145,7 +145,7 @@ function inheritShift(s, p) {
 function sessionFor(p) {
   let s = live.get(p.session_id) || restoreFromDb(p.session_id);
   if (!s) s = blank(p.session_id);
-  if (p.kantor_engine === 'codex') s.engine = 'codex'; // before inheritShift, which keeps it
+  if (p.kantor_engine) s.engine = engineOf(p.kantor_engine); // before inheritShift, which keeps it
   if (p.kantor_sid && p.kantor_sid !== s.sid && !s.tmux && p.hook_event_name !== 'SessionEnd') inheritShift(s, p);
   live.set(s.sid, s);
   if (p.cwd && (!s.cwd || !s.office)) {
