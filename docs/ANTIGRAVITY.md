@@ -35,3 +35,23 @@ Diuji pada macOS ARM64, Antigravity CLI 1.4.11, login Google AI Pro. Pembaruan i
 - Form editor di Chrome memuat pilihan Gemini 4 Argon dan Gemini 3.8 Flash dari akun yang login.
 
 Referensi resmi: [hooks](https://antigravity.google/docs/hooks), [settings](https://antigravity.google/docs/settings?tab=cli), [MCP](https://antigravity.google/docs/mcp), [headless](https://antigravity.google/docs/cli/headless), [kuota](https://antigravity.google/docs/plans).
+
+## Katalog form Ghina
+
+`GET /api/engines` (autentikasi Kantor yang sama) menyediakan `{version:1,
+defaultEngine,engines:[...]}`. Setiap mesin berisi `id`, `name`, `available`,
+`models`, `defaultModel`, `allowDefaultModel`, `supportsEffort`, `efforts`,
+`defaultEffort`, `defaultPermissionMode`, dan `permissionModes:[{id,name,warning?}]`.
+Model boleh menyertakan `efforts:[{effort,desc}]`. Ghina merender pilihan mesin,
+model, effort dan izin dari metadata tersebut; id mesin yang belum dikenalnya
+juga dipertahankan saat membaca/menyimpan role. Mesin belum tersedia tidak
+menjadi pilihan baru. Kegagalan katalog menampilkan tombol coba lagi, tanpa
+mengarang daftar mesin lokal.
+
+Ghina 1.9.6+40 memakai form katalog ini untuk editor role dan kedua jalur mulai
+shift. Katalog dimuat ulang saat form dibuka, koneksi/profil kantor berganti,
+atau pengguna mencoba lagi. Sesudah memasang versi ini satu kali, penambahan
+adapter yang didukung dan dideskripsikan server dapat muncul tanpa merilis
+Ghina lagi. Adapter eksekusi mesin tetap harus diimplementasikan di server;
+endpoint ini bukan eksekusi perintah arbitrer dari ponsel. Kontrol sesi aktif
+masih memakai kemampuan masing-masing adapter.

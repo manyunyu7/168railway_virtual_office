@@ -34,6 +34,7 @@ import { startNotify } from './notify.js';
 import * as att from './attachments.js';
 import { officeGit, gitDiff, gitCommit } from './gitinfo.js';
 import { openForSession, selectForSession, cancelForSession } from './modelpick.js';
+import { engineCatalog } from './engines.js';
 import { agyModels } from './antigravity.js';
 import { codexModels, codexBin, CODEX_MODES } from './codex.js';
 import { setCodexModel, setCodexMode } from './codexpick.js';
@@ -364,6 +365,7 @@ route('POST', '/api/sessions/:sid/model/open', (req, res, p) => openForSession(p
 route('POST', '/api/sessions/:sid/model/select', async (req, res, p) => selectForSession(p.sid, (await body(req)).index));
 route('POST', '/api/sessions/:sid/model/cancel', (req, res, p) => cancelForSession(p.sid));
 // OpenAI Codex as the second engine (docs/CODEX.md): what can be picked, and changing it mid-shift through Codex's own menus
+route('GET', '/api/engines', async () => engineCatalog());
 route('GET', '/api/antigravity/models', async () => agyModels());
 route('GET', '/api/codex/models', async () => ({ available: !!codexBin(), ...(await codexModels()), modes: CODEX_MODES }));
 route('POST', '/api/sessions/:sid/codex/settings', async (req, res, p) => {

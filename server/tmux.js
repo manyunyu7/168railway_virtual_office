@@ -229,7 +229,7 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
   fs.writeFileSync(mcpFile, JSON.stringify(mcpConfig(officeId, roleId, sid)), { mode: 0o600 });
   const args = [q(claude)];
   if (resumeSid) args.push('--resume', q(resumeSid)); else args.push('--session-id', q(sid));
-  args.push('--model', q(role.model || 'sonnet'), '--append-system-prompt-file', q(promptFile), '--mcp-config', q(mcpFile), '--name', q(`${role.name}${slot ? ' #' + (slot + 1) : ''} · ${m.name}`));
+  args.push('--model', q(model || (role.engine === 'claude' || !role.engine ? role.model : '') || 'sonnet'), '--append-system-prompt-file', q(promptFile), '--mcp-config', q(mcpFile), '--name', q(`${role.name}${slot ? ' #' + (slot + 1) : ''} · ${m.name}`));
   args.push(...permissionArgs(permissionMode));
   // kantor's own MCP tools never need a prompt; hooks only when not installed globally
   const settings = { permissions: { allow: ['mcp__kantor'] }, ...(globalHooksInstalled() ? {} : hookSettings()), ...statusLineSettings() };
