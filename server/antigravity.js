@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
+import { scanAppended } from './jsonl.js';
 import { config, ROOT_DIR } from './config.js';
 
 export const AGY_MODES = ['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'];
@@ -106,28 +107,33 @@ export function normalizeAgyHook(event, p) {
     kantor_engine: 'antigravity', kantor_sid: p.kantor_sid };
 }
 export const isAgyTranscript = file => /[/\\]antigravity(?:-cli|-ide)?[/\\]brain[/\\].+[/\\]transcript(?:_full)?\.jsonl$/.test(file || '');
+const transcriptCache = new Map();
 export function readAgyTranscript(file, n = 120) {
   if (!file || !fs.existsSync(file)) return { items: [], missing: true };
-  const stat = fs.statSync(file), start = Math.max(0, stat.size - 4 * 1024 * 1024), fd = fs.openSync(file, 'r');
-  const buf = Buffer.alloc(stat.size - start);
-  try { fs.readSync(fd, buf, 0, buf.length, start); } finally { fs.closeSync(fd); }
-  const lines = buf.toString('utf8').split('\n'); if (start) lines.shift();
+  const c = transcriptCache.get(file) || { ino: null, offset: 0, items: [] };
+  const stat = scanAppended(file, c, null, d => {
+    c.items.push(...agyTranscriptItems(d));
+    if (c.items.length > 2000) c.items = c.items.slice(-2000);
+  }, () => { c.items = []; }, true);
+  transcriptCache.set(file, c);
+  if (transcriptCache.size > 100) transcriptCache.delete(transcriptCache.keys().next().value);
+  return { items: c.items.slice(-n), size: stat.size };
+}
+
+function agyTranscriptItems(d) {
   const items = [];
-  for (const line of lines) {
-    let d; try { d = JSON.parse(line); } catch { continue; }
-    const at = d.created_at, content = typeof d.content === 'string' ? d.content : '';
-    if (d.type === 'USER_INPUT') {
-      const user = /<USER_REQUEST>\n?([\s\S]*?)\n?<\/USER_REQUEST>/.exec(content)?.[1] || content;
-      if (user.trim()) items.push({ k: 'user', s: user.slice(0, 8000), at });
-    } else if (['PLANNER_RESPONSE', 'MODEL_RESPONSE', 'AGENT_MESSAGE'].includes(d.type)) {
-      if (content.trim()) items.push({ k: 'text', s: content.slice(0, 16000), at });
-      for (const call of d.tool_calls || []) {
-        const tool = agyTool(call.name, call.args);
-        items.push({ k: 'tool', name: tool.name, s: `${tool.name} ${JSON.stringify(tool.input)}`.slice(0, 1000), at });
-      }
-    } else if (d.type === 'TOOL_CALL') {
-      items.push({ k: 'tool', name: d.tool_name || 'Tool', s: content.slice(0, 1000), at });
-    } else if (['TOOL_RESULT', 'GENERIC'].includes(d.type) && content.trim()) items.push({ k: 'result', s: content.slice(0, 500), err: d.status === 'ERROR', at });
-  }
-  return { items: items.slice(-n), size: stat.size };
+  const at = d.created_at, content = typeof d.content === 'string' ? d.content : '';
+  if (d.type === 'USER_INPUT') {
+    const user = /<USER_REQUEST>\n?([\s\S]*?)\n?<\/USER_REQUEST>/.exec(content)?.[1] || content;
+    if (user.trim()) items.push({ k: 'user', s: user.slice(0, 8000), at });
+  } else if (['PLANNER_RESPONSE', 'MODEL_RESPONSE', 'AGENT_MESSAGE'].includes(d.type)) {
+    if (content.trim()) items.push({ k: 'text', s: content.slice(0, 16000), at });
+    for (const call of d.tool_calls || []) {
+      const tool = agyTool(call.name, call.args);
+      items.push({ k: 'tool', name: tool.name, s: `${tool.name} ${JSON.stringify(tool.input)}`.slice(0, 1000), at });
+    }
+  } else if (d.type === 'TOOL_CALL') {
+    items.push({ k: 'tool', name: d.tool_name || 'Tool', s: content.slice(0, 1000), at });
+  } else if (['TOOL_RESULT', 'GENERIC'].includes(d.type) && content.trim()) items.push({ k: 'result', s: content.slice(0, 500), err: d.status === 'ERROR', at });
+  return items;
 }
