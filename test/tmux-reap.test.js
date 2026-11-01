@@ -14,6 +14,7 @@ after(() => fs.rmSync(home, { recursive: true, force: true }));
 function shift(sid, tmux, startedAt) {
   const s = expectSession({ sid, office: 'shop', role: 'engineer', room: 'web', cwd: home, tmux });
   s.startedAt = startedAt;
+  db.run(db.globalDb(), 'UPDATE sessions SET started_at = ?, last_seen = ? WHERE sid = ?', startedAt, startedAt, sid);
   db.run(db.officeDb('shop'),
     "INSERT INTO shifts (sid, role, started_at, cwd, tmux, status) VALUES (?, 'engineer', ?, ?, ?, 'aktif')",
     sid, startedAt, home, tmux);
@@ -45,4 +46,19 @@ test('daemon adoption closes the shift row when its tmux pane is gone', () => {
   assert.ok(session.ended_at);
   assert.equal(row.status, 'selesai');
   assert.equal(row.ended_at, session.ended_at);
+});
+
+test('daemon adoption keeps one real session per pane and closes an older placeholder', () => {
+  const pane = 'kc-shop-zora';
+  shift('pane-kc-shop-zora', pane, new Date(Date.now() - 3_600_000).toISOString());
+  shift('real-zora', pane, new Date().toISOString());
+  live.clear(); // daemon starts with no in-memory sessions
+
+  adoptRunning([pane]);
+
+  assert.equal(db.one(db.globalDb(), "SELECT status FROM sessions WHERE sid = 'real-zora'").status, 'idle');
+  assert.equal(db.one(db.globalDb(), "SELECT status FROM sessions WHERE sid = 'pane-kc-shop-zora'").status, 'ended');
+  assert.equal(db.one(db.officeDb('shop'), "SELECT status FROM shifts WHERE sid = 'real-zora'").status, 'aktif');
+  assert.equal(db.one(db.officeDb('shop'), "SELECT status FROM shifts WHERE sid = 'pane-kc-shop-zora'").status, 'selesai');
+  assert.equal([...live.values()].filter(s => s.tmux === pane && s.status !== 'ended').length, 1);
 });

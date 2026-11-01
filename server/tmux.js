@@ -571,17 +571,25 @@ export function reapGoneTmux(names = tmuxSessions()) {
 export function adoptRunning(sessionNames = tmuxSessions()) {
   const names = new Set(sessionNames.filter(n => n.startsWith('kc-')));
   const rows = all(globalDb(), "SELECT * FROM sessions WHERE tmux IS NOT NULL AND (ended_at IS NULL)");
+  // A pane can have an older placeholder or conversation id after /clear. Adopt only its newest real id.
+  rows.sort((a, b) => Number(a.sid.startsWith('pane-')) - Number(b.sid.startsWith('pane-'))
+    || Date.parse(b.last_seen || b.started_at) - Date.parse(a.last_seen || a.started_at)
+    || Date.parse(b.started_at) - Date.parse(a.started_at)
+    || a.sid.localeCompare(b.sid));
+  const adopted = new Set();
   for (const r of rows) {
-    if (!names.has(r.tmux)) {
+    if (!names.has(r.tmux) || adopted.has(r.tmux)) {
       const endedAt = nowIso();
       run(globalDb(), "UPDATE sessions SET status = 'ended', ended_at = COALESCE(ended_at, ?) WHERE sid = ?", endedAt, r.sid);
       if (r.office && r.role) try { run(officeDb(r.office), "UPDATE shifts SET ended_at = ?, status = 'selesai' WHERE sid = ?", endedAt, r.sid); } catch {}
       continue;
     }
+    adopted.add(r.tmux);
     const base = `kc-${r.office}-${r.role}`;
     const slot = r.tmux.startsWith(base + '-') ? Math.max(0, Number(r.tmux.slice(base.length + 1)) - 1 || 0) : 0;
     expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine !== 'claude' ? r.model : null });
     const s = live.get(r.sid); s.status = 'idle'; s.startedAt = r.started_at;
+    run(globalDb(), "UPDATE sessions SET status = 'idle' WHERE sid = ?", r.sid);
     if (r.engine === 'antigravity') s.transcript = r.transcript || null;
     if (r.engine === 'codex') { s.transcript = r.transcript || null; const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
   }
