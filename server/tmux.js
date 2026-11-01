@@ -552,14 +552,13 @@ function markEnded(sid) {
 }
 
 /** While running: end shift sessions whose tmux session is gone (killed outside the kantor), so they stop showing as idle. */
-export function reapGoneTmux() {
-  const names = tmuxSessions();
+export function reapGoneTmux(names = tmuxSessions()) {
   if (!names.length) return 0; // tmux unreadable: never end sessions on a failed listing
   const present = new Set(names);
   const fresh = Date.now() - 60e3;
   let n = 0;
   for (const s of [...live.values()]) {
-    if (!s.tmux || s.status === 'ended' || s.status === 'starting' || s.sid.startsWith('pane-')) continue;
+    if (!s.tmux || s.status === 'ended' || s.sid.startsWith('pane-')) continue;
     if (present.has(s.tmux) || Date.parse(s.startedAt) > fresh) continue;
     markEnded(s.sid);
     bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
@@ -569,11 +568,16 @@ export function reapGoneTmux() {
 }
 
 /** On daemon start: re-adopt kantor tmux sessions that are still running. */
-export function adoptRunning() {
-  const names = new Set(tmuxSessions().filter(n => n.startsWith('kc-')));
+export function adoptRunning(sessionNames = tmuxSessions()) {
+  const names = new Set(sessionNames.filter(n => n.startsWith('kc-')));
   const rows = all(globalDb(), "SELECT * FROM sessions WHERE tmux IS NOT NULL AND (ended_at IS NULL)");
   for (const r of rows) {
-    if (!names.has(r.tmux)) { run(globalDb(), "UPDATE sessions SET status = 'ended', ended_at = COALESCE(ended_at, ?) WHERE sid = ?", nowIso(), r.sid); continue; }
+    if (!names.has(r.tmux)) {
+      const endedAt = nowIso();
+      run(globalDb(), "UPDATE sessions SET status = 'ended', ended_at = COALESCE(ended_at, ?) WHERE sid = ?", endedAt, r.sid);
+      if (r.office && r.role) try { run(officeDb(r.office), "UPDATE shifts SET ended_at = ?, status = 'selesai' WHERE sid = ?", endedAt, r.sid); } catch {}
+      continue;
+    }
     const base = `kc-${r.office}-${r.role}`;
     const slot = r.tmux.startsWith(base + '-') ? Math.max(0, Number(r.tmux.slice(base.length + 1)) - 1 || 0) : 0;
     expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine !== 'claude' ? r.model : null });
