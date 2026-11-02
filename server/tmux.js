@@ -38,6 +38,15 @@ export function tmux(args, opts = {}) {
 export function tmuxSessions() {
   try { return tmux(['list-sessions', '-F', '#{session_name}']).split('\n').filter(Boolean); } catch { return []; }
 }
+// Recovery must distinguish an empty tmux server from a failed listing: only the former means every pane is gone.
+function tmuxSessionsForRecovery() {
+  try { return tmux(['list-sessions', '-F', '#{session_name}']).split('\n').filter(Boolean); }
+  catch (e) {
+    const reason = String(e.stderr || '');
+    if (e.status === 1 && /no server running|no sessions|error connecting to .*\(No such file or directory\)/i.test(reason)) return [];
+    return null;
+  }
+}
 export const hasTmux = name => tmuxSessions().includes(name);
 const q = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
@@ -552,8 +561,8 @@ function markEnded(sid) {
 }
 
 /** While running: end shift sessions whose tmux session is gone (killed outside the kantor), so they stop showing as idle. */
-export function reapGoneTmux(names = tmuxSessions()) {
-  if (!names.length) return 0; // tmux unreadable: never end sessions on a failed listing
+export function reapGoneTmux(names = tmuxSessionsForRecovery()) {
+  if (names === null) return 0; // tmux unreadable: never end sessions on a failed listing
   const present = new Set(names);
   const fresh = Date.now() - 60e3;
   let n = 0;
@@ -568,7 +577,8 @@ export function reapGoneTmux(names = tmuxSessions()) {
 }
 
 /** On daemon start: re-adopt kantor tmux sessions that are still running. */
-export function adoptRunning(sessionNames = tmuxSessions()) {
+export function adoptRunning(sessionNames = tmuxSessionsForRecovery()) {
+  if (sessionNames === null) return;
   const names = new Set(sessionNames.filter(n => n.startsWith('kc-')));
   const rows = all(globalDb(), "SELECT * FROM sessions WHERE tmux IS NOT NULL AND (ended_at IS NULL)");
   // A pane can have an older placeholder or conversation id after /clear. Adopt only its newest real id.

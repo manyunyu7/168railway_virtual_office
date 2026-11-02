@@ -36,6 +36,19 @@ test('reaper closes a dead starting shift after startup grace period', () => {
   assert.equal(live.get('alive-start').status, 'starting');
 });
 
+test('an empty tmux list ends stale shifts, while a read failure preserves them', () => {
+  live.clear();
+  shift('empty-missing', 'kc-shop-last', new Date(Date.now() - 120_000).toISOString());
+  assert.equal(reapGoneTmux(null), 0);
+  assert.equal(live.get('empty-missing').status, 'starting');
+  assert.equal(reapGoneTmux([]), 1);
+  assert.equal(live.get('empty-missing').status, 'ended');
+
+  shift('unreadable-keep', 'kc-shop-unreadable', new Date().toISOString());
+  adoptRunning(null);
+  assert.equal(db.one(db.globalDb(), "SELECT status FROM sessions WHERE sid = 'unreadable-keep'").status, 'starting');
+});
+
 test('daemon adoption closes the shift row when its tmux pane is gone', () => {
   shift('orphan-start', 'kc-shop-orphan', new Date(Date.now() - 120_000).toISOString());
   adoptRunning(['kc-shop-new', 'kc-shop-alive']);
