@@ -265,6 +265,7 @@ export async function handleHook(p) {
     case 'SessionEnd':
       s.status = 'ended'; s.tool = null; s.endedAt = nowIso();
       if (s.waiting) clearWaiting(s, 'expired');
+      expireInbox(s.sid); // juga pertanyaan lama yang s.waiting-nya sudah hilang (server restart, ditimpa izin berikutnya)
       run(globalDb(), 'UPDATE sessions SET ended_at = ? WHERE sid = ?', s.endedAt, s.sid);
       // /clear (and /resume) end this id but the shift goes on under the next one
       if (p.reason !== 'clear' && p.reason !== 'resume') {
@@ -445,7 +446,32 @@ export function inboxView(row, who) {
   return { id: row.id, office: row.office, sid: row.sid, role: row.role, who: who || null, tool: row.tool, summary: row.tool === 'AskUserQuestion' && row.input ? row.input : row.summary, created_at: row.created_at, status: row.status, held: held.has(row.id) };
 }
 
+/** Tutup kartu izin/pertanyaan yang masih open milik sesi ini (sesi berakhir). Yang masih ditahan hook dilepas dulu. */
+function expireInbox(sid, status = 'expired') {
+  for (const r of all(globalDb(), "SELECT id FROM inbox WHERE sid = ? AND status = 'open'", sid)) {
+    const fn = held.get(r.id);
+    if (fn) fn(null);
+    const u = run(globalDb(), "UPDATE inbox SET status = ?, decided_at = ? WHERE id = ? AND status = 'open'", status, nowIso(), r.id);
+    if (u.changes) bus.emit('msg', { t: 'inbox-update', id: r.id, status });
+  }
+}
+
+/** Kartu yatim: masih open, tidak ditahan hook (tak bisa dijawab dari kantor), dan sesinya tidak hidup lagi
+ *  (berakhir, mati tanpa SessionEnd, atau server restart). Dulu kartu seperti ini nyangkut di "Menunggu kamu" selamanya. */
+export function sweepInbox() {
+  let n = 0;
+  for (const r of all(globalDb(), "SELECT id, sid FROM inbox WHERE status = 'open'")) {
+    if (held.has(r.id)) continue;
+    const s = live.get(r.sid);
+    if (s && s.status !== 'ended') continue;
+    const u = run(globalDb(), "UPDATE inbox SET status = 'expired', decided_at = ? WHERE id = ? AND status = 'open'", nowIso(), r.id);
+    if (u.changes) { n++; bus.emit('msg', { t: 'inbox-update', id: r.id, status: 'expired' }); }
+  }
+  return n;
+}
+
 export function openInbox() {
+  sweepInbox();
   return all(globalDb(), "SELECT * FROM inbox WHERE status = 'open' ORDER BY created_at DESC").map(r => {
     const s = live.get(r.sid);
     return inboxView(r, s ? whoOf(s) : null);
@@ -458,6 +484,7 @@ export function liveFor(office) {
 
 /** Drop sessions we have not heard from in a long time (crashed terminals). */
 setInterval(() => {
+  try { sweepInbox(); } catch {}
   const cutoff = Date.now() - 6 * 3600e3;
   for (const s of live.values()) {
     if (s.kind === 'manual' && Date.parse(s.lastSeen) < cutoff) { live.delete(s.sid); bus.emit('msg', { t: 'session-gone', office: s.office, sid: s.sid }); }
