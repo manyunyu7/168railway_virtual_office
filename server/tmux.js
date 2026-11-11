@@ -13,6 +13,7 @@ import { recordOutgoing } from './outbox.js';
 import { rulesBlock } from './aturan.js';
 import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, readCodexSettings } from './codex.js';
 import { agyBin, agyMode, agyArgs, agySettings, installAgyIntegration } from './antigravity.js';
+import { draftOnScreen } from './draft-prompt.js';
 import { who as actorName } from './actor.js';
 
 const which = bin => {
@@ -100,8 +101,10 @@ export function rolePrompt(officeId, role, extra = '', engine = 'claude') {
     '- Kalau pemilik minta screenshot atau sebuah file, pakai `tangkap_layar` (layar Mac atau halaman lokal) atau `kirim_ke_pemilik` (berkas); keduanya sampai ke chat dan HP-nya. File kiriman pemilik ada di `.kantor/inbox/` (video: frame per detik di folder `-frames/` di sampingnya).',
     '- Sumber daya bersama (suite e2e, migrasi DB, dev server, commit di pohon yang sama) dipinjam lewat kunci harness: `kunci_ambil` sebelum dipakai, `kunci_lepas` begitu selesai (`kunci_list` untuk melihat siapa memegang apa). Jangan membuat kunci sendiri dengan mkdir/file. Aturan resmi kantor ada di `aturan_list`; hanya manager yang mengubahnya (`aturan_set`).',
     '- Wiki bukan papan obrolan: jangan menulis diskusi, tanya-jawab, atau laporan bolak-balik di wiki. Hasil akhir masuk wiki atau `pratinjau_kirim` (hasil visual yang perlu diputuskan pemilik: gambar, PDF, HTML, situs build); diskusi lewat pesan langsung (pesan_ke, balas) atau komentar kartu.',
+    '- Konten sosial media (post Instagram, Threads, TikTok, YouTube) dicatat lewat tool `konten_*`, bukan `card_create`. Kirim ke pemilik dengan `konten_kirim`; keputusan setuju, jadwal, dan tayang milik pemilik (kamu hanya mengusulkan jadwal dengan `konten_jadwal_usul`, dan memanggil `konten_tayang` hanya setelah pemilik bilang sudah tayang).',
     '- Saat mengerjakan kartu: pindahkan ke Dikerjakan, centang checklist yang selesai, tulis komentar singkat untuk temuan penting, lalu pindahkan ke Review saat siap dicek.',
     '- Menunggu kerja (kartu baru, pesan, commit, review): panggil `tunggu_kerja` lalu akhiri gilirannya; harness membangunkanmu dengan satu prompt tanpa biaya selama menunggu. Pakai `tunggu_kerja`, jangan sleep, polling, Monitor, atau ScheduleWakeup.',
+    '- Laporkan pekerjaanmu dengan `kerjaan_set` (judul singkat, langkah sekarang) saat mulai pekerjaan baru atau pindah tahap besar, supaya pemilik tahu kamu lagi apa tanpa membaca chat.',
     '- Sebelum berhenti, atau saat ada keputusan penting, perbarui buku catatanmu dengan role_notes_write supaya shift berikutnya tahu posisi terakhir.',
     engine === 'antigravity' ? '- Ikuti AGENTS.md, GEMINI.md, dan CLAUDE.md bila ada, serta wiki Aturan Kantor. Jawab dan tulis dalam Bahasa Indonesia. Gunakan tool pada server MCP kantor (misalnya sessions_list, board_list).'
       : engine !== 'claude' ? '- Ikuti AGENTS.md (dan CLAUDE.md bila ada) di repo dan halaman wiki "Aturan Kantor". Jawab dan tulis dalam Bahasa Indonesia. Tool MCP kantor muncul dengan awalan `mcp__kantor__`.'
@@ -353,8 +356,12 @@ export function pendingInput(screen, text) {
   return !!want && squash(got).includes(want.slice(0, Math.min(want.length, squash(got).length, 24)));
 }
 
+/** Isi layar pane saat ini, untuk modul lain yang perlu membacanya. */
+export const paneScreen = name => capture(name, 40).trimEnd().split('\n').slice(-22).join('\n'); // hanya dasar layar: teks yang sekadar menyebut prompt ini di percakapan tidak ikut terbaca
+export const pressKey = (name, key) => tmux(['send-keys', '-t', name, key]);
 export function sendText(name, text) {
-  if (usePaste(text)) {
+  // saat draf laporan tampil, tombol 0/1/2 berarti pilihan: tempel supaya pesan yang diawali angka tidak ikut menekannya
+  if (usePaste(text) || draftOnScreen(paneScreen(name))) {
     const buf = `kc-${process.pid}-${Date.now()}`;
     tmux(['set-buffer', '-b', buf, '--', text]);
     tmux(['paste-buffer', '-p', '-d', '-b', buf, '-t', name]);
@@ -600,8 +607,8 @@ export function adoptRunning(sessionNames = tmuxSessionsForRecovery()) {
     expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine !== 'claude' ? r.model : null });
     const s = live.get(r.sid); s.status = 'idle'; s.startedAt = r.started_at;
     run(globalDb(), "UPDATE sessions SET status = 'idle' WHERE sid = ?", r.sid);
-    if (r.engine === 'antigravity') s.transcript = r.transcript || null;
-    if (r.engine === 'codex') { s.transcript = r.transcript || null; const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
+    s.transcript = r.transcript || null; // tanpa ini kesehatan dan konteks sesi Claude kosong sampai hook berikutnya
+    if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
   }
 }
 

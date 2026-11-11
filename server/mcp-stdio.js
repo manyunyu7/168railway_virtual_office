@@ -13,6 +13,12 @@ function server() {
 }
 const ident = { office: process.env.KANTOR_OFFICE || null, role: process.env.KANTOR_ROLE || null, sid: process.env.KANTOR_SID || null, cwd: process.cwd() };
 
+// Sesi manual tidak punya KANTOR_SID; Claude Code mencatat id percakapannya per proses (berubah setelah /clear, jadi dibaca tiap panggilan).
+function callerSid() {
+  if (ident.sid) return null;
+  try { return JSON.parse(fs.readFileSync(path.join(process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), '.claude'), 'sessions', `${process.ppid}.json`), 'utf8')).sessionId || null; } catch { return null; }
+}
+
 // node:http instead of fetch: `tanya` can wait up to 15 minutes, longer than fetch's default response-header timeout
 function api(p, body) {
   const s = server();
@@ -47,7 +53,7 @@ rl.on('line', async line => {
     if (method === 'tools/list') { const r = await api('/api/agent/tools'); return send({ jsonrpc: '2.0', id, result: { tools: r.tools } }); }
     if (method === 'tools/call') {
       try {
-        const r = await api('/api/agent/call', { ...ident, tool: params.name, args: params.arguments || {} });
+        const r = await api('/api/agent/call', { ...ident, callerSid: callerSid(), tool: params.name, args: params.arguments || {} });
         return send({ jsonrpc: '2.0', id, result: r });
       } catch (e) {
         return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: e.message }], isError: true } });

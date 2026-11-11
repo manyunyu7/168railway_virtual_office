@@ -3,6 +3,8 @@ import { $, esc, short, hhmm, api, post, toast, md, onLive } from './util.js';
 import { uploadFile, fmtSize } from './upload.js';
 import { subRows, fmtTokens, fmtElapsed } from './subagents.js';
 import { chatBubble, chatClick } from './pratinjau.js';
+import { chatTimeline } from './chat-timeline.js';
+import { mountPanel } from './konteks.js';
 
 // CSS tab ini dimuat dari sini supaya index.html tidak perlu diubah
 if (!document.getElementById('chatCss')) {
@@ -156,11 +158,12 @@ const QUICK = [['lanjut', 'say', 'lanjut'], ['ya', 'say', 'ya'], ['Hentikan', 'd
  * Mengembalikan { update(), live(msg), refresh(), destroy() }.
  */
 export function mountChat(host, o) {
-  let size = null, timer = 0, bump = 0, dead = false, loading = false, sticky = true, gs = [], atts = [], outbox = [], unsub = null, pvs = [];
+  let size = null, timer = 0, bump = 0, dead = false, loading = false, sticky = true, items = [], gs = [], atts = [], outbox = [], unsub = null, pvs = [];
   const pend = document.createElement('div'); pend.className = 'ch-pend';
   const typ = document.createElement('div'); typ.className = 'ch-typing-wrap';
   mounted.set(o.sid, (mounted.get(o.sid) || 0) + 1);
   host.innerHTML = `<div class="ch">
+    <div data-slot="kx"></div>
     <div class="ch-list" data-slot="list"><p class="ch-empty">Memuat percakapan…</p></div>
     <div class="ch-drop" hidden>Lepas file untuk melampirkan</div>
     <div class="ch-foot">
@@ -173,6 +176,8 @@ export function mountChat(host, o) {
       <form class="msgbox ch-form" id="drQuick"><button type="button" class="ch-attach" data-act="ch-attach" title="Lampirkan file" aria-label="Lampirkan file">📎</button><input type="file" multiple hidden data-slot="file"><textarea id="drQuickIn" rows="1" aria-label="Pesan untuk ${esc(o.name())}" placeholder="Pesan untuk ${esc(o.name())}…"></textarea><button class="btn primary sm" type="submit">Kirim</button></form>
     </div></div>`;
   const list = $('[data-slot="list"]', host);
+  const paintKx = mountPanel($('[data-slot="kx"]', host), () => o.sess());
+  paintKx();
   list.addEventListener('scroll', () => { sticky = list.scrollHeight - list.scrollTop - list.clientHeight < 60; }, { passive: true });
 
   const running = () => { const s = o.sess(); return !!s && (s.status === 'working' || s.status === 'waiting'); };
@@ -261,24 +266,19 @@ export function mountChat(host, o) {
     if (dead || !list.isConnected) return;
     if (String(data.size) === size && data.size != null) return;
     size = String(data.size);
-    gs = buildChat((data.items || []).map(i => i.k === 'image' ? { ...i, sid: o.sid } : i));
+    items = (data.items || []).map(i => i.k === 'image' ? { ...i, sid: o.sid } : i);
     paint();
   }
-  /** Gabungkan percakapan dan lampiran menurut waktu; unggahan yang sedang jalan selalu di ujung bawah. */
+  /** Gabungkan seluruh percakapan menurut waktu; unggahan yang sedang jalan selalu di ujung bawah. */
   function paint() {
     const open = new Set([...list.querySelectorAll('details[open]')].map(d => d.dataset.k));
-    const ts = x => Date.parse(x) || 0, rows = [];
-    // lampiran dan pratinjau yang dikirim sesi ini, disisipkan menurut waktu
-    const sorted = [...atts.map(a => ({ at: attAt(a), html: () => attHTML(a, o.name()) })), ...pvs.map(p => ({ at: p.createdAt, html: () => pvRow(p) }))].sort((a, b) => ts(a.at) - ts(b.at));
-    let ai = 0;
-    gs.forEach((g, i) => {
-      while (ai < sorted.length && ts(sorted[ai].at) <= ts(g.at)) rows.push(sorted[ai++].html());
-      rows.push(itemHTML(g, i === gs.length - 1, running()));
-    });
-    while (ai < sorted.length) rows.push(sorted[ai++].html());
-    const ob = outboxHTML();
+    gs = buildChat(chatTimeline(items, outbox, atts, pvs));
+    const rows = gs.map((g, i) => g.k === 'outbox' ? outboxRow(g.item)
+      : g.k === 'attachment' ? attHTML(g.item, o.name())
+      : g.k === 'preview' ? pvRow(g.item)
+      : itemHTML(g, i === gs.length - 1, running()));
     pend.remove();
-    list.innerHTML = rows.length || ob || pend.childElementCount ? rows.join('') + ob : '<p class="ch-empty">Belum ada percakapan di transcript.</p>';
+    list.innerHTML = rows.length || pend.childElementCount ? rows.join('') : '<p class="ch-empty">Belum ada percakapan di transcript.</p>';
     list.appendChild(pend);
     for (const d of list.querySelectorAll('details[data-k]')) if (open.has(d.dataset.k)) d.open = true;
     paintTyping();
@@ -286,7 +286,7 @@ export function mountChat(host, o) {
   }
   /** "Sedang mengetik…" di ujung bawah selama sesi bekerja dan jawaban terbarunya belum muncul. */
   function paintTyping() {
-    const html = typingHTML(o.sess(), gs);
+    const html = typingHTML(o.sess(), buildChat(items));
     if (typ.dataset.h === html) { if (html && typ.parentNode !== list) list.appendChild(typ); return; }
     typ.dataset.h = html; typ.innerHTML = html;
     if (html) { list.appendChild(typ); if (sticky) list.scrollTop = list.scrollHeight; } else typ.remove();
@@ -312,26 +312,15 @@ export function mountChat(host, o) {
 
   /* ---- antrean pesan: terkirim ke daemon tapi belum dibaca agen ---- */
   const norm = t => String(t || '').replace(/\s+/g, ' ').trim();
-  // same rule as server/outbox.js: unwrap a bracketed paste, either side may be clipped with "…"
-  const unclip = t => norm(String(t || '').replace(/<pasted_content\b[^>]*>\n?([\s\S]*?)\n?<\/pasted_content\b[^>]*>/g, '$1')).replace(/…$/, '').trim();
-  const sameText = (a, b) => { a = unclip(a); b = unclip(b); return a === b || (a.length > 20 && b.length > 20 && (a.startsWith(b) || b.startsWith(a))); };
-  function outboxHTML() {
-    const ts = x => Date.parse(x) || 0, used = new Set();
-    const shown = outbox.filter(it => {
-      if (it.status === 'read') { // sudah masuk transcript sebagai pesan biasa? jangan dobel
-        const i = gs.findIndex((g, j) => g.k === 'user' && !used.has(j) && sameText(g.s, it.text) && ts(g.at) >= ts(it.at) - 5000);
-        if (i >= 0) { used.add(i); return false; }
-      }
-      return true;
-    }).sort((a, b) => ts(a.at) - ts(b.at));
-    return shown.map(it => it.status === 'read'
+  function outboxRow(it) {
+    return it.status === 'read'
       ? `<div class="ch-row me"><div class="ch-b me">${esc(it.text)}</div><time>${esc(hhmm(it.at))}</time></div>`
-      : `<div class="ch-row me ch-q-row"><div class="ch-b me pending">${esc(it.text)}</div><div class="ch-pending"><span aria-hidden="true">🕒</span> Terkirim · menunggu dibaca${it.local ? '' : `<button type="button" class="ch-x" data-act="ob-cancel" data-id="${esc(it.id)}">Batalkan</button>`}</div></div>`).join('');
+      : `<div class="ch-row me ch-q-row"><div class="ch-b me pending">${esc(it.text)}</div><div class="ch-pending"><span aria-hidden="true">🕒</span> Terkirim · menunggu dibaca${it.local ? '' : `<button type="button" class="ch-x" data-act="ob-cancel" data-id="${esc(it.id)}">Batalkan</button>`}</div></div>`;
   }
   const obKey = it => norm(it.text);
   function setOutbox(arr) {
     // pesan optimistis dilepas begitu server mengakuinya (teks sama) atau setelah 10 detik
-    const local = outbox.filter(x => x.local && Date.now() - x.t < 10000 && !arr.some(y => obKey(y) === obKey(x) && y.status === 'pending'));
+    const local = outbox.filter(x => x.local && Date.now() - x.t < 10000 && !arr.some(y => obKey(y) === obKey(x)));
     const seen = new Set(), keep = arr.filter(x => (x.status === 'pending' || x.status === 'read') && !seen.has(x.id) && seen.add(x.id));
     outbox = [...keep, ...local]; paint();
   }
@@ -457,7 +446,7 @@ export function mountChat(host, o) {
   paintPerm(); paintStatus(); paintSubs(); load(); loadAtts(); loadOutbox(); loadPv();
   timer = setInterval(() => { if (!document.hidden) load(); }, POLL_MS);
   return {
-    update() { paintStatus(); paintSubs(); paintPerm(); paintTyping(); bumpLoad(700); },
+    update() { paintKx(); paintStatus(); paintSubs(); paintPerm(); paintTyping(); bumpLoad(700); },
     live(msg) { if (msg.t?.startsWith('inbox')) paintPerm(); },
     refresh() { bumpLoad(1200); },
     destroy() { dead = true; unsub?.(); for (const j of queue) j.ctl.abort(); const c = (mounted.get(o.sid) || 1) - 1; c ? mounted.set(o.sid, c) : mounted.delete(o.sid); clearInterval(timer); clearInterval(subTick); clearTimeout(bump); },

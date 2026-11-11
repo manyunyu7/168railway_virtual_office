@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { CLAUDE_DIR } from './config.js';
 import { globalDb, run } from './db.js';
-import { live, bus, serialize } from './live.js';
+import { live, bus, serialize, emitIfKonteksChanged } from './live.js';
 import { isRollout } from './codex.js';
 import { claudePid } from './termapp.js';
 
@@ -83,7 +83,7 @@ const watchers = new Map(); // file -> { w, poll, size, mtimeMs, changedAt, fire
 function statOf(file) { try { const st = fs.statSync(file); return { size: st.size, mtimeMs: st.mtimeMs }; } catch { return null; } }
 
 function emitFor(file, size) {
-  for (const s of live.values()) if (s.transcript === file) bus.emit('msg', { t: 'transcript', office: s.office, sid: s.sid, size });
+  for (const s of live.values()) if (s.transcript === file) { bus.emit('msg', { t: 'transcript', office: s.office, sid: s.sid, size }); emitIfKonteksChanged(s); }
 }
 
 function check(file) {

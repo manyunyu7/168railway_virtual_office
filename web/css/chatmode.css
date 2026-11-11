@@ -40,8 +40,8 @@ body.chat-full main{padding:0;overflow:hidden}
 .cm-back{display:none}
 .cm-body{flex:1 1 0;min-height:0;display:flex;flex-direction:column;background:var(--bg)}
 .cm-body>.ch{flex:1 1 0;min-height:0;position:relative}
-.cm-body .ch-list{padding:16px max(14px,calc((100% - 820px)/2)) 10px}
-.cm-body .ch-foot{padding-left:max(12px,calc((100% - 820px)/2 + 2px));padding-right:max(12px,calc((100% - 820px)/2 + 2px))}
+.cm-body .ch-list{padding:16px max(14px,calc((100% - var(--ch-col,820px))/2)) 10px}
+.cm-body .ch-foot{padding-left:max(12px,calc((100% - var(--ch-col,820px))/2 + 2px));padding-right:max(12px,calc((100% - var(--ch-col,820px))/2 + 2px))}
 .cm-empty{margin:auto;max-width:360px;text-align:center;display:grid;gap:6px;justify-items:center;padding:24px;color:var(--muted)}
 .cm-empty b{color:var(--ink);font-size:16px}
 .cm-empty p{margin:0;font-size:13.5px}
@@ -61,3 +61,11 @@ body.chat-full main{padding:0;overflow:hidden}
   .cm-ag{padding:10px 8px}
   .cm-search input{font-size:16px}
 }
+/* Tab Terminal: daftar agen sama seperti Chat, kanan terminal sesi */
+.cm-term{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:6px;padding:8px 12px 10px}
+.cm-term .termbox{flex:1 1 0;min-height:160px;display:flex;overflow:hidden;background:#0E1218;border-radius:10px;padding:6px}
+.cm-term .xt{flex:1 1 0;min-width:0;min-height:0;position:relative;overflow:hidden}
+.cm-term .xt-in{position:absolute;inset:0}
+.cm-term .xt-in .xterm{height:100%}
+@media (max-width:900px){.cm-term{padding:4px 6px 6px;gap:4px}.cm-term .termbox{padding:3px;border-radius:8px}}
+.cm-aa,.dr-btns [data-act="dr-view"]{text-transform:none;font-weight:800}

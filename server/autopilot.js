@@ -59,7 +59,7 @@ const perRole = new Map(); // office:role -> [ms of offers in the last hour]
 /** Cards that could go to this role: its own Backlog/Siap cards first, then unowned ones that match its room or a label with its name. */
 export function candidates(office, role, conf = getConf(office), now = Date.now()) {
   const db = officeDb(office);
-  const rows = all(db, "SELECT * FROM cards WHERE archived = 0 AND epic = 0 AND kind IN ('antre', 'siap') AND (blocked IS NULL OR blocked = '') AND (who = ? OR who IS NULL OR who = '')", role.id);
+  const rows = all(db, "SELECT * FROM cards WHERE archived = 0 AND epic = 0 AND COALESCE(board, 'utama') <> 'konten' AND kind IN ('antre', 'siap') AND (blocked IS NULL OR blocked = '') AND (who = ? OR who IS NULL OR who = '')", role.id);
   const open = new Set(all(db, "SELECT id FROM cards WHERE kind <> 'selesai' AND archived = 0").map(r => r.id));
   const labelNames = new Map(st.listLabels(office).map(l => [l.id, String(l.name).toLowerCase()]));
   const mine = [role.id, role.name, role.room].filter(Boolean).map(x => String(x).toLowerCase());
@@ -120,7 +120,7 @@ const lastRound = new Map(); // office -> ms
 /** Siap/Review cards with nobody moving them for staleMinutes. */
 export function staleCards(office, minutes, now = Date.now()) {
   const cut = new Date(now - minutes * 60e3).toISOString();
-  return all(officeDb(office), "SELECT id, title, col, board, kind, who, updated_at FROM cards WHERE archived = 0 AND epic = 0 AND kind IN ('siap', 'review') AND (blocked IS NULL OR blocked = '') AND updated_at < ? ORDER BY updated_at", cut);
+  return all(officeDb(office), "SELECT id, title, col, board, kind, who, updated_at FROM cards WHERE archived = 0 AND epic = 0 AND COALESCE(board, 'utama') <> 'konten' AND kind IN ('siap', 'review') AND (blocked IS NULL OR blocked = '') AND updated_at < ? ORDER BY updated_at", cut);
 }
 
 export async function managerRoundTick(office, now = Date.now()) {

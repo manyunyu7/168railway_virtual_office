@@ -17,6 +17,11 @@ export const TEMPLATES = {
   dev: { id: 'dev', name: 'Dev', icon: '▦', color: '#2F5D9E', columns: [col('Backlog', 'antre'), col('Siap', 'siap'), col('Dikerjakan', 'dikerjakan'), col('Review', 'review'), col('Selesai', 'selesai')] },
   kreatif: { id: 'kreatif', name: 'Kreatif', icon: '✦', color: '#C2417A', columns: [col('Brief', 'antre'), col('Konsep', 'dikerjakan'), col('Produksi', 'dikerjakan'), col('Review', 'review'),
     col('Revisi', 'dikerjakan'), col('Final', 'selesai'), col('Tayang', 'selesai'), col('Arsip', 'selesai')] },
+  // tab Konten (docs/KONTEN.md): id kolom tetap, dipakai server/konten.js
+  konten: { id: 'konten', name: 'Konten', icon: '✎', color: '#C2417A', columns: [
+    { id: 'ide', name: 'Ide', kind: 'antre' }, { id: 'riset', name: 'Riset', kind: 'antre' }, { id: 'produksi', name: 'Produksi', kind: 'dikerjakan' },
+    { id: 'review', name: 'Review kamu', kind: 'review' }, { id: 'revisi', name: 'Revisi', kind: 'dikerjakan' }, { id: 'siap', name: 'Siap tayang', kind: 'selesai' },
+    { id: 'terjadwal', name: 'Terjadwal', kind: 'selesai' }, { id: 'tayang', name: 'Tayang', kind: 'selesai' }, { id: 'arsip', name: 'Arsip', kind: 'selesai' }] },
 };
 export const BOARD_COLORS = ['#2F5D9E', '#C2417A', '#3E9A5B', '#D98A1E', '#7A3E9D', '#2F7F86', '#D2553F', '#8B818B'];
 

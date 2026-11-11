@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { globalDb, officeDb, one, run, all, nowIso, newId } from './db.js';
 import { officeForCwd, officeModel, roomForCwd } from './offices.js';
 import { sessionHealth } from './health.js';
+import { sessionKonteks } from './konteks.js';
 import { subagentTokens, fileTokens, codexSubagentFile } from './subtokens.js';
 import * as gitinfo from './gitinfo.js';
 import { codexHealth, normalizeHook, engineOf, readCodexSettings } from './codex.js';
@@ -44,14 +45,22 @@ export function serialize(s) {
     sid: s.sid, office: s.office, room: s.room, role: s.role, kind: s.kind, worktree: s.worktree || null, cwd: s.cwd,
     status: s.status, tool: s.tool, title: s.title, model: s.model, startedAt: s.startedAt, lastSeen: s.lastSeen, tmux: s.tmux || null,
     waiting: s.waiting || null, slot: s.slot || 0, compacting: !!s.compacting, tty: s.tty || null, host: s.host || null, permMode: s.permMode || null, boss: s.boss || null, engine: s.engine || 'claude', effort: s.effort || null,
-    tunggu: s.tunggu || null, anggaran: s.anggaran || null,
+    tunggu: s.tunggu || null, anggaran: s.anggaran || null, konteks: sessionKonteks(s),
     subs: [...s.subs.values()].map(x => ({ id: x.id, type: x.type, desc: x.desc, status: x.status, tool: x.tool, started: x.started, ended: x.ended || null, tokens: s.engine === 'codex' ? fileTokens(x.transcript || codexSubagentFile(x.id, x.started)) : subagentTokens(s.transcript, x.id) })),
     bgAgents: [...s.subs.values()].filter(x => x.status !== 'done').length,
     ...(s.engine === 'codex' ? codexHealth(s.transcript) : s.engine === 'antigravity' ? { ctx: null, health: null, errStreak: 0, compactions: 0 } : sessionHealth(s.transcript, s.model)),
   };
 }
 
+export function emitSessionNow(s) { emitSession(s); }
 function emitSession(s) { bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) }); }
+/** Transcript bertambah: kabarkan sesi hanya kalau ringkasannya berubah, supaya klien tidak dibanjiri event. */
+export function emitIfKonteksChanged(s) {
+  const now = JSON.stringify(sessionKonteks(s));
+  if (now === s.konteksSent) return;
+  s.konteksSent = now;
+  emitSession(s);
+}
 
 gitinfo.setSink({ emit: m => bus.emit('msg', m), log: (office, who, text, kind) => logOffice(office, who, text, kind) });
 
@@ -200,7 +209,7 @@ export async function handleHook(p) {
       s.status = s.status === 'starting' ? 'idle' : (s.status === 'ended' ? 'idle' : s.status || 'idle');
       if (p.session_title) s.title = p.session_title;
       if (p.source === 'clear') { s.subs.clear(); logOffice(s.office, who, 'mereset percakapan (/clear)', 'session'); }
-      else if (p.source === 'compact') { s.compacting = false; }
+      else if (p.source === 'compact') { s.compacting = false; if (s.tool?.name === 'Compact') s.tool = null; }
       else logOffice(s.office, who, p.source === 'resume' ? 'melanjutkan sesi lama' : `mulai sesi di ${s.room || 'kantor'}`, 'session');
       if (p.source === 'resume') run(globalDb(), 'UPDATE sessions SET ended_at = NULL WHERE sid = ?', s.sid);
       break;

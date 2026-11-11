@@ -3,6 +3,8 @@ import { $, esc, short, sprite, guestLook, modelName, api, post, patch, toast, m
 import { showDrawer, drawerState, drawerEl } from './panel.js';
 import { loadPlaybooks, playbookListHTML, newPlaybookFor } from './playbooks.js';
 import { mountChat } from './chat.js';
+import { onTermPrefs, termPrefs, setTermPref, openViewPrefs } from './view-prefs.js';
+import { topicHTML, subHTML, topicOf } from './konteks.js';
 import { mountDm } from './dm.js';
 import { isAntigravity } from './antigravity.js';
 import { isCodex, codexBadge, modeOptions, pickCodexSettings, codexSessSub } from './codex.js';
@@ -44,14 +46,14 @@ function headHTML(look, name, sub, chips) {
 /** Satu baris di atas panel: identitas, tab (kalau ada), lalu tombol. Menghemat tinggi untuk terminal. */
 function topHTML(head, tabs = null, cur = null) {
   const full = drawerEl()?.classList.contains('full');
-  return `<div class="dr-top">${head}${tabs ? tabsHTML(tabs, cur) : ''}<div class="dr-tools" data-slot="tools"></div><div class="dr-btns"><button class="icon-btn dr-swbtn" data-act="dr-sw" aria-label="Tampilkan atau sembunyikan daftar agen" title="Daftar agen (tampilkan/sembunyikan)">☰</button><button class="icon-btn" data-act="agents-open" aria-label="Pindah agen (semua kantor)" title="Pindah agen, semua kantor (Alt+K)">⇄</button><button class="icon-btn" data-act="dr-full" aria-label="Layar penuh" title="${full ? 'Kecilkan' : 'Layar penuh'}">${full ? '⤡' : '⤢'}</button><button class="icon-btn" data-act="close-drawer" aria-label="Tutup panel">✕</button></div></div>`;
+  return `<div class="dr-top">${head}${tabs ? tabsHTML(tabs, cur) : ''}<div class="dr-tools" data-slot="tools"></div><div class="dr-btns"><button class="icon-btn" data-act="dr-view" aria-label="Ukuran huruf dan tampilan" title="Ukuran huruf dan tampilan">Aa</button><button class="icon-btn dr-swbtn" data-act="dr-sw" aria-label="Tampilkan atau sembunyikan daftar agen" title="Daftar agen (tampilkan/sembunyikan)">☰</button><button class="icon-btn" data-act="agents-open" aria-label="Pindah agen (semua kantor)" title="Pindah agen, semua kantor (Alt+K)">⇄</button><button class="icon-btn" data-act="dr-full" aria-label="Layar penuh" title="${full ? 'Kecilkan' : 'Layar penuh'}">${full ? '⤡' : '⤢'}</button><button class="icon-btn" data-act="close-drawer" aria-label="Tutup panel">✕</button></div></div>`;
 }
 function switcherHTML(ctx, curSid) {
   const live = (ctx.office.sessions || []).filter(x => x.status !== 'ended');
   const st = x => x.waiting ? 'izin' : x.status === 'working' ? 'bekerja' : 'idle';
   return `<aside class="dr-switch" data-slot="switch"><button class="btn sm" data-act="dr-full">← Kembali ke kantor</button><button class="btn sm" data-act="agents-open">Semua kantor…</button>
     <p class="ctl-l">Agen · ${live.length} aktif</p>
-    ${live.map(x => `<button class="sw-row${x.sid === curSid ? ' cur' : ''}" data-act="dr-sess" data-sid="${esc(x.sid)}"><span class="sw-ava">${sprite(sessLook(ctx, x), 2)}</span><span class="sw-b"><b>${esc(sessName(ctx, x))}</b><span>${esc(x.tool ? `${x.tool.name} ${x.tool.label || ''}` : roomName(ctx, x.room) || '')}</span></span><i class="sw-st ${st(x)}" title="${st(x)}"></i></button>`).join('') || '<p class="empty-line">Belum ada sesi.</p>'}</aside>`;
+    ${live.map(x => `<button class="sw-row${x.sid === curSid ? ' cur' : ''}" data-act="dr-sess" data-sid="${esc(x.sid)}"><span class="sw-ava">${sprite(sessLook(ctx, x), 2)}</span><span class="sw-b"><b>${esc(sessName(ctx, x))}</b>${topicOf(x) ? topicHTML(x) : ''}${topicOf(x) ? subHTML(x, x.tool ? `${x.tool.name} ${x.tool.label || ''}` : roomName(ctx, x.room) || '', 50) : `<span>${esc(x.tool ? `${x.tool.name} ${x.tool.label || ''}` : roomName(ctx, x.room) || '')}</span>`}</span><i class="sw-st ${st(x)}" title="${st(x)}"></i></button>`).join('') || '<p class="empty-line">Belum ada sesi.</p>'}</aside>`;
 }
 function toggleFull() {
   const d = drawerEl(), on = !d.classList.contains('full');
@@ -134,16 +136,19 @@ export function bindKeybar(root, getT) {
 
 /* ---------------- terminal xterm ---------------- */
 let trTimer = null;
-const termFont = () => { try { return Math.min(20, Math.max(9, Number(localStorage.getItem('kc.term.fs')) || 13)); } catch { return 13; } };
+const termFont = () => termPrefs().fs;
 function setTermFont(delta) {
-  const fs = Math.min(20, Math.max(9, termFont() + delta));
-  try { localStorage.setItem('kc.term.fs', String(fs)); } catch {}
-  const t = D?.term; if (t) { t.term.options.fontSize = fs; try { t.fit.fit(); } catch {} t.term.focus(); }
-  const l = drawerEl().querySelector('[data-slot="fs"]'); if (l) l.textContent = String(fs);
+  setTermPref('fs', termFont() + delta);
+  D?.term?.term.focus();
 }
 // terminals stay connected for a while after you look away, so switching back is instant
 // (no new tmux client, no resize, no full repaint of Claude's screen): query -> entry
 const POOL = new Map(), POOL_MAX = 4;
+// ukuran dan jarak baris berlaku untuk semua terminal yang masih tersambung
+onTermPrefs(p => {
+  for (const t of POOL.values()) { try { t.term.options.fontSize = p.fs; t.term.options.lineHeight = p.lh; if (t.el.isConnected) t.fit.fit(); } catch {} }
+  const l = drawerEl()?.querySelector('[data-slot="fs"]'); if (l) l.textContent = String(p.fs);
+});
 function killTerm(t) {
   POOL.delete(t.query);
   try { t.ro?.disconnect(); } catch {}
@@ -156,13 +161,22 @@ function disposeTerm(kill = false) {
   if (D?.chat) { D.chat.destroy(); D.chat = null; }
   const t = D?.term; if (!t) return;
   D.term = null;
+  releaseTerm(t, kill);
+}
+function releaseTerm(t, kill = false) {
   try { t.ro.disconnect(); } catch {}
   if (kill || t.ws.readyState > 1) { killTerm(t); return; }
   t.used = Date.now(); t.el.remove();
   const idle = [...POOL.values()].sort((x, y) => x.used - y.used);
   while (idle.length > POOL_MAX) killTerm(idle.shift());
 }
-function mountTerm(host, query) {
+/** Terminal sebuah sesi di luar panel (tab Terminal). Memakai kumpulan koneksi yang sama dengan panel. */
+export function mountSessionTerm(host, sid) {
+  const box = { term: null };
+  mountTerm(host, `kind=session&sid=${encodeURIComponent(sid)}`, box);
+  return { box, destroy() { if (box.term) releaseTerm(box.term); box.term = null; } };
+}
+function mountTerm(host, query, holder = D) {
   if (!window.Terminal || !window.FitAddon) { host.innerHTML = '<p class="empty-line" style="padding:12px">xterm.js belum termuat. Muat ulang halaman.</p>'; return; }
   let t = POOL.get(query);
   if (t && t.ws.readyState > 1) { killTerm(t); t = null; }
@@ -174,12 +188,12 @@ function mountTerm(host, query) {
   let raf = 0;
   t.ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => { try { if (host.clientHeight > 20) t.fit.fit(); } catch {} }); });
   t.ro.observe(host);
-  D.term = t;
+  holder.term = t;
   if (!coarse()) setTimeout(() => t.term.focus(), 30); // di HP, fokus otomatis memunculkan keyboard dan menutupi layar
 }
 function newTerm(query) {
   const el = document.createElement('div'); el.className = 'xt-in';
-  const term = new window.Terminal({ cursorBlink: true, fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace', fontSize: termFont(), scrollback: 5000, theme: { background: '#0E1218', foreground: '#D4DAE3', cursor: '#E4A445' } });
+  const term = new window.Terminal({ cursorBlink: true, fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace', fontSize: termFont(), lineHeight: termPrefs().lh, scrollback: 5000, theme: { background: '#0E1218', foreground: '#D4DAE3', cursor: '#E4A445' } });
   const fit = new window.FitAddon.FitAddon();
   term.loadAddon(fit);
   const t = { query, el, term, fit, ws: null, ro: null, used: Date.now() };
@@ -487,7 +501,7 @@ function roleHead(ctx, r) {
 function roleSessionsHTML(ctx, r) {
   const ss = ctx.office.sessions.filter(s => s.role === r.id && s.status !== 'ended');
   if (!ss.length) return '<p class="empty-line">Sedang libur. Belum ada sesi aktif.</p>';
-  return `<ul class="sess-list">${ss.map(s => `<li>${`<span class="mini">${sprite(r, 2)}</span>`}<div style="min-width:0"><button class="who" data-act="dr-sess" data-sid="${esc(s.sid)}">${esc(sessName(ctx, s))}</button><div class="t">${esc(toolLabel(s.tool) || s.title || '')}</div></div><span class="st ${esc(s.status)}">${STATUS[s.status] || esc(s.status)}</span></li>`).join('')}</ul>`;
+  return `<ul class="sess-list">${ss.map(s => `<li>${`<span class="mini">${sprite(r, 2)}</span>`}<div style="min-width:0"><button class="who" data-act="dr-sess" data-sid="${esc(s.sid)}">${esc(sessName(ctx, s))}</button>${topicOf(s) ? topicHTML(s) : ''}<div class="t">${topicOf(s) ? subHTML(s, toolLabel(s.tool) || s.title || '', 80) : esc(toolLabel(s.tool) || s.title || '')}</div></div><span class="st ${esc(s.status)}">${STATUS[s.status] || esc(s.status)}</span></li>`).join('')}</ul>`;
 }
 async function paintRolePb() {
   const st = D, ctx = st.ctx, r = roleOf(ctx, st.roleId); if (!r) return;
@@ -553,6 +567,7 @@ function onClick(e) {
   else if (act === 'dr-full') toggleFull();
   else if (act === 'dr-sw') toggleSwitcher();
   else if (act === 'dr-fs') setTermFont(Number(b.dataset.d));
+  else if (act === 'dr-view') openViewPrefs();
   else if (act === 'dr-sess') openSession(ctx, b.dataset.sid, 'term');
   else if (act === 'dr-role') openRole(ctx, b.dataset.role);
   else if (act === 'dr-shift') startShiftDialog(ctx, b.dataset.role);
@@ -583,7 +598,7 @@ export function drawerOnLive(ctx, msg) {
   if (!D || !drawerState().open || D.key !== drawerState().key) return;
   D.ctx = ctx;
   if (msg.t === 'dm') D.dm?.refresh();
-  if (msg.t === 'session' || msg.t === 'session-gone') { const sw = drawerEl().querySelector('[data-slot="switch"]'); if (sw) sw.outerHTML = switcherHTML(ctx, D.sid); }
+  if (msg.t === 'session' || msg.t === 'session-gone') { const sw = drawerEl().querySelector('[data-slot="switch"]'); if (sw) { const top = sw.scrollTop; sw.outerHTML = switcherHTML(ctx, D.sid); const nw = drawerEl().querySelector('[data-slot="switch"]'); if (nw) nw.scrollTop = top; } }
   if (D.kind === 'role') { liveRole(ctx, msg); return; }
   if (!D.sid) return;
   if (msg.t?.startsWith('inbox')) D.chat?.live(msg);

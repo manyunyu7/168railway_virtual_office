@@ -6,6 +6,7 @@ Selain board, wiki, dan pesan, MCP `kantor` punya tool untuk merombak kantor itu
 
 | Kelompok | Tool | Siapa |
 |---|---|---|
+| Laporan | `kerjaan_set`: apa yang sedang dikerjakan (judul, langkah, persen), tampil di daftar agen dan di atas chat | semua |
 | Role | `role_create`, `role_update`, `role_arsipkan` | manager |
 | Ruangan | `room_create`, `room_update`, `room_pindah`, `room_resize`, `room_hapus` | manager |
 | Denah | `denah_ubah`, `denah_rapikan`, `denah_pulihkan` | manager |
@@ -37,6 +38,20 @@ Tool pratinjau (`pratinjau_kirim`, `pratinjau_status`) untuk semua role; kontrak
 
 - `pratinjau_kirim({judul, files?:[path], folder?, mode?:'set'|'pilihan'|'bundle', jenis?:'info'|'persetujuan'|'pilihan', catatan?, kartu?, revisiDari?})`: `jenis` bawaan `info` (cukup dilihat); `persetujuan` hanya bila agen benar-benar butuh keputusan Setujui/Revisi; `pilihan` untuk memilih satu dari 2+ alternatif (bawaan mode pilihan). Kirim hasil visual (gambar, PDF, video, HTML, atau folder/.zip situs statis) untuk diputuskan pemilik. Dipakai saat pemilik minta pratinjau/preview. Path relatif terhadap folder kerja dan harus di dalam folder kantor (symlink diikuti, `..` keluar ditolak). Maks 30 berkas / 200 MB per pratinjau (`config.pratinjau.maxFiles/maxBytes`). Berkas disalin saat itu juga (snapshot). `revisiDari` membuat versi berikutnya (v2, v3, ...). Keputusan pemilik datang sebagai pesan langsung dari "Pemilik"; diskusi lewat pesan, bukan wiki.
 - `pratinjau_status({id})`: jenis, status (baru/dilihat/dikomentari/sebagian/disetujui/revisi/dipilih), `dilihat` (waktu), `reaksi` [{emoji, at}], `komentar` [{teks, berkas, detik, waktu, at}], keputusan per berkas, pilihan, flag disimpan/arsip/ditunda, dan daftar versi. Komentar pemilik juga datang sebagai DM (membangunkan); tanda lihat dan reaksi tidak.
+
+Tool konten (tab Konten, kontrak di [`KONTEN.md`](KONTEN.md)) untuk semua role. Keputusan tayang milik pemilik: `konten_set` menolak tahap `siap`, `terjadwal`, `tayang`.
+
+| Tool | Isi |
+|---|---|
+| `konten_list({tahap?, seri?, q?, limit?})` | daftar ringkas (id, judul, tahap, jenis, seri, tanggal, folder) beserta jumlah per tahap |
+| `konten_get({id})` | satu konten: media, caption per platform, status per platform, performa, pratinjau |
+| `konten_buat({judul, jenis?, folder?, seri?, tahap?, who?})` | catat konten baru di papan Konten (bukan `card_create`); `who` bawaan role pemanggil |
+| `konten_set({id, tahap?, judul?, media?, lagu?, seri?, sensitif?, catatan?, folder?})` | ubah konten; tahap hanya `ide`, `riset`, `produksi`, `revisi`, `review`, `arsip` |
+| `konten_kirim({id, catatan?})` | pindah ke Review, notifikasi pemilik, tampil di Paket Posting |
+| `konten_jadwal_usul({jadwal:[{id, tanggal, jam?}]})` | usul jadwal untuk kartu `siap` (`jadwal_status='usulan'`); yang belum siap ditolak; hasil memuat peringatan jadwal |
+| `konten_tayang({id, platform, link?, at?})` | hanya setelah pemilik bilang tayang: pindah folder, `SUDAH-POSTING.txt`, status, `pathPerluCek` |
+| `konten_performa({id, platform, reach?, like?, comment?, save?, share?})` | angka performa dari pemilik |
+| `kit_list({jenis?})`, `kit_tambah({jenis, nama, path, catatan?})` | kit merek (logo, outro, slide-jualan, acuan, sfx) |
 
 Tool board (`board_list`, `card_get`, `card_create`, `card_update`, `card_check`, `card_comment`) untuk semua role. Kantor bisa punya beberapa papan (lihat bagian Board di [`FRONTEND-CONTRACT.md`](FRONTEND-CONTRACT.md)):
 

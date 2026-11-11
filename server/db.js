@@ -128,6 +128,12 @@ export const OFFICE_MIGRATIONS = [
        kind = COALESCE((SELECT json_extract(columns, '$[' || NEW.col || '].kind') FROM boards WHERE id = COALESCE(NULLIF(NEW.board, ''), 'utama')), NEW.kind) WHERE id = NEW.id; END;
    CREATE TRIGGER cards_kind_upd AFTER UPDATE OF col, board ON cards BEGIN
      UPDATE cards SET kind = COALESCE((SELECT json_extract(columns, '$[' || NEW.col || '].kind') FROM boards WHERE id = NEW.board), NEW.kind) WHERE id = NEW.id; END;`,
+  // tab Konten: satu post = satu kartu di papan 'konten' + satu baris di sini (lihat docs/KONTEN.md)
+  `CREATE TABLE konten (card_id TEXT PRIMARY KEY, folder TEXT DEFAULT '', jenis TEXT DEFAULT 'lain', seri TEXT DEFAULT '', jam TEXT DEFAULT '', jadwal_status TEXT DEFAULT '',
+     lagu TEXT DEFAULT '', sensitif INTEGER DEFAULT 0, acuan INTEGER DEFAULT 0, platforms TEXT DEFAULT '{}', perf TEXT DEFAULT '{}', media TEXT DEFAULT '{}', catatan TEXT DEFAULT '',
+     created_at TEXT, updated_at TEXT);
+   CREATE INDEX konten_folder ON konten(folder);
+   CREATE TABLE konten_kit (id TEXT PRIMARY KEY, jenis TEXT DEFAULT 'lain', nama TEXT, path TEXT, catatan TEXT DEFAULT '', ord INTEGER DEFAULT 0, created_at TEXT);`,
 ];
 
 function migrate(db, steps) {

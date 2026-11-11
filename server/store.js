@@ -104,6 +104,8 @@ function cardRow(c, extra, boards, office) {
 function coverUrl(office, cover) {
   if (!cover || !office) return null;
   const o = encodeURIComponent(office);
+  const kt = /^kt:([^:]+):(.+)$/.exec(cover); // sampul tab Konten: berkas di folder konten, lewat endpoint file-nya
+  if (kt) return `/api/offices/${o}/konten/${encodeURIComponent(kt[1])}/file?path=${encodeURIComponent(kt[2])}&thumb=1`;
   const m = /^pv:([^:]+):(.+)$/.exec(cover);
   // gambar kecil bertanda tangan dari pratinjau (sama dengan keyOf di pratinjau.js; tidak diimpor supaya tidak melingkar)
   if (m) return `/pvt/${o}/${m[1]}/${crypto.createHmac('sha256', String(config().token || '')).update(`pratinjau:${office}:${m[1]}`).digest('hex').slice(0, 24)}/${encodeURIComponent(m[2])}.jpg`;

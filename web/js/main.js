@@ -20,10 +20,13 @@ import * as wizard from './wizard.js';
 import * as files from './files.js';
 import * as gantt from './gantt.js';
 import * as calendar from './calendar.js';
+import * as konten from './konten.js';
 import * as chatmode from './chatmode.js';
 import { initViewer, viewerLive } from './viewer.js';
 import { initDock, dockLive, openDock } from './dock.js';
 import { initAgents, agentsLive, paintAgentsBadge } from './agents.js';
+import { tabLoad, tabSave, sidLoad, resolveNav } from './nav-memory.js';
+import { topicHTML, subHTML, topicOf, pillHTML, detailOf } from './konteks.js';
 import { music, mountPlayer, mountLibrary } from './music.js';
 import { openLayoutEditor } from './layout-editor.js';
 import { bindDmCard, paintDmCard, dmLive } from './dm.js';
@@ -33,13 +36,13 @@ import { mountTabBar, refitTabBar } from './tab-bar.js';
 
 export const ctx = { st: null, office: null, stage: null, view: null, route: null };
 const view = $('#view');
-const TABS = { kantor: 'Kantor', chat: 'Chat', board: 'Board', timeline: 'Timeline', kalender: 'Kalender', file: 'File', rapat: 'Rapat', notes: 'Notes', wiki: 'Wiki', pratinjau: 'Pratinjau', payroll: 'Payroll', metrik: 'Metrik', performa: 'Performa', role: 'Role', arsip: 'Arsip' };
-const MODULES = { chat: chatmode, board, timeline: gantt, kalender: calendar, file: files, role: roles, arsip: archive, rapat: meetings, notes, wiki, pratinjau, payroll, metrik: metrics, performa: sysmonView };
+const TABS = { kantor: 'Kantor', chat: 'Chat', terminal: 'Terminal', board: 'Board', timeline: 'Timeline', kalender: 'Kalender', konten: 'Konten', file: 'File', rapat: 'Rapat', notes: 'Notes', wiki: 'Wiki', pratinjau: 'Pratinjau', payroll: 'Payroll', metrik: 'Metrik', performa: 'Performa', role: 'Role', arsip: 'Arsip' };
+const MODULES = { chat: chatmode, board, timeline: gantt, kalender: calendar, konten, file: files, role: roles, arsip: archive, rapat: meetings, notes, wiki, pratinjau, payroll, metrik: metrics, performa: sysmonView };
 
 /* ---------------- routing ---------------- */
 function parse() {
   const h = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(decodeURIComponent);
-  if (h[0] === 'o' && h[1]) return { name: 'office', id: h[1], tab: TABS[h[2]] ? h[2] : 'kantor', rest: h.slice(3) };
+  if (h[0] === 'o' && h[1]) return { name: 'office', id: h[1], tab: TABS[h[2]] ? h[2] : 'kantor', explicit: !!TABS[h[2]], rest: h.slice(3) };
   if (h[0] === 'kompleks' && (h[1] === 'notes' || h[1] === 'wiki')) return { name: 'office', id: '_kompleks', tab: h[1], rest: h.slice(2) };
   if (h[0] === 'baru') return { name: 'wizard' };
   if (h[0] === 'pengaturan') return { name: 'settings' };
@@ -52,6 +55,13 @@ export const go = hash => { if (location.hash === hash) route(); else location.h
 async function route() {
   const r = parse();
   const prev = ctx.route;
+  if (r.name === 'office' && r.id !== '_kompleks') {
+    // kembali ke kantor: buka tab dan sesi chat terakhirnya, kecuali linknya sudah menyebut tab sendiri
+    const so = ctx.st?.offices?.find(x => x.id === r.id);
+    const n = resolveNav(r, prev, { tab: tabLoad(), sid: sidLoad(r.id) }, { pending: ctx.pendingSid, pendingTab: ctx.pendingTab, tab: k => !!TABS[k] && (k !== 'performa' || !!ctx.st?.settings?.sysmon), session: sid => !!so?.sessions?.some(x => x.sid === sid && x.status !== 'ended') });
+    if (n) { r.tab = n.tab; r.rest = n.rest; if (n.usedPending) { ctx.pendingSid = null; ctx.pendingTab = null; } history.replaceState(null, '', `#/o/${encodeURIComponent(r.id)}/${r.tab}${r.rest.map(x => '/' + encodeURIComponent(x)).join('')}`); }
+    tabSave(r.tab);
+  }
   ctx.route = r;
   if (!(prev && prev.name === 'office' && r.name === 'office' && prev.id === r.id && prev.tab === r.tab)) {
     ctx.view?.unmount?.(); ctx.view = null;
@@ -60,7 +70,7 @@ async function route() {
     closeModal();
   }
   document.body.classList.toggle('kantor-full', r.name === 'office' && r.tab === 'kantor' && r.id !== '_kompleks');
-  document.body.classList.toggle('chat-full', r.name === 'office' && r.tab === 'chat' && r.id !== '_kompleks');
+  document.body.classList.toggle('chat-full', r.name === 'office' && (r.tab === 'chat' || r.tab === 'terminal') && r.id !== '_kompleks');
   document.body.classList.toggle('in-office', r.name === 'office');
   try {
     if (r.name === 'map') await renderMap();
@@ -70,6 +80,8 @@ async function route() {
     else if (r.name === 'metrik') { crumbs([['Metrik kompleks']]); ctx.view = metrics; await metrics.render(view, { ...ctx, office: null, global: true }); }
     else if (r.name === 'payroll') { crumbs([['Payroll kompleks']]); ctx.view = payroll; await payroll.render(view, { ...ctx, office: null, global: true }); }
     else await renderOffice(r, prev);
+    // sesi yang diminta tapi tidak mendarat di chat (atau tab lain): drawer-nya dibuka di atas tab yang sedang dibuka
+    if (ctx.pendingSid && r.name === 'office' && r.tab !== 'kantor') { const sid = ctx.pendingSid, tab = ctx.pendingTab || 'term'; ctx.pendingSid = null; ctx.pendingTab = null; setTimeout(() => { if (ctx.office?.sessions.some(x => x.sid === sid)) openSession(ctx, sid, tab); }, 300); }
   } catch (e) { view.innerHTML = `<div class="wrap"><div class="notice">${esc(e.message)}</div></div>`; }
 }
 window.addEventListener('hashchange', route);
@@ -234,7 +246,7 @@ const sessLabel = x => x.waiting ? `menunggu izin: ${x.waiting.tool}` : x.tool ?
 function agentRow(x) {
   const name = x.look?.name || (x.title && x.title !== 'Sesi belum terhubung' ? short(x.title, 30) : 'Sesi manual');
   const what = x.look?.name && x.title && !x.title.startsWith(x.look.name) && !x.tool && !x.waiting ? short(x.title, 40) : sessLabel(x);
-  return `<li><button class="hm-agent" data-act="go-sess" data-office="${esc(x.office.id)}" data-sid="${esc(x.sid)}" title="${esc(sessLabel(x))}">${mini(x.look || guestLook(x.sid))}<span class="hm-ab"><b>${esc(name)}</b><span>${esc(x.office.name)} · ${esc(short(what, 44))}</span></span>${stDot(x)}</button></li>`;
+  return `<li><button class="hm-agent" data-act="go-sess" data-office="${esc(x.office.id)}" data-sid="${esc(x.sid)}" title="${esc(sessLabel(x))}">${mini(x.look || guestLook(x.sid))}<span class="hm-ab"><b>${esc(name)}</b>${topicHTML(x)}${topicOf(x) ? `<span>${subHTML(x, what, 44)}</span>` : `<span>${esc(x.office.name)} · ${esc(short(what, 44))}</span>`}</span>${stDot(x)}</button></li>`;
 }
 function endedRow(x) {
   const t = x.title && x.title !== 'Sesi belum terhubung' ? x.title : x.first_prompt || 'Sesi tanpa judul';
@@ -305,7 +317,7 @@ async function renderOffice(r, prev) {
     updateSub();
     return;
   }
-  if (r.tab === 'chat' && r.id !== '_kompleks') { ctx.view = chatmode; await chatmode.render(view, ctx, r); return; }
+  if ((r.tab === 'chat' || r.tab === 'terminal') && r.id !== '_kompleks') { ctx.view = chatmode; await chatmode.render(view, ctx, r); return; }
   view.innerHTML = `<div class="wrap"><div class="office-head"><div><p class="eyebrow">${esc(o.style || (r.id === '_kompleks' ? 'Bersama untuk semua kantor' : 'Kantor'))}</p><h1>${esc(o.name)}</h1><p class="sub" id="officeSub"></p></div></div>
     <div id="tabBody"></div></div>`;
   updateSub();
@@ -418,7 +430,7 @@ const kantorView = {
       const nm = r ? r.name + (s.slot ? ` #${s.slot + 1}` : '') : short(s.title || 'Sesi manual', 26);
       const who = [r ? r.title : 'Sesi manual', s.model ? modelName(s.model) : r ? modelName(r.model) : ''].filter(Boolean).join(' · ');
       const task = s.waiting ? 'menunggu izin' : s.tool ? `${s.tool.name} ${s.tool.label || ''}` : s.title || '';
-      return `<li><button class="ag-row" data-act="open-sess" data-sid="${s.sid}"><span class="ag-ava">${mini(r || guestLook(s.sid))}</span><span class="ag-body"><b class="ag-name">${esc(nm)}</b><span class="ag-meta">${esc(who)}</span><span class="ag-task">${esc(short(task, 48))}</span></span><span class="ag-st ${cls(s)}">${label(s)}</span></button></li>`;
+      return `<li><button class="ag-row" data-act="open-sess" data-sid="${s.sid}"><span class="ag-ava">${mini(r || guestLook(s.sid))}</span><span class="ag-body"><b class="ag-name">${esc(nm)}</b><span class="ag-meta">${esc(who)}</span>${topicOf(s) ? topicHTML(s, 'ag-tp') : ''}<span class="ag-task">${topicOf(s) ? subHTML(s, task, 48) : esc(short(task, 48))}</span></span><span class="ag-st ${cls(s)}">${label(s)}</span></button></li>`;
     }).join('')}</ul>` : '<p class="empty-line">Belum ada sesi berjalan.</p>') +
       (off.length ? `<p class="off-line">Libur: ${off.map(r => `<a href="#" data-act="open-role" data-id="${r.id}">${esc(r.name)}</a>`).join(', ')}</p>` : '');
   },
@@ -451,9 +463,9 @@ const kantorView = {
       ? `<i class="kf-mode m-${esc(s.permMode)}" title="Mode izin: ${esc(MODE_LABEL[s.permMode] || s.permMode)}">${esc({ bypassPermissions: 'bypass', acceptEdits: 'edit', dontAsk: 'tanpa tanya', readOnly: 'baca' }[s.permMode] || s.permMode)}</i>` : '');
     // one card: avatar with a status dot, name, and one line of what they are doing
     const card = (look, name, sub, s, attrs, boss, roleId, job = '') => `<div class="kf-card st-${st(s)}"${roleId ? ` draggable="true" data-role="${esc(roleId)}"` : ''}>
-        <button class="kf-hit" ${attrs} title="${esc([name, job, sub].filter(Boolean).join(' · '))}"></button>
+        <button class="kf-hit" ${attrs} title="${esc([name, job, s ? topicOf(s) : '', sub].filter(Boolean).join(' · '))}"></button>
         <span class="kf-ava">${sprite(look, 4)}<i class="kf-dot"></i></span>
-        <span class="kf-txt"><span class="kf-cname"><span class="kf-nm">${esc(name)}</span>${job ? `<span class="kf-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}${modeTag(s)}</span><span class="kf-csub">${esc(sub)}</span></span>
+        <span class="kf-txt"><span class="kf-cname"><span class="kf-nm">${esc(name)}</span>${job ? `<span class="kf-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}${modeTag(s)}</span><span class="kf-csub">${s && topicOf(s) ? `${pillHTML(s)}<span class="kx-d">${esc(topicOf(s))}</span>` : esc(sub)}</span></span>
         ${boss ? `<button class="kf-talk" data-act="kf-talk" data-id="${esc(roleId)}" title="Beri tugas ke ${esc(name)}">Suruh</button>` : ''}
       </div>`;
     // boss first, then whoever is on shift (incl. manual sessions); roles that are off go into one small group
@@ -471,7 +483,9 @@ const kantorView = {
       active.push(card(guestLook(s.sid), loose ? 'Sesi manual' : s.title, what(s, loose ? `belum terhubung${where ? ' · ' + where : ''}` : where || 'manual'), s, `data-act="open-sess" data-sid="${s.sid}"`, false, null, boss ? `anak buah ${boss}` : ''));
     }
     const offGroup = off.length ? `<div class="kf-off"><span class="kf-off-h">Libur</span><span class="kf-off-avas">${off.map(r => `<button data-act="open-role" data-id="${r.id}" title="${esc(r.name)} · ${esc(r.title)} · ${esc(room(r.room))}">${sprite(r, 3)}</button>`).join('')}</span></div>` : '';
+    const stripLeft = el.scrollLeft;
     el.innerHTML = [...boss, ...active].join('') + offGroup;
+    el.scrollLeft = stripLeft;
     // a mouse wheel scrolls the strip sideways (no scrollbar eating its height); arrows + fades show there is more
     if (!el.dataset.wheel) {
       el.dataset.wheel = 1;
@@ -492,7 +506,7 @@ const kantorView = {
     const row = (look, name, job, sub, s, attrs, boss, roleId) => `<div class="al-row ${s ? (s.waiting ? 'wait' : s.status === 'working' ? 'work' : 'idle') : 'off'}">
         <button class="al-hit" ${attrs} aria-label="${esc(name)}"></button>
         <span class="al-ava">${sprite(look, 4)}<i class="kf-dot"></i></span>
-        <span class="al-txt"><span class="al-name"><b>${esc(name)}</b>${job ? `<span class="al-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}</span><span class="al-sub">${esc(sub)}</span></span>
+        <span class="al-txt"><span class="al-name"><b>${esc(name)}</b>${job ? `<span class="al-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}</span>${s && topicOf(s) ? topicHTML(s, 'al-tp') : ''}<span class="al-sub">${s && topicOf(s) ? `${pillHTML(s)}<span class="kx-d">${esc(detailOf(s, sub))}</span>` : esc(sub)}</span></span>
         ${boss && roleId ? `<button class="al-talk" data-act="kf-talk" data-id="${esc(roleId)}">Suruh</button>` : ''}</div>`;
     const waitG = [], workG = [], idleG = [], off = [];
     const put = (s, look, name, job, boss, roleId, fallback) => {
@@ -508,11 +522,13 @@ const kantorView = {
     }
     for (const s of live.filter(s => !s.role)) { const loose = !s.title || s.title === 'Sesi belum terhubung'; put(s, guestLook(s.sid), loose ? 'Sesi manual' : short(s.title, 30), '', false, null, room(s.room)); }
     const group = (title, n, body, cls = '') => n ? `<section class="al-grp ${cls}"><h3>${title} <span>${n}</span></h3>${body}</section>` : '';
+    const listTop = el.scrollTop;
     el.innerHTML = group('Menunggu kamu', waitG.length + inbox.length, (inbox.length ? inboxHTML(inbox, false) : '') + waitG.join(''), 'wait')
       + group('Bekerja', workG.length, workG.join(''))
       + group('Idle', idleG.length, idleG.join(''))
       + (!live.length ? '<p class="empty-line al-empty">Belum ada sesi berjalan.</p>' : '')
       + (off.length ? `<details class="al-grp al-off"><summary>Libur <span>${off.length}</span></summary>${off.map(r => row(r, r.name, r.title, room(r.room), null, `data-act="open-role" data-id="${r.id}"`, r.isMgr, r.id)).join('')}</details>` : '');
+    el.scrollTop = listTop;
   },
   roomInfo() {
     const o = ctx.office, el = $('#roomInfo'); if (!el) return;

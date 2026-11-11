@@ -1,6 +1,7 @@
 // Daftar "Agen aktif" lintas semua kantor: panel cepat dari header, pintasan keyboard, dan lompat antar sesi.
 import { $, esc, short, sprite, guestLook, modelName, ago } from './util.js';
 import { drawerState } from './panel.js';
+import { topicHTML, subHTML, searchBits, topicOf } from './konteks.js';
 
 const PIN_KEY = 'kc.agents.pins';
 let C = null;            // { ctx, openSession, go }
@@ -20,7 +21,7 @@ export function activeAgents() {
   return out.sort((a, b) => rank(a) - rank(b) || String(b.lastSeen || '').localeCompare(String(a.lastSeen || '')));
 }
 const nameOf = s => s.look?.name || (s.title && s.title !== 'Sesi belum terhubung' ? short(s.title, 34) : 'Sesi manual');
-const searchText = s => [nameOf(s), s.title, s.look?.title, s.office.name, s.room, s.model, s.engine || 'claude', toolText(s.tool), s.waiting?.summary].join(' ').toLowerCase();
+const searchText = s => [nameOf(s), s.title, s.look?.title, s.office.name, s.room, s.model, s.engine || 'claude', toolText(s.tool), s.waiting?.summary, searchBits(s)].join(' ').toLowerCase();
 function whatOf(s) {
   if (s.waiting) return `${s.waiting.tool === 'AskUserQuestion' ? 'bertanya' : 'minta izin'}: ${short(s.waiting.summary || s.waiting.tool, 60)}`;
   const t = toolText(s.tool);
@@ -36,7 +37,7 @@ function rowHTML(s, i) {
     <button class="ag-open" type="button" data-ag="open" data-office="${esc(s.office.id)}" data-sid="${esc(s.sid)}">
       <span class="ag-ava">${sprite(look, 2)}</span>
       <span class="ag-b"><span class="ag-n"><b>${esc(nameOf(s))}</b><i class="ag-eng${isCodex(s) ? ' cx' : ''}">${s.engine === 'antigravity' ? 'Gemini' : isCodex(s) ? 'Codex' : 'Claude'}</i>${s.model ? `<i class="ag-mod">${esc(modelName(s.model))}</i>` : ''}${s.bgAgents ? `<i class="ag-sub" title="${s.bgAgents} subagent bekerja">⛓ ${s.bgAgents}</i>` : ''}</span>
-      <span class="ag-w">${esc(whatOf(s))}</span><span class="ag-m">${meta}</span></span>
+      ${topicOf(s) ? `${topicHTML(s, 'ag-tp')}<span class="ag-w">${subHTML(s, whatOf(s), 70)}</span>` : `<span class="ag-w">${esc(whatOf(s))}</span>`}<span class="ag-m">${meta}</span></span>
       <i class="ag-dot s${st}" title="${['menunggu izin', 'bekerja', 'idle'][st]}"></i>
     </button>
     <button class="ag-btn" type="button" data-ag="term" data-office="${esc(s.office.id)}" data-sid="${esc(s.sid)}" title="Buka Terminal" aria-label="Buka Terminal">⌨</button>
@@ -61,7 +62,7 @@ function listHTML() {
   if (!items.length) return `<p class="empty-line ag-empty">${query ? 'Tidak ada agen yang cocok.' : 'Belum ada agen aktif.'}</p>`;
   return (v.pinned.length ? sec('Disematkan', v.pinned) : '') + v.groups.map(([t, l]) => sec(t, l)).join('');
 }
-function paintList() { const el = $('#agList'); if (el) el.innerHTML = listHTML(); }
+function paintList() { const el = $('#agList'); if (!el) return; const top = el.scrollTop, html = listHTML(); if (el.dataset.sig !== html) { el.innerHTML = html; el.dataset.sig = html; el.scrollTop = top; } }
 
 /** Lencana di header: jumlah agen aktif, dan yang menunggu izin. */
 export function paintAgentsBadge() {

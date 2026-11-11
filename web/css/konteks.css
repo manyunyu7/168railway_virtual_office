@@ -1,0 +1,54 @@
+/* Konteks agen: topik, pil keadaan, panel ringkasan. Hanya token tema, jadi kontras di terang dan gelap. */
+.kx-topic{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;font-weight:700;color:var(--ink)}
+.kx-sub{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;white-space:nowrap}
+.kx-d{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kx-pill{flex:none;font-style:normal;font:800 10.5px/1 var(--f-label);padding:3px 7px;border-radius:var(--r-pill);background:var(--surface-2);color:var(--muted);border:1px solid var(--line)}
+.kx-pill.k-izin,.kx-pill.k-tanya{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.kx-pill.k-jalan{background:var(--blue-soft);color:var(--blue-text);border-color:var(--blue)}
+.kx-pill.k-tunggu{background:var(--teal-soft);color:color-mix(in srgb,var(--teal) 75%,var(--ink));border-color:var(--teal)}
+.kx-pill.k-selesai{background:var(--ok-soft);color:var(--ok);border-color:var(--ok)}
+.kx-pill.k-gagal{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.kx-pill.k-henti,.kx-pill.k-kosong,.kx-pill.k-tutup{background:var(--surface-2);color:var(--muted)}
+
+/* panel di atas percakapan */
+.kx{flex:none;margin:8px 12px 0;border:2px solid var(--line);border-radius:var(--r-md);background:var(--surface);min-width:0}
+.kx>summary{display:flex;align-items:flex-start;gap:8px;padding:7px 10px;cursor:pointer;list-style:none;min-width:0}
+.kx>summary::-webkit-details-marker{display:none}
+.kx>summary::after{content:'Detail ▾';font-weight:700;white-space:nowrap;margin-left:auto;flex:none;color:var(--muted);font-size:12px;line-height:18px}
+.kx[open]>summary::after{content:'Tutup ▴'}
+.kx-head{flex:1;min-width:0;display:grid;gap:2px}
+.kx-now{font-size:12.5px;line-height:1.35;color:var(--muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.kx-now b{color:var(--ink);font-weight:800}
+.kx[open] .kx-now{display:none}
+.kx-sum{min-width:0;flex:1;font-size:13px;font-weight:700;line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.kx-body{padding:2px 10px 10px;display:grid;gap:8px;max-height:40vh;overflow-y:auto;overscroll-behavior:contain}
+.kx-r{display:grid;gap:1px;min-width:0;font-size:13px;line-height:1.4}
+.kx-r b{font:800 10.5px var(--f-label);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.kx-r span{overflow-wrap:anywhere}
+.kx-r small{color:var(--muted);font-size:11.5px;margin-left:4px}
+.kx-r code{font:12px var(--f-mono);background:var(--surface-2);padding:1px 5px;border-radius:6px}
+.kx-r.q span{background:var(--warn-soft);color:var(--warn);border-left:3px solid var(--warn);padding:5px 8px;border-radius:6px;font-weight:700}
+.kx-r.err span{background:var(--bad-soft);color:var(--bad);padding:5px 8px;border-radius:6px}
+.kx-none{margin:0;color:var(--muted);font-size:12.5px}
+
+/* di dalam daftar yang sudah punya aturan span sendiri: topik tetap tebal, pil tidak ikut mengecil */
+.hm-ab .kx-topic,.sw-b .kx-topic,.cm-tx .kx-topic,.ag-b .kx-topic,.ag-body .kx-topic,.kf-txt .kx-topic,.al-txt .kx-topic,.sess-list .kx-topic{font-size:12.5px;font-weight:700;color:var(--ink)}
+.hm-ab .kx-pill,.sw-b .kx-pill,.cm-tx .kx-pill,.ag-b .kx-pill,.ag-body .kx-pill,.kf-txt .kx-pill,.al-txt .kx-pill,.sess-list .kx-pill{font:800 10px/1 var(--f-label);padding:2px 6px}
+.kf-csub .kx-pill,.al-sub .kx-pill{display:inline-block;margin-right:6px;vertical-align:1px}
+.kf-csub .kx-d,.al-sub .kx-d{display:inline}
+.kf-csub:has(.kx-pill){color:var(--ink)}
+.kx-sub,.cm-kx{max-width:100%}
+.cm-tx .cm-kx{display:block;overflow:hidden}
+.ag-tp{margin-top:1px}
+.al-tp{font-size:12.5px}
+.sess-list li>div{min-width:0}
+.sess-list .kx-topic{margin-top:1px}
+
+/* Draf laporan ke Anthropic yang menunggu keputusan */
+.kx-draft{flex:none;display:flex;align-items:flex-start;gap:10px;margin:8px 12px 0;padding:8px 10px;border:2px solid var(--warn);border-radius:var(--r-md);background:var(--warn-soft);color:var(--ink);min-width:0}
+.kx-draft-t{flex:1;min-width:0;display:grid;gap:2px;font-size:13px;overflow-wrap:anywhere}
+.kx-draft-t b{font:800 10.5px var(--f-label);letter-spacing:.04em;text-transform:uppercase;color:var(--warn)}
+.kx-draft-t small{color:var(--muted);font-size:11.5px}
+.kx-draft-t pre{margin:4px 0 0;white-space:pre-wrap;font:12px var(--f-mono);max-height:30vh;overflow:auto}
+.kx-draft-b{flex:none;display:flex;gap:6px}
+@media (max-width:700px){.kx-draft{flex-direction:column}}

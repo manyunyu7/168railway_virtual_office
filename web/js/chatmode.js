@@ -1,11 +1,15 @@
 // Tab Chat di kantor: daftar agen di kiri, percakapan sesi terpilih di kanan (satu kolom bergantian di HP).
 import { $, esc, short, sprite, guestLook, modelName, api, post, toast, confirmDo, debounce } from './util.js';
 import { mountChat } from './chat.js';
+import { mountPanel } from './konteks.js';
+import { openViewPrefs } from './view-prefs.js';
 import { isCodex, codexBadge, modeOptions, pickCodexSettings, codexSessSub } from './codex.js';
 import { isAntigravity } from './antigravity.js';
-import { openSession, pickModel, MODE_LABEL, HOSTS, stopFlow, bgCount } from './drawer.js';
+import { pickModel, MODE_LABEL, HOSTS, stopFlow, bgCount, mountSessionTerm, keybarHTML, bindKeybar } from './drawer.js';
 import { startShiftDialog } from './roles.js';
 import { drawerState, closeDrawer } from './panel.js';
+import { sidSave } from './nav-memory.js';
+import { topicHTML, subHTML, searchBits, topicOf } from './konteks.js';
 
 if (!document.getElementById('chatmodeCss')) {
   const l = document.createElement('link');
@@ -58,7 +62,7 @@ function doing(s) {
 /* ---------------- tampilan ---------------- */
 export async function render(el, ctx, r) {
   unmount();
-  M.ctx = ctx; M.el = el; M.q = '';
+  M.shownSid = undefined; M.ctx = ctx; M.el = el; M.q = ''; M.tab = r?.tab === 'terminal' ? 'terminal' : 'chat';
   M.sid = r?.rest?.[0] || null;
   el.innerHTML = `<div class="cm" data-pane="list">
     <aside class="cm-side" aria-label="Daftar agen">
@@ -94,7 +98,7 @@ export function unmount() {
   for (const f of M.offs) f(); M.offs = [];
   M.el = null; M.shiftSids = null;
 }
-const hashFor = sid => `#/o/${enc(M.ctx.office.id)}/chat${sid ? '/' + enc(sid) : ''}`;
+const hashFor = (sid, tab = M.tab) => `#/o/${enc(M.ctx.office.id)}/${tab}${sid ? '/' + enc(sid) : ''}`;
 const go = sid => { if (location.hash === hashFor(sid)) route({ rest: sid ? [sid] : [] }); else location.hash = hashFor(sid); };
 
 function setPane() {
@@ -111,7 +115,7 @@ function entries() {
     const mine = ss.filter(s => s.role === r.id);
     if (!mine.length) out.push({ g: 'off', role: r, name: r.name, text: `${r.name} ${r.title} ${roomName(r.room)}` });
   }
-  for (const s of ss) out.push({ g: groupOf(s), s, name: nameOf(s), text: `${nameOf(s)} ${subOf(s)} ${doing(s)}` });
+  for (const s of ss) out.push({ g: groupOf(s), s, name: nameOf(s), text: `${nameOf(s)} ${subOf(s)} ${doing(s)} ${searchBits(s)}` });
   return out;
 }
 const matches = e => !M.q || e.text.toLowerCase().includes(M.q);
@@ -129,16 +133,17 @@ function itemHTML(e) {
   }
   const s = e.s, perm = inboxOf(s.sid).length, q = M.queue.get(s.sid) || 0, cur = s.sid === M.sid;
   const badges = (perm ? `<i class="cm-bd wait" title="${perm} izin menunggu">${perm} izin</i>` : '') + (q ? `<i class="cm-bd q" title="${q} pesan terkirim, belum dibaca">${q} antre</i>` : '') + (bgCount(s) > 0 ? `<i class="cm-bd q" title="Subagent masih jalan di latar">${bgCount(s)} sub</i>` : '');
-  return `<button class="cm-ag st-${e.g}${cur ? ' cur' : ''}" role="option" aria-selected="${cur}" data-act="cm-pick" data-sid="${esc(s.sid)}"><span class="cm-ava">${sprite(look(s), 3)}<i class="cm-dot"></i></span><span class="cm-tx"><b>${esc(nameOf(s))}${codexBadge(s)}</b><span>${esc(short(doing(s), 60))}</span></span>${badges}</button>`;
+  return `<button class="cm-ag st-${e.g}${cur ? ' cur' : ''}" role="option" aria-selected="${cur}" data-act="cm-pick" data-sid="${esc(s.sid)}"><span class="cm-ava">${sprite(look(s), 3)}<i class="cm-dot"></i></span><span class="cm-tx"><b>${esc(nameOf(s))}${codexBadge(s)}</b>${topicOf(s) ? `${topicHTML(s)}<span class="cm-kx">${subHTML(s, doing(s), 60)}</span>` : `<span>${esc(short(doing(s), 60))}</span>`}</span>${badges}</button>`;
 }
 function paintList() {
   const el = $('#cmList', M.el); if (!el) return;
   const top = el.scrollTop;
   const gs = ordered().filter(g => g.items.length);
-  el.innerHTML = gs.map(g => `<div class="cm-grp" data-g="${g.g}"><h3>${esc(g.label)}<span>${g.items.length}</span></h3>${g.items.map(itemHTML).join('')}</div>`).join('')
+  const html = gs.map(g => `<div class="cm-grp" data-g="${g.g}"><h3>${esc(g.label)}<span>${g.items.length}</span></h3>${g.items.map(itemHTML).join('')}</div>`).join('')
     || `<p class="cm-none">${M.q ? 'Tidak ada agen yang cocok.' : 'Belum ada role atau sesi di kantor ini.'}</p>`;
-  el.scrollTop = top;
-  const cur = $('.cm-ag.cur', el); if (cur && !narrow()) cur.scrollIntoView({ block: 'nearest' });
+  if (el.dataset.sig !== html) { el.innerHTML = html; el.dataset.sig = html; el.scrollTop = top; }
+  // gulir ke agen terpilih hanya saat pilihannya berganti, bukan tiap ada kabar sesi: daftar sedang digulir pemilik
+  if (M.shownSid !== M.sid) { M.shownSid = M.sid; const cur = $('.cm-ag.cur', el); if (cur && !narrow()) cur.scrollIntoView({ block: 'nearest' }); }
 }
 async function loadQueues() {
   const ss = liveSess();
@@ -159,8 +164,9 @@ function select(sid, { silent } = {}) {
   const main = $('#cmMain', M.el); if (!main) return;
   setPane();
   paintList();
-  if (!sid) { destroyChat(); main.innerHTML = placeholder('Pilih agen untuk mulai ngobrol', 'Daftar di kiri menampilkan siapa yang menunggu kamu lebih dulu.'); return; }
+  if (!sid) { destroyChat(); main.innerHTML = M.tab === 'terminal' ? placeholder('Pilih agen untuk membuka terminalnya', 'Daftar di kiri menampilkan siapa yang menunggu kamu lebih dulu.') : placeholder('Pilih agen untuk mulai ngobrol', 'Daftar di kiri menampilkan siapa yang menunggu kamu lebih dulu.'); return; }
   const s = findSess(sid);
+  if (s && s.status !== 'ended') sidSave(M.ctx.office.id, sid);
   if (!s || s.status === 'ended') { destroyChat(); main.innerHTML = placeholder('Sesi ini sudah selesai', 'Pilih agen lain dari daftar.', true); return; }
   if (M.chatSid === sid && M.chat) return;
   destroyChat();
@@ -175,10 +181,25 @@ function destroyChat() {
   if (M.chat) { M.draft = $('#drQuickIn', M.el)?.value || ''; M.chat.destroy(); }
   M.chat = null; M.chatSid = null;
 }
+/** Isi kanan tab Terminal: panel konteks, terminal sesi, dan tombol khusus HP. Sesi di luar tmux tidak punya terminal di sini. */
+function mountTermPane(body, sid, s0) {
+  if (!s0.tmux) {
+    body.innerHTML = `<div class="cm-empty"><b>Terminal sesi ini ada di luar kantor</b><p>${esc(s0.host && s0.host !== 'lain' ? `Sesinya jalan di ${HOSTS[s0.host]}.` : 'Sesinya tidak jalan di tmux kantor.')} Isi percakapannya tetap bisa dibaca di tab Chat.</p><a class="btn sm" href="${esc(hashFor(sid, 'chat'))}">Buka chat</a></div>`;
+    return { update() {}, live() {}, refresh() {}, destroy() {} };
+  }
+  body.innerHTML = '<div class="cm-term"><div data-slot="kx"></div><div class="termbox"><div class="xt"></div></div><div data-slot="kb"></div></div>';
+  const paintKx = mountPanel($('[data-slot="kx"]', body), () => findSess(sid) || s0);
+  $('[data-slot="kb"]', body).innerHTML = keybarHTML();
+  const term = mountSessionTerm($('.xt', body), sid);
+  bindKeybar($('.kb-wrap', body), () => term.box.term);
+  paintKx();
+  return { update: paintKx, live() {}, refresh() {}, destroy: term.destroy };
+}
 function mountSel() {
   const body = $('#cmBody', M.el), sid = M.sid; if (!body) return;
   const s0 = findSess(sid);
   M.chatSid = sid;
+  if (M.tab === 'terminal') { M.chat = mountTermPane(body, sid, s0); return; }
   M.chat = mountChat(body, { ctx: M.ctx, sid, name: () => nameOf(findSess(sid) || s0), sess: () => findSess(sid) || s0,
     canSend: () => { const x = findSess(sid) || s0; return !!x.tmux || typeable(x); },
     send: text => sendAction(sid, 'text', text) });
@@ -204,12 +225,12 @@ function paintHead() {
   el.innerHTML = `<button class="icon-btn cm-back" data-act="cm-back" aria-label="Kembali ke daftar agen">←</button>
     <span class="cm-ava lg">${sprite(look(s), 4)}</span>
     <div class="cm-id"><div class="cm-name"><b>${esc(nameOf(s))}</b>${codexBadge(s)}<span class="st ${esc(st)}">${esc(s.tunggu && st === 'idle' ? s.tunggu.label : STATUS[st] || st)}</span>${s.anggaran === 'habis' ? '<span class="st wait">anggaran habis</span>' : ''}${s.compacting ? '<span class="st starting">Meringkas</span>' : ''}${bgCount(s) > 0 ? `<span class="st working" title="Subagent masih jalan di latar">${bgCount(s)} subagent latar</span>` : ''}</div><div class="cm-sub">${esc(subOf(s))}${model && !isCodex(s) && !subOf(s).includes(model) ? ' · ' + esc(model) : ''}</div></div>
-    <div class="cm-tools"><span data-slot="mode">${s.tmux ? modeSelect(s) : ''}</span>
+    <div class="cm-tools">${M.tab === 'terminal' ? `<a class="btn sm" href="${esc(hashFor(M.sid, 'chat'))}">Buka chat</a>` : `<a class="btn sm" href="${esc(hashFor(M.sid, 'terminal'))}" title="Buka terminal sesi ini">Buka terminal</a>`}<button class="btn sm cm-aa" data-act="cm-view" title="Ukuran huruf dan tampilan" aria-label="Ukuran huruf dan tampilan">Aa</button><span data-slot="mode">${s.tmux ? modeSelect(s) : ''}</span>
       <button class="btn sm halt" data-act="cm-action" data-a="esc" title="Hentikan pekerjaan yang sedang jalan (Esc)"${can ? '' : ' disabled'}>Hentikan</button>
       <button class="btn sm" data-act="cm-action" data-a="compact" title="/compact"${can ? '' : ' disabled'}>Ringkas</button>
       <button class="btn sm" data-act="cm-action" data-a="clear" title="/clear"${can ? '' : ' disabled'}>Reset</button>
       <button class="btn sm" data-act="cm-action" data-a="exit" title="Selesaikan sesi (/exit)"${can ? '' : ' disabled'}>Selesai</button>
-      <button class="btn sm" data-act="cm-term" title="Buka terminal sesi ini di panel">Buka terminal</button></div>`;
+      </div>`;
 }
 
 /* ---------------- aksi ---------------- */
@@ -237,7 +258,8 @@ async function onClick(e) {
   else if (act === 'cm-pick') { M.focusNext = false; go(b.dataset.sid); }
   else if (act === 'cm-back') go(null);
   else if (act === 'cm-action' || act === 'dr-action') doAction(b.dataset.a);
-  else if (act === 'cm-term') { const s = findSess(M.sid); if (s) openSession(M.ctx, s.sid, 'term'); }
+  else if (act === 'cm-view') openViewPrefs();
+  else if (act === 'cm-term') { if (M.sid) location.hash = hashFor(M.sid, 'terminal'); }
   else if (act === 'cm-shift') {
     M.shiftSids = { before: new Set(M.ctx.office.sessions.map(s => s.sid)), role: b.dataset.role, at: Date.now() };
     startShiftDialog(M.ctx, b.dataset.role);

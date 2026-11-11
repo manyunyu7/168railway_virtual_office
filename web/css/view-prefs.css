@@ -1,0 +1,14 @@
+/* Dialog ukuran huruf dan tampilan */
+.vp{display:flex;flex-direction:column;gap:10px;min-width:min(340px,100%)}
+.vp-h{margin:6px 0 0;font:800 11px var(--f-label);letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.vp-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px}
+.vp-step{display:flex;align-items:center;gap:6px}
+.vp-step b{min-width:56px;text-align:center;font-size:13px}
+.vp-step button{width:36px;height:36px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:800 17px var(--f-body);cursor:pointer}
+.vp-seg{display:inline-flex;border:2px solid var(--line);border-radius:10px;overflow:hidden}
+.vp-seg button{border:0;background:var(--surface);color:var(--ink);padding:8px 10px;font:700 12.5px var(--f-body);cursor:pointer}
+.vp-seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.vp-step button:hover,.vp-seg button:hover{border-color:var(--muted-2)}
+.vp-reset{align-self:flex-start;margin-top:4px}
+/* di layar sempit percakapan sudah selebar layar */
+@media (max-width:900px){.vp-wide{display:none}}

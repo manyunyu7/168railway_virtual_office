@@ -1,6 +1,7 @@
 // Tools exposed to Claude sessions through the `kantor` MCP server.
 import { officeForCwd, officeModel } from './offices.js';
-import { bus } from './live.js';
+import { bus, emitIfKonteksChanged } from './live.js';
+import { sessionKonteks, setKerjaan } from './konteks.js';
 import * as st from './store.js';
 import { live, whoOf, serialize } from './live.js';
 import { startShift, setPermMode, sessionAction } from './tmux.js';
@@ -18,6 +19,7 @@ import * as budget from './budget.js';
 import { DENAH_TOOLS, DENAH_NAMES, callDenah } from './denah-tools.js';
 import { RULE_TOOLS, RULE_NAMES, callRule } from './aturan-tools.js';
 import { PRATINJAU_TOOLS, PRATINJAU_NAMES, callPratinjau } from './pratinjau.js';
+import { KONTEN_TOOLS, KONTEN_NAMES, callKonten } from './konten-tools.js';
 import { boardForRole, resolveBoard, listBoards, colIn } from './boards.js';
 
 // from strictest to loosest; a manager can hand out its own mode or a stricter one
@@ -52,6 +54,8 @@ export const TOOLS = [
   { name: 'role_notes_write', description: 'Tulis buku catatan pribadimu. mode=append menambah di akhir, replace mengganti semuanya. Dibaca otomatis di awal shift berikutnya.',
     inputSchema: { type: 'object', properties: { text: { type: 'string' }, mode: { type: 'string', enum: ['append', 'replace'] } }, required: ['text'] } },
   { name: 'announce', description: 'Tempel pengumuman singkat di papan pengumuman kantor.', inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
+  { name: 'kerjaan_set', description: 'Laporkan ke pemilik apa yang sedang kamu kerjakan; tampil di daftar agen dan di atas chat, di web dan HP. Panggil saat mulai pekerjaan baru atau pindah tahap besar, bukan tiap langkah kecil. Permintaan baru dari pemilik membuat laporan lama tidak ditampilkan, jadi panggil lagi kalau pekerjaannya berganti. Pemanggilan dengan selesai:true menghapus laporan.',
+    inputSchema: { type: 'object', properties: { judul: { type: 'string', description: 'apa yang dikerjakan, satu kalimat pendek dan jelas bagi pemilik' }, langkah: { type: 'string', description: 'sekarang sampai mana atau sedang apa' }, persen: { type: 'number', description: 'perkiraan progres 0-100, hanya kalau memang terukur' }, selesai: { type: 'boolean', description: 'true untuk menghapus laporan' } } } },
   { name: 'sessions_list', description: 'Siapa saja yang sedang bekerja di kantor ini sekarang: tiap sesi Claude yang jalan (shift role maupun sesi manual dari Terminal/VS Code), di ruangan mana, folder, status, dan apa yang sedang dikerjakan. Sesi yang memanggil ditandai kamu: true.', inputSchema: { type: 'object', properties: { room: { type: 'string', description: 'id ruangan untuk menyaring (opsional)' } } } },
   { name: 'meeting_start', description: 'Khusus manager: buka rapat di Ruang Meeting. Tiap peserta bicara bergiliran sebagai rolenya (claude -p dengan persona role dan tool hanya-baca, BUKAN sesi yang sedang jalan), lalu notulen dan tindak lanjut masuk wiki. Pakai roles_list untuk id role.',
     inputSchema: { type: 'object', properties: { topic: { type: 'string' }, agenda: { type: 'string' }, participants: { type: 'array', items: { type: 'string' }, description: 'id role, minimal 2' }, rounds: { type: 'number', description: '1-4, bawaan 2' } }, required: ['topic', 'participants'] } },
@@ -88,18 +92,19 @@ export const TOOLS = [
   ...DENAH_TOOLS,
   ...RULE_TOOLS,
   ...PRATINJAU_TOOLS,
+  ...KONTEN_TOOLS,
 ];
 
 const text = v => ({ content: [{ type: 'text', text: typeof v === 'string' ? v : JSON.stringify(v, null, 2) }] });
 
-export function resolveIdentity({ office, role, sid, cwd }) {
-  const o = office || (cwd ? officeForCwd(cwd) : null);
+export function resolveIdentity({ office, role, sid, cwd, callerSid }) {
+  const o = office || (cwd ? officeForCwd(cwd) : null) || (callerSid ? live.get(callerSid)?.office : null);
   if (!o) throw new Error('Folder ini bukan bagian dari kantor mana pun.');
   const s = sid ? live.get(sid) : null;
   const roleId = role || s?.role || null;
   const r = roleId ? st.getRole(o, roleId) : null;
   const by = r?.name || (s ? whoOf(s) : 'Sesi manual');
-  return { office: o, role: r, by, sid, cwd: s?.cwd || cwd || null };
+  return { office: o, role: r, by, sid, callerSid: callerSid || null, cwd: s?.cwd || cwd || null };
 }
 
 // the caller's live session; after /clear its id changed, so look it up through its tmux pane
@@ -109,6 +114,13 @@ function callerSession(sid) {
   if (s) return s;
   const row = one(globalDb(), 'SELECT tmux FROM sessions WHERE sid = ?', sid);
   return row?.tmux ? [...live.values()].find(x => x.tmux === row.tmux && x.status !== 'ended') : null;
+}
+/** Sesi manual tidak membawa KANTOR_SID: pakai id dari proses Claude-nya, atau satu-satunya sesi hidup di folder itu. */
+function reportingSession(ident) {
+  const known = callerSession(ident.sid) || callerSession(ident.callerSid);
+  if (known) return known;
+  const same = ident.cwd ? [...live.values()].filter(x => x.status !== 'ended' && x.cwd === ident.cwd) : [];
+  return same.length === 1 ? same[0] : null;
 }
 function allowMode(ident, mode) {
   if (!mode || mode === 'ikut') return;
@@ -214,13 +226,20 @@ async function runTool(ident, name, a = {}) {
     case 'role_notes_read': { const r = a.role ? st.getRole(office, a.role) : role; if (!r) throw new Error('Sesi ini tidak terikat ke role.'); return text(r.notes || '(kosong)'); }
     case 'role_notes_write': { need(a.text, 'text', 'isi catatan'); if (!role) throw new Error('Sesi ini tidak terikat ke role, jadi tidak punya buku catatan.'); st.writeRoleNotes(office, role.id, a.text, a.mode || 'append', by); return text('Buku catatan diperbarui.'); }
     case 'announce': { need(a.text, 'text', 'isi pengumuman'); st.addNews(office, a.text, by); return text('Pengumuman ditempel.'); }
+    case 'kerjaan_set': {
+      const s = reportingSession(ident);
+      if (!s) throw new Error('Sesi pemanggil tidak dikenali kantor, jadi laporan tidak disimpan. Mulai ulang sesi supaya tool kantor membawa identitasnya.');
+      const k = setKerjaan(s, a);
+      emitIfKonteksChanged(s);
+      return text(k ? `Laporan tersimpan: ${k.judul}${k.langkah ? ` (${k.langkah})` : ''}.` : 'Laporan dihapus.');
+    }
     case 'sessions_list': {
       const m = officeModel(office), me = callerSession(ident.sid);
       const rows = [...live.values()].filter(x => x.office === office && x.status !== 'ended' && x.kind !== 'rapat' && (!a.room || x.room === a.room));
       const ago = t => { const d = Math.round((Date.now() - Date.parse(t || 0)) / 60000); return !t ? '-' : d < 1 ? 'baru saja' : d < 60 ? `${d} menit lalu` : `${Math.round(d / 60)} jam lalu`; };
       return text(rows.map(x => ({ id: x.sid.slice(0, 8), siapa: x.role ? st.getRole(office, x.role)?.name || x.role : (x.title && x.title !== 'Sesi belum terhubung' ? x.title : 'Sesi manual'), role: x.role || undefined,
         ruangan: m.plan.rooms.find(r => r.id === x.room)?.name || x.room || '-', folder: x.cwd ? x.cwd.replace(m.root, '.') : undefined, status: x.waiting ? 'menunggu izin' : x.status,
-        menunggu: x.tunggu?.label || undefined, anggaran: x.anggaran || undefined,
+        kerjaan: sessionKonteks(x).kerjaan?.judul || undefined, menunggu: x.tunggu?.label || undefined, anggaran: x.anggaran || undefined,
         sedang: x.tool ? `${x.tool.name} ${x.tool.label || ''}`.trim() : undefined, mulai: ago(x.startedAt), asal: x.tmux ? `tmux ${x.tmux}` : x.host || 'terminal', atasan: x.boss ? st.getRole(office, x.boss)?.name || x.boss : undefined, kamu: me?.sid === x.sid || undefined })));
     }
     case 'meeting_start': {
@@ -290,5 +309,6 @@ async function runTool(ident, name, a = {}) {
   if (DENAH_NAMES.has(name)) return callDenah(ident, name, a);
   if (RULE_NAMES.has(name)) return callRule(ident, name, a);
   if (PRATINJAU_NAMES.has(name)) return callPratinjau(ident, name, a);
+  if (KONTEN_NAMES.has(name)) return callKonten(ident, name, a);
   throw new Error(`Tool tidak dikenal: ${name}`);
 }

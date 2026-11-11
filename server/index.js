@@ -21,6 +21,7 @@ import { officeMetrics, complexMetrics, reportMarkdown } from './metrics.js';
 import { listMeetings, getMeeting, startMeeting, cancelMeeting, interject, actionToCard, resumeMeeting, continueMeeting, markInterrupted } from './meetings.js';
 import { TOOLS, callTool, resolveIdentity } from './agent.js';
 import { readTranscript } from './transcript.js';
+import { sessionKonteks } from './konteks.js';
 import { scanProcesses } from './procscan.js';
 import { wizardFolders, wizardPreview, wizardCreate } from './wizard.js';
 import { templateList, templateState, previewTemplate, applyTemplate, restoreTemplate } from './templates.js';
@@ -29,6 +30,7 @@ import { listDir, findFiles, readText, sendRaw, upload, makeDir } from './files.
 import { saveUpload, sendMedia, listMedia, getMedia } from './media.js';
 import { listShows, markShow, openLocal, serveShow } from './shows.js';
 import * as pv from './pratinjau.js';
+import * as kt from './konten.js';
 import * as pr from './procs.js';
 import { startNotify } from './notify.js';
 import * as att from './attachments.js';
@@ -41,6 +43,7 @@ import { setCodexModel, setCodexMode } from './codexpick.js';
 import { listOutbox, cancelOutgoing, startOutbox } from './outbox.js';
 import * as dm from './dm.js';
 import { startTunggu } from './tunggu.js';
+import { startLaporanDraft, decideDraft } from './laporan-draft.js';
 import * as autopilot from './autopilot.js';
 import * as budget from './budget.js';
 import { getOwner, putOwner, getLook, setLook, startOwnerSweep } from './owner.js';
@@ -175,11 +178,11 @@ route('GET', '/api/state', () => {
     try { roleRows = st.listRoles(o.id); } catch {}
     const look = s => { const r = roleRows.find(x => x.id === s.role); return r ? { name: r.name + (s.slot ? ` #${s.slot + 1}` : ''), color: r.color, hair: r.hair, skin: r.skin, hairStyle: r.hairStyle, outfit: r.outfit, acc: r.acc, hijab: r.hijab, tie: r.tie, title: r.title } : null; };
     return { id: o.id, name: o.name, root: o.root, fav: !!o.fav, style: o.style || officeModel(o.id)?.style,
-      sessions: sessions.map(s => ({ sid: s.sid, role: s.role, status: s.status, title: s.title, kind: s.kind, room: s.room, tool: s.tool, waiting: s.waiting, look: look(s), lastSeen: s.lastSeen, permMode: s.permMode || null, boss: s.boss || null, host: s.host || null, tty: s.tty || null, model: s.model || null, engine: s.engine || null, bgAgents: s.bgAgents || 0, slot: s.slot || 0 })),
+      sessions: sessions.map(s => ({ sid: s.sid, role: s.role, status: s.status, title: s.title, kind: s.kind, room: s.room, tool: s.tool, waiting: s.waiting, look: look(s), lastSeen: s.lastSeen, permMode: s.permMode || null, boss: s.boss || null, host: s.host || null, tty: s.tty || null, model: s.model || null, engine: s.engine || null, bgAgents: s.bgAgents || 0, slot: s.slot || 0, konteks: s.konteks })),
       roles, cards, monthCost: monthCost(o.id), lastSeen: one(globalDb(), 'SELECT MAX(last_seen) t FROM sessions WHERE office = ?', o.id)?.t || o.created_at };
   });
   // sessions outside every office (e.g. claude started in ~/Developer itself)
-  const loose = [...live.values()].filter(s => !s.office && s.status !== 'ended').map(s => ({ sid: s.sid, status: s.status, title: s.title, cwd: s.cwd, tool: s.tool, waiting: s.waiting, lastSeen: s.lastSeen, tty: s.tty || null, host: s.host || null }));
+  const loose = [...live.values()].filter(s => !s.office && s.status !== 'ended').map(s => ({ sid: s.sid, status: s.status, title: s.title, cwd: s.cwd, tool: s.tool, waiting: s.waiting, lastSeen: s.lastSeen, tty: s.tty || null, host: s.host || null, konteks: sessionKonteks(s) }));
   return { me: meView(), akun: akunOn(), loose, offices, repoDir: ROOT_DIR, inbox: openInbox(), hooks: globalHooksInstalled(), tmux: !!bins().tmux, claude: !!bins().claude, settings: { approvals: cfg.approvals, roots: cfg.roots, extraHosts: cfg.extraHosts, defaultPermissionMode: cfg.defaultPermissionMode || '', musicDir: cfg.musicDir, sysmon: sysmon.conf().enabled, ghinaNotify: { enabled: cfg.ghinaNotify?.enabled !== false, ready: !!(cfg.ghinaNotify?.url && cfg.ghinaNotify?.token), events: cfg.ghinaNotify?.events || [] } } };
 });
 route('GET', '/api/candidates', () => candidateFolders());
@@ -298,6 +301,27 @@ route('POST', '/api/offices/:id/pratinjau/:pid/pilih', async (req, res, p) => pv
 route('POST', '/api/offices/:id/pratinjau/:pid/files/:fid', async (req, res, p) => pv.decideFile(O(p.id), p.pid, p.fid, await body(req)));
 route('POST', '/api/offices/:id/pratinjau/:pid/wiki', async (req, res, p) => pv.toWiki(O(p.id), p.pid, await body(req)));
 
+/* konten: tab Konten (docs/KONTEN.md). Rute tetap dulu, baru /:cid */
+route('GET', '/api/offices/:id/konten', (req, res, p, q) => kt.listItems(O(p.id), { tahap: q.get('tahap') || '', seri: q.get('seri') || '', jenis: q.get('jenis') || '', q: q.get('q') || '' }));
+route('POST', '/api/offices/:id/konten', async (req, res, p) => kt.createItem(O(p.id), await body(req)));
+route('POST', '/api/offices/:id/konten/pengingat/tes', (req, res, p) => { kt.ensureBoard(O(p.id)); return kt.testReminder(p.id); });
+route('GET', '/api/offices/:id/konten/conf', (req, res, p) => { kt.ensureBoard(O(p.id)); return kt.getConf(p.id); });
+route('PATCH', '/api/offices/:id/konten/conf', async (req, res, p) => { const b = await body(req), c = kt.setConf(O(p.id), b); if (b.wikiTayang !== undefined || b.wikiBelum !== undefined) kt.refreshWiki(p.id); return c; });
+route('GET', '/api/offices/:id/konten/jadwal', (req, res, p, q) => kt.jadwal(O(p.id), { from: q.get('from') || '', to: q.get('to') || '' }));
+route('POST', '/api/offices/:id/konten/jadwal/setujui', async (req, res, p) => kt.setujuiJadwal(O(p.id), (await body(req)).ids));
+route('POST', '/api/offices/:id/konten/impor', async (req, res, p) => kt.impor(O(p.id), { dryRun: !!(await body(req)).dryRun }));
+route('GET', '/api/offices/:id/konten/kit', (req, res, p, q) => kt.listKit(O(p.id), { jenis: q.get('jenis') || '' }));
+route('GET', '/api/offices/:id/konten/kit/file', (req, res, p, q) => kt.serveFile(O(p.id), q.get('path') || '', { thumb: q.get('thumb') === '1', download: q.get('download') === '1' }, req, res));
+route('POST', '/api/offices/:id/konten/kit', async (req, res, p) => kt.addKit(O(p.id), await body(req)));
+route('DELETE', '/api/offices/:id/konten/kit/:kid', (req, res, p) => kt.removeKit(O(p.id), p.kid));
+route('GET', '/api/offices/:id/konten/:cid', (req, res, p) => kt.getItem(O(p.id), p.cid));
+route('PATCH', '/api/offices/:id/konten/:cid', async (req, res, p) => kt.patchItem(O(p.id), p.cid, await body(req)));
+route('PUT', '/api/offices/:id/konten/:cid/caption', async (req, res, p) => kt.putCaption(O(p.id), p.cid, await body(req)));
+route('POST', '/api/offices/:id/konten/:cid/review', async (req, res, p) => kt.review(O(p.id), p.cid, await body(req)));
+route('POST', '/api/offices/:id/konten/:cid/tayang', async (req, res, p) => kt.tayang(O(p.id), p.cid, await body(req)));
+route('POST', '/api/offices/:id/konten/:cid/performa', async (req, res, p) => kt.setPerforma(O(p.id), p.cid, await body(req)));
+route('GET', '/api/offices/:id/konten/:cid/file', (req, res, p, q) => kt.serveFile(O(p.id), q.get('path') || '', { thumb: q.get('thumb') === '1', download: q.get('download') === '1' }, req, res));
+
 /* media: images and attachments for wiki and cards, stored as files */
 route('GET', '/api/offices/:id/media', (req, res, p) => listMedia(O(p.id)));
 route('POST', '/api/offices/:id/media', async (req, res, p, q) => saveUpload(O(p.id), q.get('name') || 'file', req, who()));
@@ -339,6 +363,7 @@ route('POST', '/api/offices/:id/roles/:rid/start', async (req, res, p) => {
   if (b.cardId) { const c = st.getCard(p.id, b.cardId); if (c.colKind !== 'dikerjakan') st.updateCard(p.id, b.cardId, { col: 'dikerjakan' }, who()); }
   return r;
 });
+route('POST', '/api/sessions/:sid/draft-laporan', async (req, res, p) => decideDraft(p.sid, (await body(req)).aksi));
 route('POST', '/api/sessions/:sid/action', async (req, res, p) => { const b = await body(req); if (['text', 'compact', 'clear'].includes(b.action)) audit.markTyping(live.get(p.sid)?.tmux, actor()); return { ok: true, ...(await sessionAction(p.sid, b.action, b.text)) }; });
 // sessions whose terminal was closed recently: they can be picked up again in the office
 route('GET', '/api/sessions/recent-ended', () => {
@@ -957,8 +982,10 @@ if (!DEMO) sysmon.startSysmon();
 att.startAttachments();
 startOutbox();
 dm.startDm();
+if (!DEMO) kt.startKonten(); // tab Konten: pengingat jadwal tiap 10 menit
 if (!DEMO) pv.startCleanup(); // pratinjau: daily cleanup of finished items' files (config.pratinjau.cleanupDays)
 startTunggu();
+if (!DEMO) startLaporanDraft();
 autopilot.startAutopilot();
 budget.startBudget(listOffices);
 startHookContext();

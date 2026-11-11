@@ -17,15 +17,16 @@ export function linkFor({ kind, office, sid }) {
 }
 
 const clip = (t, n) => { t = String(t ?? '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '…' : t; };
-const TITLES = { permission: w => `${w} minta izin`, question: w => `${w} bertanya`, meeting: w => w, file: w => `${w} mengirim file`, budget: w => `${w}: anggaran habis`, sysmon: w => w, pratinjau: w => `${w} mengirim pratinjau` };
+const TITLES = { permission: w => `${w} minta izin`, question: w => `${w} bertanya`, meeting: w => w, file: w => `${w} mengirim file`, budget: w => `${w}: anggaran habis`, sysmon: w => w, pratinjau: w => `${w} mengirim pratinjau`, konten: w => w };
 // Kantor kind -> event name of Ghina's POST /api/kantor/notify
 // budget has no event of its own in Ghina; it travels as 'question' (an agent needs the owner to look)
-const EVENTS = { permission: 'permission', question: 'question', meeting: 'meeting_done', file: 'file', budget: 'question', sysmon: 'question', pratinjau: 'pratinjau' };
+const EVENTS = { permission: 'permission', question: 'question', meeting: 'meeting_done', file: 'file', budget: 'question', sysmon: 'question', pratinjau: 'pratinjau', konten: 'pratinjau' };
+// konten (tab Konten) memakai event 'pratinjau' milik Ghina supaya app lama tidak menolaknya; path-nya yang membuka tab Konten
 
 export async function pushGhina(ev) {
   const c = notifyConf();
   if (!c || !EVENTS[ev.kind]) return false;
-  if (ev.kind === 'file' || ev.kind === 'budget' || ev.kind === 'sysmon' || ev.kind === 'pratinjau' ? c[ev.kind] === false : !(c.events || []).includes(ev.kind)) return false;
+  if (ev.kind === 'file' || ev.kind === 'budget' || ev.kind === 'sysmon' || ev.kind === 'pratinjau' || ev.kind === 'konten' ? c[ev.kind] === false : !(c.events || []).includes(ev.kind)) return false;
   const key = `${ev.kind}:${ev.sid || ev.office || ''}:${ev.dedupe || ''}`;
   const now = Date.now();
   if (now - (last.get(key) || 0) < (Number(c.debounceSec) || 30) * 1000) return false;
@@ -37,7 +38,7 @@ export async function pushGhina(ev) {
   const origin = c.kantor || (names[0] ? `https://${names[0]}` : null), label = c.label || null;
   const body = { event: EVENTS[ev.kind], title: clip((label ? `${label} · ` : '') + TITLES[ev.kind](ev.who || 'Sesi'), 120), body: clip(ev.text, 500),
     ...(origin ? { kantor: origin } : {}),
-    ...(ev.office ? { office: ev.office, path: ev.kind === 'pratinjau' && ev.id ? `#/o/${ev.office}/pratinjau/${ev.id}` : `#/o/${ev.office}/kantor` } : {}), ...(ev.sid ? { sid: ev.sid } : {}), ...(ev.id ? { id: ev.id } : {}) };
+    ...(ev.office ? { office: ev.office, path: ev.kind === 'pratinjau' && ev.id ? `#/o/${ev.office}/pratinjau/${ev.id}` : ev.kind === 'konten' ? `#/o/${ev.office}/konten${ev.id ? `/p/${ev.id}` : ''}` : `#/o/${ev.office}/kantor` } : {}), ...(ev.sid ? { sid: ev.sid } : {}), ...(ev.id ? { id: ev.id } : {}) };
   try {
     const r = await fetch(c.url, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.token}` }, body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
