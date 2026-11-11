@@ -11,6 +11,8 @@ import readline from 'node:readline';
 // Hanya modul bawaan node: file ini disalin apa adanya ke Mac itu.
 function server() {
   if (process.env.KANTOR_URL && process.env.KANTOR_TOKEN) return { url: process.env.KANTOR_URL.replace(/\/+$/, ''), token: process.env.KANTOR_TOKEN };
+  // sesi manual di Mac mesin: <root>/hub.json yang ditulis hub saat Pasang (docs/MULTI-PC.md)
+  try { const h = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '..', 'hub.json'), 'utf8')); if (h?.url && h?.token) return { url: String(h.url).replace(/\/+$/, ''), token: h.token }; } catch {}
   const s = JSON.parse(fs.readFileSync(path.join(process.env.KANTOR_HOME || path.join(os.homedir(), '.kantor-claude'), 'server.json'), 'utf8'));
   return { url: `http://127.0.0.1:${s.port}`, token: s.token };
 }

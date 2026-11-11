@@ -50,7 +50,7 @@ export function payloadVersion(files = payloadFiles()) {
   return v;
 }
 
-/** Salin skrip ke <root> di mesin itu dan tulis VERSION. */
+/** Salin skrip ke <root> di mesin itu, tulis VERSION dan hub.json (0600). */
 export function installMachine(id) {
   need(id);
   const root = mx.machineRoot(id);
@@ -59,6 +59,9 @@ export function installMachine(id) {
     for (const f of files) mx.writeFile(id, path.posix.join(root, f.rel), f.content, 0o644);
     mx.shSync(id, `mkdir -p ${mx.q(path.posix.join(root, 'run'))} && chmod 700 ${mx.q(path.posix.join(root, 'run'))}`, { timeout: 10000 });
     mx.writeFile(id, path.posix.join(root, 'VERSION'), version + '\n', 0o644);
+    // untuk sesi manual di Mac itu (hook/MCP global tanpa env): ke hub mana dan dengan token apa. Ganti token → Pasang lagi.
+    const m = mx.getMachine(id);
+    mx.writeFile(id, path.posix.join(root, 'hub.json'), JSON.stringify({ url: m.hubUrl, token: m.token, machine: m.id }) + '\n', 0o600);
   } catch (e) { throw new Error(`Gagal memasang skrip di ${root}: ${errText(e)}`); }
   mx.setInstalledVersion(id, version);
   return { ok: true, version, root, files: files.map(f => f.rel) };

@@ -16,8 +16,16 @@ const { spawnSync } = require('child_process');
 const SERVER_JSON = path.join(process.env.KANTOR_HOME || path.join(os.homedir(), '.kantor-claude'), 'server.json');
 
 /** { url, token } atau null. */
+// Mac yang dipasangi skrip oleh hub (Pengaturan → Mesin → Pasang) punya <root>/hub.json: { url, token, machine }.
+// Dipakai sesi manual di Mac itu (tanpa env KANTOR_URL), supaya tetap tercatat di hub. Tidak ada di repo kantor sendiri.
+function readHubJson() {
+  try { const h = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'hub.json'), 'utf8')); if (h && h.url && h.token) return { url: String(h.url).replace(/\/+$/, ''), token: h.token, remote: true }; } catch {}
+  return null;
+}
 function readServer() {
   if (process.env.KANTOR_URL && process.env.KANTOR_TOKEN) return { url: process.env.KANTOR_URL.replace(/\/+$/, ''), token: process.env.KANTOR_TOKEN };
+  const hub = readHubJson();
+  if (hub) return { url: hub.url, token: hub.token };
   try {
     const s = JSON.parse(fs.readFileSync(SERVER_JSON, 'utf8'));
     if (s && s.port && s.token) { try { process.kill(s.pid, 0); } catch { return null; } return { url: `http://127.0.0.1:${s.port}`, token: s.token }; }
