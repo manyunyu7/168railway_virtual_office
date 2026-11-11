@@ -281,7 +281,8 @@ export function probeSync(id) {
   const m = getMachine(id);
   if (!m) return { ok: true, home: process.env.HOME, bins: {} };
   const t0 = Date.now();
-  const script = `echo "HOME=$HOME"; uname -sm | sed 's/^/OS=/'; for b in ${KNOWN_BINS.join(' ')}; do p=$(command -v $b 2>/dev/null); echo "BIN_$b=$p"; done`;
+  // installer resmi Claude dan Homebrew sering hanya menambah PATH di .zshrc (tidak dibaca shell login non-interaktif)
+  const script = `PATH="$PATH:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin"; echo "HOME=$HOME"; uname -sm | sed 's/^/OS=/'; for b in ${KNOWN_BINS.join(' ')}; do p=$(command -v $b 2>/dev/null); echo "BIN_$b=$p"; done`;
   try {
     const out = shSync(id, `/bin/zsh -lc ${q(script)} 2>/dev/null || /bin/bash -lc ${q(script)}`, { timeout: 20000 });
     const kv = Object.fromEntries(out.split('\n').filter(l => l.includes('=')).map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1).trim()]));
