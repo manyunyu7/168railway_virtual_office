@@ -6,6 +6,8 @@ import { createStage } from './office-canvas.js';
 import { isCodex, codexBadge, mountCodexFields, codexValues, codexModels, codexFieldsHTML, CODEX_MODES } from './codex.js';
 import { isAntigravity, mountAgyFields, agyValues, AGY_MODES } from './antigravity.js';
 import { HAIR_STYLES, OUTFITS, ACCS, HIJABS, TEMPLATES, templateOf, applyLook, randomLook } from './chars.js';
+import { mountRoomMachine, baseName } from './mesin.js';
+import { roomBadge } from './lencana.js';
 
 const SKILL_SUGS = ['frontend', 'backend', 'review', 'testing', 'dokumentasi', 'debugging', 'refactor', 'database', 'devops', 'delegasi'];
 const NO_DESK = ['lobby', 'openplan', 'toilet', 'booth', 'musik'];
@@ -71,7 +73,7 @@ function roomRowHTML(r) {
   const ctx = M.ctx, frozen = r.frozen || r.kind === 'beku';
   const n = M.roles.filter(x => x.room === r.id && !x.archived).length;
   const wt = (r.worktrees || []).length;
-  return `<tr><td><b>${esc(r.name)}</b>${frozen ? ' <span class="st off">Beku</span>' : ''}</td><td>${esc(KIND_LABEL[r.kind] || r.kind)}</td><td>${r.path ? `<code>${esc(r.path)}</code>` : '<span class="hint">-</span>'}</td><td class="num">${wt}</td><td class="num">${n}</td>
+  return `<tr><td><b>${esc(r.name)}</b>${frozen ? ' <span class="st off">Beku</span>' : ''}</td><td>${esc(KIND_LABEL[r.kind] || r.kind)}</td><td>${r.machine && r.machine !== 'local' ? `${roomBadge(r, 'rl-mx')} <code>${esc(r.remotePath || '')}</code>` : r.path ? `<code>${esc(r.path)}</code>` : '<span class="hint">-</span>'}</td><td class="num">${wt}</td><td class="num">${n}</td>
     <td><div class="btn-row" style="flex-wrap:nowrap"><button class="btn sm" data-act="rl-room-rename" data-room="${esc(r.id)}">Ganti nama</button><button class="btn sm" data-act="rl-room-freeze" data-room="${esc(r.id)}" data-v="${frozen ? 0 : 1}">${frozen ? 'Cairkan' : 'Bekukan'}</button>${r.extra ? `<button class="btn sm danger" data-act="rl-room-remove" data-room="${esc(r.id)}">Hapus</button>` : ''}</div></td></tr>`;
 }
 
@@ -130,12 +132,13 @@ function renameRoom(room) {
 let ra = null;
 const prettyName = d => d.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 function addRoomDialog() {
-  ra = { dir: '', data: null, path: '', isNew: false, named: false, stage: null, view: 'room', t: 0, info: null };
+  ra = { dir: '', data: null, path: '', isNew: false, named: false, stage: null, view: 'room', t: 0, info: null, remote: null };
   modal({ title: 'Tambah ruangan', html: `<div class="rm-add">
     <div class="rm-left">
       <div class="rf-row"><div class="field"><label for="rr-name">Nama</label><input id="rr-name" placeholder="mis. Admin Panel" autocomplete="off"></div>
         <div class="field"><label for="rr-kind">Jenis</label><select id="rr-kind">${Object.entries(ROOM_KINDS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select></div></div>
-      <div class="field"><label>Folder</label>
+      <div id="rrMachineBox"></div>
+      <div class="field" id="rrLocal"><label>Folder</label>
         <div class="fb"><div class="fb-crumbs" id="fbCrumbs"></div><ul class="fb-list" id="fbList"><li class="fb-empty">Memuat…</li></ul>
           <div class="fb-foot"><button type="button" class="btn sm" data-fb="none">Tanpa folder</button><button type="button" class="btn sm" data-fb="new">Folder baru di sini</button></div>
           <div class="fb-new" id="fbNew" hidden><input id="rr-new" placeholder="nama-folder-baru" autocomplete="off"><label class="check"><input type="checkbox" id="rr-git"> git init</label></div></div>
@@ -158,6 +161,11 @@ function addRoomDialog() {
     });
     card.addEventListener('change', e => { if (ra && e.target.id === 'rr-kind') preview(); });
   }
+  mountRoomMachine($('#rrMachineBox'), { onChange: v => {
+    if (!ra) return;
+    ra.remote = v; $('#rrLocal').hidden = !!v;
+    autoName(v ? baseName(v.remotePath) : ra.dir.split('/').pop()); preview();
+  } });
   browse('');
   preview();
 }
@@ -199,7 +207,7 @@ function onRoomClick(e) {
 function preview() {
   clearTimeout(ra.t);
   ra.t = setTimeout(async () => {
-    const body = { name: $('#rr-name')?.value || '', kind: $('#rr-kind')?.value || 'kode', path: ra.path };
+    const body = { name: $('#rr-name')?.value || '', kind: $('#rr-kind')?.value || 'kode', path: ra.remote ? '' : ra.path, ...(ra.remote ? { machine: ra.remote.machine, remotePath: ra.remote.remotePath || '' } : {}) };
     let r;
     try { r = await post(`/api/offices/${oid(M.ctx)}/rooms/preview`, body); } catch (e) { $('#rmPvInfo').innerHTML = `<p class="warn-t">${esc(e.message)}</p>`; return; }
     if (!$('#rmPv')) return;
@@ -213,25 +221,28 @@ function preview() {
   }, 220);
 }
 function pvInfo(r) {
-  const info = !ra.isNew && ra.path ? ra.data?.info : null, room = r.room;
+  const info = !ra.remote && !ra.isNew && ra.path ? ra.data?.info : null, room = r.room;
   const rows = [];
   rows.push(`<h3>${esc(room.name)}</h3><p class="hint">${esc(ROOM_KINDS[room.kind] || room.kind)}${room.stack ? ' · ' + esc(room.stack) : ''}</p>`);
   const facts = [];
-  if (ra.path) facts.push(['Folder', `<code>${esc(ra.path)}/</code>${ra.isNew ? ' · akan dibuat' + ($('#rr-git')?.checked ? ' + git init' : '') : ''}`]);
+  if (ra.remote) facts.push(['Mesin', esc(ra.remote.name)], ['Folder', ra.remote.remotePath ? `<code>${esc(ra.remote.remotePath)}/</code>` : '<span class="hint">belum dipilih</span>']);
+  else if (ra.path) facts.push(['Folder', `<code>${esc(ra.path)}/</code>${ra.isNew ? ' · akan dibuat' + ($('#rr-git')?.checked ? ' + git init' : '') : ''}`]);
   if (info?.git) facts.push(['Git', `repo${info.branch ? ` · branch <code>${esc(info.branch)}</code>` : ''}`]);
   if (info) facts.push(['Aturan', info.md ? 'Ada <code>CLAUDE.md</code>: dibaca otomatis oleh shift di ruangan ini' : 'Belum ada CLAUDE.md']);
   if (info?.readme) facts.push(['README', esc(short(info.readme, 140))]);
   if (info) facts.push(['Isi', `${info.files} item`]);
   rows.push(`<dl class="pv-dl">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`);
   if (r.moved.length) rows.push(`<p class="pv-moved"><b>${r.moved.length} sesi pindah ke sini</b> karena foldernya di dalam ${esc(ra.path)}/: ${r.moved.map(m => esc(roleName(m.role) || short(m.title || 'sesi', 26)) + (m.from ? ` <span class="hint">(dari ${esc(m.from)})</span>` : '')).join(', ')}</p>`);
-  rows.push(`<p class="hint">${ra.path ? 'Sesi yang dibuka di folder ini otomatis duduk di sini. Role yang ditempatkan di ruangan ini memulai shift di folder ini.' : 'Ruangan tanpa folder cocok untuk ruang fungsi; shift role di sini mulai di folder kantor.'}</p>`);
+  rows.push(`<p class="hint">${ra.remote ? `Role yang ditempatkan di ruangan ini memulai shift di ${esc(ra.remote.name)}, di folder itu.` : ra.path ? 'Sesi yang dibuka di folder ini otomatis duduk di sini. Role yang ditempatkan di ruangan ini memulai shift di folder ini.' : 'Ruangan tanpa folder cocok untuk ruang fungsi; shift role di sini mulai di folder kantor.'}</p>`);
   $('#rmPvInfo').innerHTML = rows.join('');
 }
 const roleName = id => id && (M.ctx.office.roles.find(r => r.id === id)?.name);
 function submitRoom() {
   const name = $('#rr-name').value.trim(); if (!name) { toast('Nama ruangan wajib diisi', 'warn'); return false; }
-  if (!ra.isNew && ra.path && ra.data?.info?.room) { toast(`Folder itu sudah dipakai ruangan ${ra.data.info.room}`, 'warn'); return false; }
-  const body = { name, kind: $('#rr-kind').value, path: ra.path, create: ra.isNew, gitInit: ra.isNew && $('#rr-git').checked };
+  if (ra.remote && !ra.remote.remotePath) { toast(`Pilih folder di ${ra.remote.name} dulu`, 'warn'); return false; }
+  if (!ra.remote && !ra.isNew && ra.path && ra.data?.info?.room) { toast(`Folder itu sudah dipakai ruangan ${ra.data.info.room}`, 'warn'); return false; }
+  const body = ra.remote ? { name, kind: $('#rr-kind').value, machine: ra.remote.machine, remotePath: ra.remote.remotePath }
+    : { name, kind: $('#rr-kind').value, path: ra.path, create: ra.isNew, gitInit: ra.isNew && $('#rr-git').checked };
   post(`/api/offices/${oid(M.ctx)}/rooms`, body).then(() => { toast('Ruangan ditambah', 'ok'); closeModal(); ra = null; return load().then(draw); }).catch(e => toast(e.message, 'bad'));
   return false;
 }

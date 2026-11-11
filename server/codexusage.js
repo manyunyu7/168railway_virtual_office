@@ -1,9 +1,12 @@
 // Token usage of Codex shifts, read from rollouts (~/.codex/sessions) into the same `usage` table payroll uses.
 // Cost stays 0: a ChatGPT subscription is not billed per token, so only tokens are shown.
+// Rollouts of Codex shifts on other machines are read from their mirror copies (server/mirror.js, mirrorRoots('codex')).
+// Each file is counted once: usage_files is keyed by path, and a loopback machine's mirror of this Mac's own folder is skipped.
 import fs from 'node:fs';
 import path from 'node:path';
 import { globalDb, one, run, all, tx } from './db.js';
-import { officeForCwd } from './offices.js';
+import { officeForCwd, roomForRemote } from './offices.js';
+import { mirrorRoots } from './mirror.js';
 
 const DIR = () => path.join(process.env.CODEX_HOME || path.join(process.env.HOME || '', '.codex'), 'sessions');
 const localDay = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
@@ -24,14 +27,31 @@ const safe = d => { try { return fs.readdirSync(d); } catch { return []; } };
 export function scanCodexUsage({ days = 60 } = {}) {
   const g = globalDb();
   let touched = false;
-  for (const f of rollouts(DIR(), Date.now() - days * 864e5)) {
+  const roots = [{ machine: null, dir: DIR() }, ...mirrorRoots('codex', { localDir: DIR() })];
+  for (const root of roots) if (scanRoot(g, root, days)) touched = true;
+  return touched;
+}
+
+// a folder on another machine never creates an office here: it is the office whose room points at it,
+// or else the office of the Kantor session whose transcript is this mirror copy
+function officeOf(g, machine, cwd, file) {
+  if (!machine) return cwd ? officeForCwd(cwd, { create: false }) : null;
+  let id = null;
+  try { id = cwd ? roomForRemote(machine, cwd)?.office || null : null; } catch {}
+  return id || one(g, 'SELECT office FROM sessions WHERE transcript = ? AND office IS NOT NULL', file)?.office || null;
+}
+
+function scanRoot(g, { machine, dir }, days) {
+  let touched = false;
+  for (const f of rollouts(dir, Date.now() - days * 864e5)) {
     const st = fs.statSync(f);
     const prev = one(g, 'SELECT * FROM usage_files WHERE path = ?', f);
     if (prev && prev.size === st.size) continue;
     let office = prev?.office || null, sid = prev?.sid || null, model = prev?.last_msg || null;
+    let consumed = prev?.offset || 0;
+    if (st.size < consumed) consumed = 0; // replaced or truncated (a mirror copy is recreated when its source shrank)
     const fd = fs.openSync(f, 'r');
     const acc = new Map();
-    let consumed = prev?.offset || 0;
     try {
       const buf = Buffer.alloc(st.size - consumed);
       fs.readSync(fd, buf, 0, buf.length, consumed);
@@ -42,7 +62,7 @@ export function scanCodexUsage({ days = 60 } = {}) {
         if (!meta && !tc && !tu) continue;
         let d; try { d = JSON.parse(line); } catch { continue; }
         const p = d.payload || {};
-        if (d.type === 'session_meta') { sid = p.id || sid; office = p.cwd ? officeForCwd(p.cwd, { create: false }) : office; }
+        if (d.type === 'session_meta') { sid = p.id || sid; office = p.cwd || machine ? officeOf(g, machine, p.cwd, f) : office; }
         else if (d.type === 'turn_context') model = p.model || model;
         else if (d.type === 'token_usage_record' && p.usage && office) {
           const day = localDay(d.timestamp || Date.now());
@@ -55,7 +75,8 @@ export function scanCodexUsage({ days = 60 } = {}) {
       }
       consumed += nl + 1;
     } finally { fs.closeSync(fd); }
-    const role = sid ? one(g, 'SELECT role FROM sessions WHERE sid = ?', sid)?.role || null : null;
+    const role = (sid ? one(g, 'SELECT role FROM sessions WHERE sid = ?', sid)?.role : null)
+      || (machine ? one(g, 'SELECT role FROM sessions WHERE transcript = ?', f)?.role : null) || null;
     tx(g, () => {
       for (const a of acc.values()) {
         run(g, `INSERT INTO usage (sid, office, role, model, day, msgs, input, output, cache_w, cache_r, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 0)

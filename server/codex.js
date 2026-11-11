@@ -70,9 +70,9 @@ const shq = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
 // Events Codex fires. Hooks are passed per session with -c, so ~/.codex/config.toml stays untouched.
 export const CODEX_HOOK_EVENTS = ['SessionStart', 'SessionEnd', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'SubagentStart', 'SubagentStop', 'Stop', 'PreCompact', 'PostCompact', 'PermissionRequest', 'Interrupt'];
 const hookTimeout = ev => ev === 'PermissionRequest' ? 600 : (ev === 'SessionEnd' || ev === 'Interrupt') ? 2 : 5;
-/** ['-c', 'hooks.X=[...]', ...] pointing every event at hooks/kantor-hook.cjs. */
-export function codexHookArgs(node = process.execPath) {
-  const cmd = `${shq(node)} ${shq(path.join(ROOT_DIR, 'hooks', 'kantor-hook.cjs'))}`;
+/** ['-c', 'hooks.X=[...]', ...] pointing every event at hooks/kantor-hook.cjs. root = folder kantor (di Mac lain: machineRoot). */
+export function codexHookArgs(node = process.execPath, root = ROOT_DIR) {
+  const cmd = `${shq(node)} ${shq(path.join(root, 'hooks', 'kantor-hook.cjs'))}`;
   return CODEX_HOOK_EVENTS.flatMap(ev => ['-c', `hooks.${ev}=[{hooks=[{type="command",command=${tomlStr(cmd)},timeout=${hookTimeout(ev)}}]}]`]);
 }
 
@@ -81,7 +81,7 @@ export function codexHookArgs(node = process.execPath) {
  * Everything after `codex` for a shift. instructions = role prompt (becomes developer_instructions: the
  * official "extra developer message", the built-in Codex prompt stays), mcp = the kantor MCP server.
  */
-export function codexArgs({ resumeSid = null, model = '', effort = '', mode = 'default', instructions = '', cwd = '', mcp = null, task = '' } = {}) {
+export function codexArgs({ resumeSid = null, model = '', effort = '', mode = 'default', instructions = '', cwd = '', mcp = null, task = '', hook = null } = {}) {
   const a = [];
   if (resumeSid) a.push('resume', resumeSid);
   // run the Kantor hooks without persisting a trust decision into ~/.codex/config.toml
@@ -96,15 +96,19 @@ export function codexArgs({ resumeSid = null, model = '', effort = '', mode = 'd
   // the "Update available" menu would hold an unattended start until someone answers it
   a.push('-c', 'check_for_update_on_startup=false');
   if (instructions) a.push('-c', `developer_instructions=${tomlStr(instructions)}`);
-  if (mcp) a.push('-c', `mcp_servers.kantor={command=${tomlStr(mcp.command)},args=${tomlArr(mcp.args)},env=${tomlTable(mcp.env)},default_tools_approval_mode="approve",tool_timeout_sec=960}`);
-  a.push(...codexHookArgs());
+  // envVars: nama env yang diteruskan dari proses codex ke server MCP (rahasia seperti token tidak ikut di argv)
+  if (mcp) a.push('-c', `mcp_servers.kantor={command=${tomlStr(mcp.command)},args=${tomlArr(mcp.args)},env=${tomlTable(mcp.env)},${mcp.envVars?.length ? `env_vars=${tomlArr(mcp.envVars)},` : ''}default_tools_approval_mode="approve",tool_timeout_sec=960}`);
+  // hook = { node, root } untuk shift di Mac lain: node dan skrip hook di mesin itu
+  a.push(...(hook ? codexHookArgs(hook.node, hook.root) : codexHookArgs()));
   if (task && !resumeSid) a.push('--', task);
   return a;
 }
 
 /** Shell script that starts Codex (kept in a file: the role prompt is long and should not sit in `ps`). */
-export function codexScript({ bin, args, env = {} }) {
+export function codexScript({ bin, args, env = {}, envFile = null }) {
   const exp = Object.entries(env).filter(([, v]) => v != null && v !== '').map(([k, v]) => `export ${k}=${shq(v)}`);
+  // envFile: file env 0600 (mis. token mesin) yang dimuat saat jalan, supaya isinya tidak ada di skrip maupun argv
+  if (envFile) exp.push(`set -a; . ${shq(envFile)}; set +a`);
   return ['#!/bin/zsh', ...exp, `exec ${[bin, ...args].map(shq).join(' ')}`, ''].join('\n');
 }
 
@@ -113,9 +117,9 @@ let modelCache = null;
 const MODEL_TTL = 10 * 60e3;
 
 /** Default model and effort from ~/.codex/config.toml top level (two plain keys; nothing else is read). */
-export function codexDefaults() {
-  let txt = '';
-  try { txt = fs.readFileSync(path.join(process.env.CODEX_HOME || path.join(process.env.HOME || '', '.codex'), 'config.toml'), 'utf8'); } catch {}
+export function codexDefaults(txt = null) {
+  // txt = isi config.toml yang sudah dibaca (mis. dari Mac lain); null = baca milik Mac ini
+  if (txt == null) { txt = ''; try { txt = fs.readFileSync(path.join(process.env.CODEX_HOME || path.join(process.env.HOME || '', '.codex'), 'config.toml'), 'utf8'); } catch {} }
   const top = txt.split(/^\s*\[/m)[0];
   const get = k => new RegExp(`^\\s*${k}\\s*=\\s*"([^"]*)"`, 'm').exec(top)?.[1] || null;
   return { model: get('model'), effort: get('model_reasoning_effort') };

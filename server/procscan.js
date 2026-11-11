@@ -1,5 +1,6 @@
 // Find running `claude` processes so sessions show up even when their hooks have been quiet
 // (e.g. right after the daemon restarted, or for sessions started before hooks were installed).
+// Only this Mac's processes: sessions on another machine (s.machine) are never matched, claimed or ended here.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
@@ -10,6 +11,7 @@ import { globalDb, officeDb, all, one, nowIso } from './db.js';
 import { live, expectSession, bus, serialize } from './live.js';
 import { officeForCwd, officeModel, roomForCwd } from './offices.js';
 import { tmux } from './tmux.js';
+import { tmuxMachineOf, LOCAL } from './machines.js';
 
 const run = (cmd, args) => new Promise(resolve => execFile(cmd, args, { timeout: 8000, maxBuffer: 4 << 20 }, (err, out) => resolve(err && !out ? '' : String(out || ''))));
 
@@ -48,10 +50,11 @@ export async function claudeProcesses() {
     procs.set(pid, { pid: Number(pid), tty: '/dev/' + tty, cwd: null });
   }
   for (const [pid, p] of procs) p.host = hostOf(table, pid);
-  // panes the office itself runs (kc-*, kcm-*) are tracked through their tmux name, not their terminal
+  // panes the office itself runs (kc-*, kcm-*) are tracked through their tmux name, not their terminal;
+  // kcr-* are shifts another hub started on this Mac (docs/MULTI-PC.md): never shown or claimed here
   let panes = '';
   try { panes = tmux(['list-panes', '-a', '-F', '#{pane_tty} #{session_name}']); } catch {}
-  const paneOf = new Map(panes.split('\n').map(l => l.split(' ')).filter(([, n]) => /^kcm?-/.test(n || '')));
+  const paneOf = new Map(panes.split('\n').map(l => l.split(' ')).filter(([, n]) => /^kc[mr]?-/.test(n || '')));
   for (const [pid, p] of procs) if (paneOf.has(p.tty)) { officePanes.push({ ...p, pane: paneOf.get(p.tty) }); procs.delete(pid); }
   if (!procs.size) return [];
   const lsof = await run('/usr/sbin/lsof', ['-a', '-d', 'cwd', '-Fpn', '-p', [...procs.keys()].join(',')]);
@@ -95,12 +98,14 @@ function transcriptFor(p, taken) {
 /** Office panes nobody on the floor owns (e.g. after /clear went unnoticed): bring them back with their role. */
 function recoverPanes(g) {
   const panes = new Set(officePanes.map(p => p.pane));
-  for (const s of [...live.values()]) if (s.sid.startsWith('pane-') && !panes.has(s.tmux)) { live.delete(s.sid); bus.emit('msg', { t: 'session-gone', office: s.office, sid: s.sid }); }
+  for (const s of [...live.values()]) if (!s.machine && s.sid.startsWith('pane-') && !panes.has(s.tmux)) { live.delete(s.sid); bus.emit('msg', { t: 'session-gone', office: s.office, sid: s.sid }); }
   // shift panes (kc-) claim a conversation before copies made by "move to office" (kcm-)
   for (const p of [...officePanes].sort((a, b) => a.pane.startsWith('kcm-') - b.pane.startsWith('kcm-'))) {
-    if ([...live.values()].some(s => s.tmux === p.pane && s.status !== 'ended')) continue;
+    if (p.pane.startsWith('kcr-')) continue; // shift kantor lain (hub lain) di Mac ini
+    if (tmuxMachineOf(p.pane) !== LOCAL) continue; // a 'local:' (loopback) machine's pane runs on this tmux server too
+    if ([...live.values()].some(s => !s.machine && s.tmux === p.pane && s.status !== 'ended')) continue;
     const sid0 = sessionIdOf(p.pid);
-    const row = (sid0 && one(g, 'SELECT * FROM sessions WHERE sid = ?', sid0)) || one(g, 'SELECT * FROM sessions WHERE tmux = ? ORDER BY last_seen DESC LIMIT 1', p.pane);
+    const row = (sid0 && one(g, 'SELECT * FROM sessions WHERE sid = ? AND machine IS NULL', sid0)) || one(g, 'SELECT * FROM sessions WHERE tmux = ? AND machine IS NULL ORDER BY last_seen DESC LIMIT 1', p.pane);
     if (!row?.office) continue;
     // the same conversation already shows up from another pane: this one is a copy
     const copy = sid0 && live.has(sid0) && live.get(sid0).tmux !== p.pane;
@@ -121,26 +126,26 @@ export async function scanProcesses() {
   try {
     const procs = await claudeProcesses();
     const byTty = new Map(procs.map(p => [p.tty, p]));
-    const liveTtys = new Set([...live.values()].filter(s => s.tty && s.status !== 'ended').map(s => s.tty));
+    const liveTtys = new Set([...live.values()].filter(s => !s.machine && s.tty && s.status !== 'ended').map(s => s.tty));
     const g = globalDb();
     recoverPanes(g);
     const claimed = new Set();
     for (const p of procs) {
       if (liveTtys.has(p.tty)) continue;
       // the newest unfinished session that ran on this tab, or failing that one in this folder without a known tab
-      const rows = all(g, `SELECT * FROM sessions WHERE ended_at IS NULL AND tmux IS NULL AND (tty = ? OR (tty IS NULL AND cwd = ?))
+      const rows = all(g, `SELECT * FROM sessions WHERE ended_at IS NULL AND tmux IS NULL AND machine IS NULL AND (tty = ? OR (tty IS NULL AND cwd = ?))
                            ORDER BY (tty = ?) DESC, last_seen DESC LIMIT 12`, p.tty, p.cwd, p.tty);
       let done = false;
       for (const row of rows) {
         const lv = live.get(row.sid);
-        if (lv) { if (lv.tty) continue; lv.tty = p.tty; done = true; break; }
+        if (lv) { if (lv.tty || lv.machine) continue; lv.tty = p.tty; done = true; break; }
         expectSession({ sid: row.sid, office: row.office, role: row.role, room: row.room, cwd: row.cwd, tmux: null, slot: 0, title: row.title });
         const s = live.get(row.sid);
         Object.assign(s, { kind: row.source || 'manual', status: 'idle', tty: p.tty, transcript: row.transcript, startedAt: row.started_at, lastSeen: row.last_seen || nowIso() });
         bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
         done = true; break;
       }
-      if (!done) { const lv = [...live.values()].find(x => !x.tty && !x.tmux && x.cwd === p.cwd && x.status !== 'ended'); if (lv) { lv.tty = p.tty; done = true; } }
+      if (!done) { const lv = [...live.values()].find(x => !x.machine && !x.tty && !x.tmux && x.cwd === p.cwd && x.status !== 'ended'); if (lv) { lv.tty = p.tty; done = true; } }
       if (done) { liveTtys.add(p.tty); continue; }
       // never heard from: recognise it by its transcript, else show a placeholder until its first hook
       const taken = new Set(live.keys());
@@ -162,7 +167,7 @@ export async function scanProcesses() {
       // a live session that cd'ed elsewhere but was launched here (its transcript folder says so):
       // that is probably this process; don't show a duplicate, but don't guess its terminal either
       const enc = p.cwd.replace(/[^A-Za-z0-9]/g, '-');
-      const twin = [...live.values()].find(x => !x.tty && !x.tmux && !x.placeholder && x.status !== 'ended' && !claimed.has(x.sid) && x.transcript && path.basename(path.dirname(x.transcript)) === enc);
+      const twin = [...live.values()].find(x => !x.machine && !x.tty && !x.tmux && !x.placeholder && x.status !== 'ended' && !claimed.has(x.sid) && x.transcript && path.basename(path.dirname(x.transcript)) === enc);
       if (twin) { claimed.add(twin.sid); continue; }
       const sid = `proc-${p.pid}`;
       if (live.has(sid)) continue;
@@ -175,10 +180,10 @@ export async function scanProcesses() {
       bus.emit('msg', { t: 'session', office, session: serialize(s) });
       liveTtys.add(p.tty);
     }
-    for (const s of live.values()) { const p = s.tty && byTty.get(s.tty); if (p && s.host !== p.host) { s.host = p.host; bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) }); } }
+    for (const s of live.values()) { const p = !s.machine && s.tty && byTty.get(s.tty); if (p && s.host !== p.host) { s.host = p.host; bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) }); } }
     // sessions whose terminal no longer runs claude are gone
     for (const s of [...live.values()]) {
-      if (s.tmux || !s.tty || s.status === 'ended' || s.kind === 'rapat') continue;
+      if (s.machine || s.tmux || !s.tty || s.status === 'ended' || s.kind === 'rapat') continue;
       if (!byTty.has(s.tty)) {
         live.delete(s.sid);
         if (!s.placeholder) globalDb().prepare('UPDATE sessions SET ended_at = COALESCE(ended_at, ?) WHERE sid = ?').run(nowIso(), s.sid);

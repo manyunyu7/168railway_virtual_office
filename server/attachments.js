@@ -15,6 +15,8 @@ import { globalDb, all, one, run, nowIso, newId } from './db.js';
 import { officeModel } from './offices.js';
 import { live, bus } from './live.js';
 import { sessionAction } from './tmux.js';
+import * as mx from './machines.js';
+import { remoteResolve, pullFile, pushFile, remoteFreeName, rshAsync, machineLabel } from './files.js';
 
 const execFileP = promisify(execFile);
 const UPLOADS = path.join(DATA_DIR, 'uploads');
@@ -58,12 +60,23 @@ function freeName(dir, name) {
 
 /* ---------------- where a session works ---------------- */
 
-/** The session's office and working folder; falls back to the office folder when the working folder is gone. */
+const { q } = mx;
+/** id mesin kalau itu Mac lain yang terdaftar, selain itu null. */
+const remoteId = id => (id && id !== mx.LOCAL && mx.isRemote(id) ? id : null);
+
+/** The session's office and working folder; falls back to the office folder when the working folder is gone.
+ *  Sesi di Mac lain: { office, base: cwd di mesin itu, machine } (folder tidak dicek di sini). */
 function sessionWhere(sid) {
   const s = live.get(sid);
-  const row = one(globalDb(), 'SELECT office, cwd FROM sessions WHERE sid = ?', sid);
+  const row = one(globalDb(), 'SELECT * FROM sessions WHERE sid = ?', sid);
   const office = s?.office || row?.office;
   if (!office && !s && !row) throw err(404, 'Sesi tidak ditemukan');
+  const machine = remoteId(s?.machine || row?.machine);
+  if (machine) {
+    const cwd = s?.cwd || row?.cwd;
+    if (!cwd || !cwd.startsWith('/')) throw err(404, `Folder kerja sesi di ${machineLabel(machine)} tidak diketahui`);
+    return { office, base: cwd, machine };
+  }
   let base = s?.cwd || row?.cwd;
   if (!base || !fs.existsSync(base)) { try { base = officeModel(office).root; } catch { base = null; } }
   if (!base || !fs.existsSync(base)) throw err(404, 'Folder kerja sesi tidak ditemukan');
@@ -86,6 +99,16 @@ async function ensureExclude(dir) {
     }
     gitDone.set(dir, true);
   } catch { /* not a git repo, or no git */ }
+}
+/** Sama dengan ensureExclude, untuk folder di Mac lain (satu panggilan ssh). */
+async function ensureExcludeRemote(machine, dir) {
+  const key = `${machine}\0${dir}`;
+  if (gitDone.get(key)) return;
+  const gitBin = mx.ensureProbed(machine).git || 'git';
+  const r = await mx.shAsync(machine, `f=$(${q(gitBin)} -C ${q(dir)} rev-parse --path-format=absolute --git-path info/exclude 2>/dev/null) || exit 0; [ -n "$f" ] || exit 0
+mkdir -p "$(dirname "$f")" && touch "$f" || exit 0
+grep -qxE '/?\.kantor/?' "$f" || { [ -s "$f" ] && [ -n "$(tail -c 1 "$f")" ] && echo >> "$f"; echo '.kantor/' >> "$f"; }`, { timeout: 10000 });
+  if (r.code === 0) gitDone.set(key, true);
 }
 
 /* ---------------- ffmpeg / ffprobe ---------------- */
@@ -125,13 +148,15 @@ async function extractFrames(file, dir, duration) {
 const metaOf = r => { try { return JSON.parse(r.meta || '{}'); } catch { return {}; } };
 function serialize(r) {
   const meta = metaOf(r), kind = kindOf(r.mime), base = meta.base;
-  const rel = base && r.path.startsWith(base + path.sep) ? path.relative(base, r.path).split(path.sep).join('/') : r.path;
+  const shown = meta.remote?.path || r.path; // lampiran sesi di Mac lain: path di mesin itu, salinannya di Mac ini
+  const rel = base && shown.startsWith(base + path.sep) ? path.relative(base, shown).split(path.sep).join('/') : shown;
   return {
     id: r.id, sid: r.sid, office: r.office, dir: r.dir, name: r.name, path: rel, mime: r.mime, size: r.size, caption: r.caption || '', at: r.at, kind,
     duration: meta.duration ?? null, width: meta.width ?? null, height: meta.height ?? null,
     frames: meta.frames ? { dir: meta.frames.dir, count: meta.frames.count } : null,
     processing: !!meta.processing, delivered: r.dir === 'in' ? !!meta.delivered : null,
     url: `/api/attachments/${r.id}/raw`, thumb: kind === 'image' || kind === 'video' ? `/api/attachments/${r.id}/thumb` : null,
+    ...(meta.remote ? { machine: meta.remote.machine, machineName: machineLabel(meta.remote.machine) } : {}),
   };
 }
 const getRow = id => one(globalDb(), 'SELECT * FROM attachments WHERE id = ?', String(id));
@@ -238,6 +263,7 @@ export async function appendUpload(id, req) {
 
 async function finalizeUpload(m) {
   const where = sessionWhere(m.sid);
+  if (where.machine) return finalizeRemote(m, where);
   const inbox = path.join(where.base, '.kantor', 'inbox');
   fs.mkdirSync(inbox, { recursive: true });
   await ensureExclude(where.base);
@@ -254,10 +280,37 @@ async function finalizeUpload(m) {
   return item;
 }
 
+/** Sesi di Mac lain: salinan tetap di Mac ini (untuk chat), file dikirim ke <cwd>/.kantor/inbox/ di mesin itu di latar. */
+async function finalizeRemote(m, where) {
+  const inbox = `${where.base}/.kantor/inbox`;
+  const name = remoteFreeName(where.machine, inbox, `${stamp()}-${safeName(m.name)}`, '-%d');
+  const dir = path.join(UPLOADS, 'mesin', m.id);
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const dest = path.join(dir, name);
+  try { fs.renameSync(partPath(m.id), dest); }
+  catch (e) { if (e.code !== 'EXDEV') throw e; fs.copyFileSync(partPath(m.id), dest); fs.unlinkSync(partPath(m.id)); }
+  const row = insert({ sid: m.sid, office: where.office, dir: 'in', file: dest, name: m.name, mime: m.mime, size: m.size, caption: m.caption,
+    meta: { base: where.base, remote: { machine: where.machine, path: `${inbox}/${name}` }, processing: true } });
+  writeUpload({ ...m, done: true, attachment: row.id });
+  const item = emit(row);
+  processIncoming(row.id).catch(e => console.error(`lampiran ${row.id}: ${e.message}`));
+  return item;
+}
+
 /** Probe, cut frames out of a video, then tell the session. Runs after the upload response was sent. */
 async function processIncoming(id) {
   let r = getRow(id);
   const meta = metaOf(r), patch = { processing: false };
+  if (meta.remote) {
+    try {
+      await pushFile(meta.remote.machine, r.path, meta.remote.path);
+      await ensureExcludeRemote(meta.remote.machine, meta.base);
+    } catch (e) {
+      r = setMeta(id, { processing: false, delivered: false, error: `Belum sampai ke ${machineLabel(meta.remote.machine)}: ${e.message}` });
+      emit(r);
+      return { item: serialize(r), delivered: false, text: null };
+    }
+  }
   try {
     let kind = kindOf(r.mime);
     const info = kind === 'video' || kind === 'audio' || r.mime === 'application/octet-stream' ? await probe(r.path) : null;
@@ -269,6 +322,12 @@ async function processIncoming(id) {
       const dir = path.join(path.dirname(r.path), `${path.basename(r.path, path.extname(r.path))}-frames`);
       const count = await extractFrames(r.path, dir, info?.duration || 0);
       if (count) patch.frames = { dir, count, everySec: info?.duration > 60 ? Math.round(info.duration / 60 * 10) / 10 : 1 };
+      if (count && meta.remote) { // frame dibuat di Mac ini, lalu dikirim sekaligus (tar) ke sebelah file di mesin itu
+        const rdir = `${path.posix.dirname(meta.remote.path)}/${path.basename(dir)}`;
+        const tar = await execFileP('/usr/bin/tar', ['-cf', '-', '-C', dir, '.'], { encoding: 'buffer', maxBuffer: 256 * 1024 ** 2 }).then(x => x.stdout);
+        const x = await rshAsync(meta.remote.machine, `mkdir -p ${q(rdir)} && tar -xf - -C ${q(rdir)}`, { input: tar, timeout: 120000 });
+        if (x.code === 0) patch.frames = { ...patch.frames, dir: rdir, localDir: dir }; else delete patch.frames;
+      }
     }
   } catch (e) { console.error(`lampiran ${id}: ${e.message}`); }
   r = setMeta(id, patch);
@@ -304,6 +363,11 @@ function sendRoots(base, office) {
 }
 const dirOf = ident => {
   if (ident.sid) { try { return sessionWhere(ident.sid); } catch {} }
+  const machine = remoteId(ident.machine);
+  if (machine) {
+    if (!ident.cwd || !String(ident.cwd).startsWith('/')) throw err(404, `Folder kerja di ${machineLabel(machine)} tidak diketahui`);
+    return { office: ident.office, base: ident.cwd, machine };
+  }
   let base = ident.cwd && fs.existsSync(ident.cwd) ? ident.cwd : null;
   if (!base) { try { base = officeModel(ident.office).root; } catch {} }
   if (!base || !fs.existsSync(base)) throw err(404, 'Folder kerja tidak ditemukan');
@@ -311,7 +375,9 @@ const dirOf = ident => {
 };
 
 export async function sendToOwner(ident, p, caption) {
-  const { office, base } = dirOf(ident);
+  const where = dirOf(ident);
+  if (where.machine) return sendRemoteToOwner(ident, where, p, caption);
+  const { office, base } = where;
   const abs = path.resolve(base, String(p || ''));
   let real;
   try { real = fs.realpathSync(abs); } catch { throw new Error(`Tidak ada file ${p}`); }
@@ -337,12 +403,36 @@ export async function sendToOwner(ident, p, caption) {
   return item;
 }
 
+/** kirim_ke_pemilik dari sesi di Mac lain: file ditarik ke Mac ini (bertahap), lalu dicatat seperti biasa. */
+async function sendRemoteToOwner(ident, { office, base, machine }, p, caption) {
+  const info = remoteResolve(machine, base, String(p || ''));
+  if (!info.exists || !info.real) throw new Error(`Tidak ada file ${p} di ${machineLabel(machine)}`);
+  const roots = [info.rootReal, base, info.tmp, '/tmp', '/private/tmp', info.home ? `${info.home}/.codex/generated_images` : null].filter(Boolean);
+  if (!roots.some(r => info.real === r || info.real.startsWith(r + '/'))) throw new Error('File harus berada di folder kerja atau folder sementara (/tmp) di mesin itu');
+  if (info.type !== 'file') throw new Error('Bukan file');
+  if (!info.size) throw new Error('File kosong');
+  if (info.size > conf().maxBytes) throw new Error(`File terlalu besar (maks ${fmtSize(conf().maxBytes)})`);
+  const dir = path.join(UPLOADS, 'mesin', safeName(machine));
+  fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const file = path.join(dir, freeName(dir, `${stamp()}-${safeName(path.posix.basename(info.real))}`));
+  await pullFile(machine, info.real, file, { size: info.size, max: conf().maxBytes });
+  const mime = mimeOf(file);
+  const pr = kindOf(mime) === 'video' || kindOf(mime) === 'audio' ? await probe(file) : null;
+  const row = insert({ sid: currentSid(ident.sid), office, dir: 'out', file, name: path.posix.basename(info.real), mime, size: info.size, caption,
+    meta: { base, remote: { machine, path: info.real }, ...(pr ? { duration: pr.duration, width: pr.width, height: pr.height } : {}) } });
+  const item = emit(row);
+  bus.emit('notify', { kind: 'file', sid: row.sid, office, who: ident.by || 'Sesi', text: `${item.name}${item.caption ? ` — ${item.caption}` : ''}`, dedupe: item.id });
+  return item;
+}
+
 const LOCAL_HOST = /^(localhost|127(\.\d+){3}|\[::1\]|10(\.\d+){3}|192\.168(\.\d+){2}|172\.(1[6-9]|2\d|3[01])(\.\d+){2}|[\w-]+\.local)$/i;
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 /** Screenshot of the Mac screen or of a local page, saved into the outbox and sent to the owner. */
 export async function captureScreen(ident, { target, url, caption } = {}) {
-  const { base } = dirOf(ident);
+  const where = dirOf(ident);
+  if (where.machine) return captureRemote(ident, where, { target, url, caption });
+  const { base } = where;
   const outbox = path.join(base, '.kantor', 'outbox');
   fs.mkdirSync(outbox, { recursive: true });
   await ensureExclude(base);
@@ -364,6 +454,33 @@ export async function captureScreen(ident, { target, url, caption } = {}) {
   } else throw new Error("target harus 'layar' atau 'url'");
   if (!fs.existsSync(file) || !fs.statSync(file).size) throw new Error('Tangkapan layar kosong. Cek izin Screen Recording untuk daemon di Pengaturan Sistem.');
   return sendToOwner({ ...ident, cwd: base }, file, caption);
+}
+
+/** tangkap_layar dari sesi di Mac lain: layarnya (atau Chrome headless) di mesin itu, file ditarik ke Mac ini. */
+async function captureRemote(ident, where, { target, url, caption }) {
+  const { machine } = where, name = machineLabel(machine);
+  const t = target || (url ? 'url' : 'layar');
+  const file = `/tmp/kc-shot-${stamp()}-${t === 'url' ? 'halaman' : 'layar'}-${crypto.randomBytes(3).toString('hex')}.png`;
+  let r;
+  if (t === 'layar') {
+    r = await rshAsync(machine, `/usr/sbin/screencapture -x -t png ${q(file)}`, { timeout: 25000 });
+    if (r.code !== 0) throw new Error(`screencapture di ${name} gagal: ${clip(r.stderr, 200) || `kode ${r.code}`}. Di Mac itu, beri izin Perekaman Layar untuk sshd-keygen-wrapper/Remote Login.`);
+  } else if (t === 'url') {
+    let u;
+    try { u = new URL(String(url)); } catch { throw new Error('url tidak valid'); }
+    if (!/^https?:$/.test(u.protocol)) throw new Error('URL harus http atau https');
+    if (!LOCAL_HOST.test(u.hostname) && !LOCAL_HOST.test(`[${u.hostname}]`)) throw new Error('Hanya halaman lokal (localhost, jaringan rumah) yang boleh ditangkap');
+    // Chrome di mesin itu, jadi localhost berarti localhost Mac tempat sesi bekerja
+    r = await rshAsync(machine, `C=${q(CHROME)}; [ -x "$C" ] || exit 7; P=$(mktemp -d /tmp/kc-shot-XXXXXX) || exit 8
+"$C" --headless=new --disable-gpu --hide-scrollbars --no-first-run --user-data-dir="$P" --screenshot=${q(file)} --window-size=1280,900 --virtual-time-budget=6000 ${q(u.href)} >/dev/null 2>&1; rc=$?; rm -rf "$P"; [ -s ${q(file)} ] || exit $rc; exit 0`, { timeout: 50000 });
+    if (r.code === 7) throw new Error(`Google Chrome tidak ditemukan di /Applications pada ${name}`);
+    if (r.code !== 0) throw new Error(`Chrome di ${name} gagal menangkap halaman: ${clip(r.stderr, 200) || `kode ${r.code}`}`);
+  } else throw new Error("target harus 'layar' atau 'url'");
+  try {
+    const st = mx.statFile(machine, file);
+    if (!st?.size) throw new Error(`Tangkapan layar di ${name} kosong. Cek izin Perekaman Layar di Mac itu.`);
+    return await sendToOwner({ ...ident, machine, cwd: where.base }, file, caption);
+  } finally { mx.shAsync(machine, `rm -f ${q(file)}`).catch(() => {}); }
 }
 
 /* ---------------- serving ---------------- */
@@ -455,7 +572,9 @@ export function resolveImage(p, roots) {
 }
 /** GET /api/sessions/:sid/image?path=…[&thumb=1]: one image named by a chat item {k:'image'}. */
 export async function sendSessionImage(sid, p, thumb, req, res) {
-  let file = resolveImage(p, imageRoots(sid));
+  let w = null;
+  try { w = sessionWhere(sid); } catch {}
+  let file = w?.machine ? await pullSessionImage(w, p) : resolveImage(p, imageRoots(sid));
   let type = TYPES[extOf(file)];
   if (thumb) {
     const st = fs.statSync(file);
@@ -468,6 +587,25 @@ export async function sendSessionImage(sid, p, thumb, req, res) {
     'Content-Security-Policy': "sandbox; default-src 'none'", 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(path.basename(file))}` });
   if (req.method === 'HEAD') return res.end();
   fs.createReadStream(file).on('error', () => res.destroy()).pipe(res);
+}
+
+const MAX_REMOTE_IMAGE = 50 * 1024 ** 2;
+/** Gambar dari transkrip sesi di Mac lain: aturan yang sama dengan resolveImage, dicek di mesin itu, lalu disalin (cache per isi). */
+async function pullSessionImage({ machine, base }, p) {
+  let s = String(p || '');
+  if (s.startsWith('file://')) { try { s = decodeURIComponent(new URL(s).pathname); } catch { throw err(400, 'path tidak valid'); } }
+  if (!s.startsWith('/') || s.includes('\0')) throw err(400, 'path harus absolut');
+  if (!IMG_EXT.has(extOf(s))) throw err(400, 'Hanya berkas gambar');
+  const info = remoteResolve(machine, base, s);
+  if (!info.exists || !info.real) throw err(404, 'Gambar sudah tidak ada di disk');
+  if (!IMG_EXT.has(extOf(info.real))) throw err(400, 'Hanya berkas gambar');
+  const roots = [info.rootReal, base, info.tmp, '/tmp', '/private/tmp', info.home ? `${info.home}/.codex/generated_images` : null].filter(Boolean);
+  if (!roots.some(r => info.real === r || info.real.startsWith(r + '/'))) throw err(403, 'Gambar di luar folder sesi');
+  if (info.type !== 'file') throw err(404, 'Bukan berkas');
+  if (info.size > MAX_REMOTE_IMAGE) throw err(413, 'Gambar terlalu besar untuk ditarik dari mesin lain');
+  const out = path.join(UPLOADS, 'mesin-img', `${crypto.createHash('sha1').update(`${machine}\0${info.real}\0${info.size}\0${info.mtimeMs}`).digest('hex').slice(0, 24)}.${extOf(info.real)}`);
+  if (!fs.existsSync(out)) await pullFile(machine, info.real, out, { size: info.size, max: MAX_REMOTE_IMAGE });
+  return out;
 }
 
 /* ---------------- housekeeping ---------------- */

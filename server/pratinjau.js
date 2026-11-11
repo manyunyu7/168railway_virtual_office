@@ -19,6 +19,8 @@ import { sessionAction } from './tmux.js';
 import { parseRange, saveFromFile, mediaMarkdown } from './media.js';
 import { thumbFile, safeName } from './attachments.js';
 import { who as actorName } from './actor.js';
+import * as mx from './machines.js';
+import { remoteResolve, remoteRelOf, pullFile, rshAsync, machineLabel } from './files.js';
 
 const execFileP = promisify(execFile);
 const err = (code, message) => Object.assign(new Error(message), { code });
@@ -188,6 +190,31 @@ export function resolveInOffice(office, cwd, p) {
   return r;
 }
 
+/** resolveInOffice untuk sesi di Mac lain: path harus di dalam ruangan kantor ini di mesin itu. → { real, type, size } */
+function resolveRemoteInOffice(office, machine, cwd, p) {
+  if (!p || !String(p).trim()) throw new Error('Path kosong');
+  if (!cwd || !String(cwd).startsWith('/')) throw new Error(`Folder kerja di ${machineLabel(machine)} tidak diketahui`);
+  const info = remoteResolve(machine, cwd, String(p));
+  if (!info.exists || !info.real) throw new Error(`Tidak ada file atau folder ${p} di ${machineLabel(machine)}`);
+  if (!remoteRelOf(office, machine, info.real)) throw new Error(`${p} berada di luar folder ruangan kantor di ${machineLabel(machine)}. Pratinjau hanya menerima berkas di dalam folder ruangan.`);
+  return info;
+}
+/** Folder di Mac lain → tar di /tmp sana → ditarik → dibongkar di `to`. */
+async function pullTree(machine, src, to, maxBytes) {
+  const ex = [...SKIP_DIRS].flatMap(n => ['--exclude', n, '--exclude', `*/${n}`]).map(mx.q).join(' ');
+  const r = await rshAsync(machine, `T=$(mktemp /tmp/kc-prv-XXXXXX) || exit 8; tar -cf "$T" ${ex} -C ${mx.q(src)} . 2>/dev/null; printf '%s' "$T"`, { timeout: 120000 });
+  const tarFile = String(r.stdout).trim();
+  if (!tarFile.startsWith('/tmp/kc-prv-')) throw new Error(`Gagal mengemas folder di ${machineLabel(machine)}`);
+  const local = `${to}.tar`;
+  try {
+    await pullFile(machine, tarFile, local, { max: Math.max(maxBytes * 1.2, maxBytes + (8 << 20)) });
+    fs.mkdirSync(to, { recursive: true });
+    await execFileP('/usr/bin/tar', ['-xf', local, '-C', to], { timeout: 120000 });
+  } catch (e) { if (e.code === 413) throw new Error(`Folder terlalu besar (maks ${fmtSize(maxBytes)}).`); throw e; }
+  finally { fs.rmSync(local, { force: true }); mx.shAsync(machine, `rm -f ${mx.q(tarFile)}`).catch(() => {}); }
+  return to;
+}
+
 const SKIP_DIRS = new Set(['.git', 'node_modules', '.kantor', '.DS_Store', '__MACOSX']);
 /** Every regular file under dir (symlinks skipped, so nothing outside can sneak in). */
 function walk(dir, max) {
@@ -222,6 +249,7 @@ const entryOrder = (a, b) => (b.rel === 'index.html') - (a.rel === 'index.html')
  */
 export async function sendItem(ident, a = {}) {
   const { office, role, by, sid, cwd } = ident;
+  const remote = ident.machine && ident.machine !== mx.LOCAL && mx.isRemote(ident.machine) ? ident.machine : null; // sesi di Mac lain: berkas ditarik ke sini
   const lim = conf();
   const title = clip(a.judul, 140);
   if (!title) throw new Error('Isi `judul`: satu kalimat pendek tentang apa yang dipratinjau (mis. "Desain halaman checkout v2").');
@@ -250,10 +278,20 @@ export async function sendItem(ident, a = {}) {
   let total = 0;
   try {
     if (mode === 'bundle') {
-      let src = resolveInOffice(office, cwd, a.folder);
-      const isZip = fs.statSync(src).isFile();
-      if (isZip && extOf(src) !== 'zip') throw new Error('`folder` harus folder atau berkas .zip.');
-      if (isZip) src = await unzip(src, path.join(stage, 'unzip'));
+      let src, isZip;
+      if (remote) {
+        const info = resolveRemoteInOffice(office, remote, cwd, a.folder);
+        isZip = info.type === 'file';
+        if (isZip && extOf(info.real) !== 'zip') throw new Error('`folder` harus folder atau berkas .zip.');
+        if (isZip) { src = path.join(stage, 'src.zip'); await pullFile(remote, info.real, src, { size: info.size, max: lim.maxBytes }).catch(e => { throw e.code === 413 ? new Error(`Zip terlalu besar (maks ${fmtSize(lim.maxBytes)}).`) : e; }); }
+        else if (info.type === 'dir') src = await pullTree(remote, info.real, path.join(stage, 'unzip'), lim.maxBytes);
+        else throw new Error('`folder` harus folder atau berkas .zip.');
+      } else {
+        src = resolveInOffice(office, cwd, a.folder);
+        isZip = fs.statSync(src).isFile();
+        if (isZip && extOf(src) !== 'zip') throw new Error('`folder` harus folder atau berkas .zip.');
+      }
+      if (isZip) { const zf = src; src = await unzip(src, path.join(stage, 'unzip')); if (remote) fs.rmSync(zf, { force: true }); }
       const tree = walk(src, lim.maxBundleEntries);
       total = tree.reduce((s, f) => s + f.size, 0);
       if (total > lim.maxBytes) throw new Error(`Folder terlalu besar (${fmtSize(total)}, maks ${fmtSize(lim.maxBytes)}).`);
@@ -265,6 +303,13 @@ export async function sendItem(ident, a = {}) {
     } else {
       const used = new Set();
       const srcs = list.map(p => {
+        if (remote) {
+          const info = resolveRemoteInOffice(office, remote, cwd, p);
+          if (info.type !== 'file') throw new Error(`${p} bukan berkas. Untuk folder/situs pakai \`folder\`.`);
+          if (!info.size) throw new Error(`${p} kosong.`);
+          total += info.size;
+          return { abs: info.real, size: info.size, remote: true };
+        }
         const r = resolveInOffice(office, cwd, p);
         const s = fs.statSync(r);
         if (!s.isFile()) throw new Error(`${p} bukan berkas. Untuk folder/situs pakai \`folder\`.`);
@@ -273,14 +318,15 @@ export async function sendItem(ident, a = {}) {
         return { abs: r, size: s.size };
       });
       if (total > lim.maxBytes) throw new Error(`Total berkas terlalu besar (${fmtSize(total)}, maks ${fmtSize(lim.maxBytes)}).`);
-      srcs.forEach((s, i) => {
+      for (const [i, s] of srcs.entries()) {
         const first = safeName(path.basename(s.abs)) || `berkas-${i + 1}`, ext = path.extname(first);
         let name = first;
         for (let n = 2; used.has(name.toLowerCase()); n++) name = `${first.slice(0, first.length - ext.length)}-${n}${ext}`;
         used.add(name.toLowerCase());
-        fs.copyFileSync(s.abs, path.join(stage, 'files', name));
+        if (s.remote) await pullFile(remote, s.abs, path.join(stage, 'files', name), { size: s.size, max: lim.maxBytes });
+        else fs.copyFileSync(s.abs, path.join(stage, 'files', name));
         files.push({ id: `f${i + 1}`, name: path.basename(s.abs), rel: name, mime: mimeOf(name), size: s.size, kind: kindOf(name), status: 'menunggu' });
-      });
+      }
     }
     fs.renameSync(stage, dir);
   } catch (e) { fs.rmSync(stage, { recursive: true, force: true }); throw e; }

@@ -1,0 +1,23 @@
+/* Multi-PC: lencana mesin remote dan keadaan offline (web/js/lencana.js). Hanya muncul untuk sesi/ruangan di Mac lain. */
+.mx-badge{display:inline-block;flex:none;max-width:24ch;margin-left:6px;padding:1px 6px;border-radius:8px;background:var(--blue-soft);color:var(--blue-text);font:800 9.5px var(--f-label);font-style:normal;letter-spacing:.02em;line-height:1.5;text-transform:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+.mx-badge.off{background:var(--surface-2);color:var(--muted-2);box-shadow:inset 0 0 0 1.5px var(--line)}
+.mx-badge .mx-offl{font:inherit;font-weight:900}
+.mx-ic{position:relative;display:inline-block;flex:none;width:9px;height:6px;margin:0 4px 1px 0;vertical-align:middle;box-sizing:content-box;border:1.5px solid currentColor;border-radius:2px;font-style:normal}
+.mx-ic::after{content:"";position:absolute;left:50%;bottom:-4px;width:5px;height:1.5px;margin-left:-2.5px;background:currentColor;border-radius:1px}
+
+/* tempat yang sudah memakai chip .st: samakan tingginya */
+.dr-line .mx-badge,.cm-name .mx-badge{margin-left:0;padding:3px 8px;font-size:10.5px;border:2px solid transparent}
+.dr-line .mx-badge.off,.cm-name .mx-badge.off{box-shadow:none;border-color:var(--line)}
+.kf-card .mx-badge{margin-left:0;font-size:9px;padding:0 5px}
+.room-info h2 .mx-badge{font-size:10px;vertical-align:3px}
+
+/* sesi/ruangan di mesin offline: redup dan abu, tetap bisa diklik untuk membaca chat */
+.mx-dim{opacity:.6;filter:grayscale(.85)}
+.mx-dim:hover,.mx-dim:focus-within,.mx-dim.cur{opacity:.85}
+
+.mx-banner{display:flex;align-items:center;gap:10px;margin:0 0 8px;padding:9px 12px;border-radius:10px;background:var(--warn-soft);color:var(--ink);border-left:4px solid var(--warn);font-size:13px;line-height:1.4}
+.mx-banner .mx-ic{color:var(--warn);margin:0}
+.ch-foot .mx-banner{margin:6px 0}
+.cm-empty .mx-banner{max-width:460px;text-align:left}
+.mx-hint{margin:6px 0 10px}
+.cm-head.mx-off .cm-tools .btn.halt:disabled{--bf:var(--surface-2);--be:var(--line);--bb:var(--line);--bc:var(--muted-2);background:var(--surface-2);border-color:var(--line);color:var(--muted-2)}

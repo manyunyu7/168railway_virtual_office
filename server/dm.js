@@ -2,13 +2,17 @@
 // A message is stored first (office db, table dm). It reaches the recipient two ways: as a short reminder appended to the
 // result of the next kantor tool the recipient calls (or a PostToolUse/UserPromptSubmit hook), so it arrives mid-turn; or typed
 // into its tmux session once that is idle. A message shown as a reminder is marked read and never typed afterwards.
+// A recipient on another Mac (docs/MULTI-PC.md) is reached the same ways; while its machine is offline nothing is typed (the
+// message waits) and the sender is told so. Once the machine is back online, held messages go in (and held auto-starts run).
 // kind: pesan | tanya | balasan | fyi (no reply wanted, never wakes an idle session on its own)
 // status: menunggu (stored, not shown yet) -> terkirim (typed in) -> dibaca (shown / the session received the prompt) -> dibalas
 import { officeDb, all, one, run, nowIso, newId } from './db.js';
 import { bus, live, logOffice, setHookContext } from './live.js';
 import * as st from './store.js';
 import { config } from './config.js';
-import { sessionAction, startShift } from './tmux.js';
+import { sessionAction, startShift, enterDelay } from './tmux.js';
+import { officeModel } from './offices.js';
+import * as mx from './machines.js';
 
 const MAX_TEXT = 4000;
 export const ASK_DEFAULT_SEC = 300;
@@ -17,10 +21,14 @@ export const ASK_MAX_SEC = 900;
 let sender = (sid, text) => sessionAction(sid, 'text', text);
 /** Tests replace the way text reaches a session. */
 export function setSender(fn) { sender = fn; }
+let starter = (office, roleId, opts) => startShift(office, roleId, opts);
+/** Tests replace how an automatic shift is started. */
+export function setStarter(fn) { starter = fn; }
 
 const turnStart = new Map(); // office:role -> ISO time of the role's latest prompt (a "turn" for dm.maxPerTurn)
 const waiters = new Map(); // id of a tanya -> resolve(reply row)
 const delivering = new Set(); // office:role while a delivery is in flight
+const held = new Set(); // office\trole whose messages wait for a machine to come back online (typing or auto-start)
 
 const db = office => officeDb(office);
 const get = (office, id) => one(db(office), 'SELECT * FROM dm WHERE id = ?', id);
@@ -63,11 +71,54 @@ function checkRate(office, a, b, { reply = false } = {}) {
   if (!reply && mine >= maxPerPair * 3) throw new Error(`Kamu sudah mengirim ${mine} pesan dalam ${windowMin} menit. Tunggu sebentar.`);
 }
 
-/** The tmux session that can take typed text for a role (a Terminal or VS Code session cannot). */
+/* ---------------- sessions on another Mac ---------------- */
+const machineName = id => mx.getMachine(id)?.name || id;
+/** The session runs on a registered machine that is known to be offline: typing would fail or hang on ssh. */
+export const sessionOffline = s => !!s?.machine && s.machine !== mx.LOCAL && mx.isOffline(s.machine);
+/** Machine of the role's room (where its shifts run), or null for this Mac. */
+export function roleMachine(office, roleId) {
+  const role = st.getRole(office, roleId);
+  if (!role?.room) return null;
+  let room = null;
+  try { room = officeModel(office)?.plan?.rooms?.find(r => r.id === role.room) || null; } catch {}
+  return room?.machine && room.machine !== mx.LOCAL && mx.isRemote(room.machine) ? room.machine : null;
+}
+const offlineNote = (office, roleId, machine) => `${nameOf(office, roleId).name} ada di ${machineName(machine)} yang sedang offline; pesan disimpan dan dikirim saat tersambung lagi.`;
+
+/*
+ * Typing into one session goes one text at a time. sessionAction returns before Enter is pressed (that happens a moment
+ * later, longer over ssh), so the next text for the same session also waits that moment out instead of landing in the
+ * input box before the previous one was submitted. Local sessions wait nothing extra.
+ */
+const chains = new Map(); // sid -> tail promise
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let settle = (sid, text) => {
+  const s = live.get(sid);
+  if (!s?.machine || !mx.isRemote(s.machine)) return 0;
+  const lat = mx.machineStatus(s.machine).latencyMs || 0;
+  return Math.min(8000, enterDelay(text) + 1600 + 6 * lat);
+};
+/** Tests replace how long a remote session is given to submit typed text. */
+export function setSettle(fn) { settle = fn; }
+/** Send `text` to session `sid` with `send` (sid, text), after anything still being typed into that session. */
+export function typeSerial(sid, text, send) {
+  const prev = chains.get(sid) || Promise.resolve();
+  const go = prev.then(() => {
+    if (sessionOffline(live.get(sid))) throw new Error(`mesin ${machineName(live.get(sid).machine)} sedang offline`);
+    return send(sid, text);
+  });
+  const tail = go.then(() => wait(settle(sid, text)), () => {});
+  chains.set(sid, tail);
+  tail.then(() => { if (chains.get(sid) === tail) chains.delete(sid); });
+  return go;
+}
+
+/** The tmux session that can take typed text for a role (a Terminal or VS Code session cannot). Sessions on a reachable machine first. */
 function recipient(office, roleId) {
   const rows = [...live.values()].filter(s => s.office === office && s.role === roleId && s.tmux && s.status !== 'ended' && s.kind !== 'rapat');
   rows.sort((a, b) => (a.slot || 0) - (b.slot || 0));
-  return rows.find(s => s.status === 'idle') || rows[0] || null;
+  const reach = rows.filter(s => !sessionOffline(s));
+  return reach.find(s => s.status === 'idle') || reach[0] || rows[0] || null;
 }
 
 function format(office, r) {
@@ -90,12 +141,13 @@ export async function deliver(office, roleId) {
   if (!pend.some(r => r.kind !== 'fyi')) return 0;
   const s = recipient(office, roleId);
   if (!s || s.status !== 'idle') return 0;
+  if (sessionOffline(s)) { held.add(`${office}\t${roleId}`); return 0; } // held until the machine is back (flushMachine)
   delivering.add(lock);
   const at = nowIso();
   try {
     for (const r of pend) run(db(office), "UPDATE dm SET status = 'terkirim', sent_at = ? WHERE id = ? AND status = 'menunggu'", at, r.id);
     const body = pend.map(r => format(office, r)).join('\n');
-    try { await sender(s.sid, pend.length > 1 ? `📨 ${pend.length} pesan masuk:\n${body}` : body); }
+    try { await typeSerial(s.sid, pend.length > 1 ? `📨 ${pend.length} pesan masuk:\n${body}` : body, sender); }
     catch {
       for (const r of pend) run(db(office), "UPDATE dm SET status = 'menunggu', sent_at = NULL WHERE id = ? AND status = 'terkirim'", r.id);
       return 0;
@@ -155,23 +207,80 @@ function create(office, { from, to, kind, text, card, replyTo, grp }) {
 }
 
 const WORKING_NOTE = 'penerima sedang bekerja; pesan muncul sebagai pengingat di hasil tool kantor berikutnya yang dia panggil, atau diketik begitu dia idle';
+/** Start the role's shift with these waiting messages as its first task; they count as typed in. */
+function startWith(office, to, rows) {
+  const body = rows.map(r => format(office, r)).join('\n');
+  const sh = starter(office, to, { task: rows.length > 1 ? `📨 ${rows.length} pesan masuk:\n${body}` : body });
+  const at = nowIso();
+  for (const r of rows) { run(db(office), "UPDATE dm SET status = 'terkirim', sent_at = ? WHERE id = ? AND status = 'menunggu'", at, r.id); emit(office, get(office, r.id)); }
+  return sh;
+}
 async function dispatch(office, r) {
   const to = r.to_role;
-  if (r.kind === 'fyi') return { item: view(office, get(office, r.id)), pengiriman: 'FYI tersimpan: muncul sebagai pengingat di hasil tool penerima, atau ikut diketik bersama pesan lain; tidak membangunkan penerima dan tidak perlu dibalas' };
+  if (r.kind === 'fyi') {
+    const s = recipient(office, to), mach = s ? (sessionOffline(s) ? s.machine : null) : (mx.isOffline(roleMachine(office, to)) ? roleMachine(office, to) : null);
+    return { item: view(office, get(office, r.id)), offline: !!mach || undefined, pengiriman: 'FYI tersimpan: muncul sebagai pengingat di hasil tool penerima, atau ikut diketik bersama pesan lain; tidak membangunkan penerima dan tidak perlu dibalas' + (mach ? `. ${nameOf(office, to).name} ada di ${machineName(mach)} yang sedang offline.` : '') };
+  }
   await deliver(office, to);
   const cur = get(office, r.id);
   if (cur.status !== 'menunggu') return { item: view(office, cur), pengiriman: 'sudah diketik ke sesi penerima' };
   const s = recipient(office, to);
+  if (s && sessionOffline(s)) { held.add(`${office}\t${to}`); return { item: view(office, cur), offline: true, pengiriman: offlineNote(office, to, s.machine) }; }
   if (s) return { item: view(office, cur), pengiriman: WORKING_NOTE };
+  const mach = roleMachine(office, to);
+  if (mach && mx.isOffline(mach)) {
+    held.add(`${office}\t${to}`);
+    const auto = config().dm?.autoStart;
+    return { item: view(office, cur), offline: true, pengiriman: `${offlineNote(office, to, mach)} ${auto ? 'Shiftnya dimulai otomatis begitu mesin itu tersambung.' : 'Shiftnya baru bisa dimulai setelah mesin itu tersambung; manager bisa memulainya dengan shift_start.'}` };
+  }
   if (config().dm?.autoStart) {
     try {
-      const sh = startShift(office, to, { task: format(office, cur) });
-      run(db(office), "UPDATE dm SET status = 'terkirim', sent_at = ? WHERE id = ?", nowIso(), r.id);
-      return { item: emit(office, get(office, r.id)), pengiriman: `shift ${nameOf(office, to).name} dimulai (tmux ${sh.tmux}) dengan pesan ini sebagai tugas pertama` };
-    } catch (e) { return { item: view(office, cur), pengiriman: `penerima belum shift dan shift otomatis gagal: ${e.message}. Pesan tersimpan.` }; }
+      const sh = startWith(office, to, [cur]);
+      return { item: view(office, get(office, r.id)), pengiriman: `shift ${nameOf(office, to).name} dimulai (tmux ${sh.tmux}) dengan pesan ini sebagai tugas pertama` };
+    } catch (e) {
+      if (mach && mx.isOffline(mach)) { held.add(`${office}\t${to}`); return { item: view(office, cur), offline: true, pengiriman: `${offlineNote(office, to, mach)} Shiftnya dimulai otomatis begitu mesin itu tersambung.` }; }
+      return { item: view(office, cur), pengiriman: `penerima belum shift dan shift otomatis gagal: ${e.message}. Pesan tersimpan.` };
+    }
   }
   return { item: view(office, cur), pengiriman: `${nameOf(office, to).name} belum shift. Pesan tersimpan dan masuk begitu dia mulai; manager bisa memulainya dengan shift_start.` };
 }
+
+/**
+ * A machine came back online: type what waited for its sessions, and start the held auto-start shifts whose room is there.
+ * Runs a moment after the 'machine' event so adoptRemote has refreshed the sessions first. Exported for tests.
+ */
+export async function flushMachine(id) {
+  if (!id || mx.isOffline(id)) return { delivered: 0, started: [] };
+  const keys = new Set([...held].filter(k => { const [o, r] = k.split('\t'); const s = recipient(o, r); return s ? s.machine === id : roleMachine(o, r) === id; }));
+  for (const s of live.values()) if (s.machine === id && s.office && s.role && s.status !== 'ended' && s.kind !== 'rapat') keys.add(`${s.office}\t${s.role}`);
+  let delivered = 0;
+  const started = [];
+  for (const k of keys) {
+    const [office, roleId] = k.split('\t');
+    try {
+      const s = recipient(office, roleId);
+      if (s) {
+        if (sessionOffline(s)) continue;
+        held.delete(k);
+        delivered += await deliver(office, roleId);
+        continue;
+      }
+      held.delete(k);
+      const pend = all(db(office), "SELECT * FROM dm WHERE to_role = ? AND status = 'menunggu' ORDER BY at, rowid", roleId);
+      if (!config().dm?.autoStart || !pend.some(r => r.kind !== 'fyi') || !st.getRole(office, roleId)) continue;
+      const sh = startWith(office, roleId, pend);
+      started.push({ office, role: roleId, tmux: sh.tmux });
+      logOffice(office, nameOf(office, roleId).name, `shift dimulai otomatis setelah ${machineName(id)} tersambung lagi (${pend.length} pesan menunggu)`, 'dm');
+    } catch (e) {
+      if (mx.isOffline(id)) held.add(k);
+      console.error(`dm: kirim tertunda ke ${roleId}: ${e.message}`);
+    }
+  }
+  return { delivered, started };
+}
+let adoptWaitMs = 4000;
+/** Tests shorten the pause between a machine coming online and delivering to it. */
+export function setAdoptWait(ms) { adoptWaitMs = ms; }
 
 function clean(text) {
   const t = String(text ?? '').trim();
@@ -245,8 +354,8 @@ export async function siaran(office, role, a) {
   for (const t of targets.values()) {
     try { checkRate(office, from.id, t.id); } catch (e) { skipped.push({ ke: t.name, alasan: e.message }); continue; }
     const r = create(office, { from: from.id, to: t.id, kind, text, card, grp });
-    await dispatch(office, r);
-    sent.push({ id: r.id, ke: t.name, status: get(office, r.id).status });
+    const d = await dispatch(office, r);
+    sent.push({ id: r.id, ke: t.name, status: get(office, r.id).status, catatan: d.offline ? d.pengiriman : undefined });
   }
   if (!sent.length) throw new Error(`Siaran tidak terkirim: ${skipped.map(x => x.alasan).join(' ')}`);
   return { siaran: grp, jenis: kind, terkirim: sent, dilewati: skipped.length ? skipped : undefined,
@@ -260,6 +369,12 @@ export async function tanya(office, role, a) {
   const reply = new Promise(resolve => waiters.set(r.id, resolve));
   let d;
   try { d = await dispatch(office, r); } catch (e) { waiters.delete(r.id); throw e; }
+  const to0 = nameOf(office, p.to).name;
+  // the recipient's machine is offline: nobody can answer now, do not keep the asker waiting
+  if (d.offline && waiters.has(r.id)) {
+    waiters.delete(r.id);
+    return { status: 'belum dibalas', id: r.id, ke: to0, pengiriman: d.pengiriman, catatan: `${to0} belum bisa menjawab sekarang. Pertanyaan tetap tersimpan; kalau ${to0} membalas nanti, jawabannya masuk ke sesimu sebagai pesan. Lanjutkan kerja lain dulu.` };
+  }
   const timer = setTimeout(() => { const w = waiters.get(r.id); if (w) { waiters.delete(r.id); w(null); } }, sec * 1000);
   const got = await reply;
   clearTimeout(timer);
@@ -357,4 +472,8 @@ export function startDm() {
   setInterval(() => {
     for (const s of live.values()) if (s.role && s.status === 'idle') deliver(s.office, s.role).catch(() => {});
   }, 20e3).unref();
+  mx.events.on('machine', m => {
+    if (m?.online !== true) return;
+    setTimeout(() => { flushMachine(m.id).catch(e => console.error(`dm: ${e.message}`)); }, adoptWaitMs).unref?.();
+  });
 }

@@ -11,6 +11,8 @@ import { CLAUDE_DIR } from './config.js';
 import { globalDb, officeDb, all, one, run } from './db.js';
 import { priceFor, modelLabel } from './pricing.js';
 import { bus } from './live.js';
+import { mirrorRoots } from './mirror.js';
+import { getMachine } from './machines.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const KV_CLAUDE = 'usage.limits.claude';
@@ -81,10 +83,15 @@ function recentRollouts(dir, limit) {
   return out.sort((a, b) => b.mtime - a.mtime).slice(0, limit);
 }
 
-/** The newest `rate_limits` per limit id, read from the tail of the latest rollouts. */
-export function readCodexLimits({ dir = codexDir(), files = 6, tail = 512 * 1024, now = Date.now() } = {}) {
+/**
+ * The newest `rate_limits` per limit id, read from the tail of the latest rollouts. Without `dir`: this Mac's
+ * rollouts plus the mirror copies of other machines' (server/mirror.js).
+ */
+export function readCodexLimits({ dir = null, files = 6, tail = 512 * 1024, now = Date.now() } = {}) {
   const best = new Map();
-  for (const { f } of recentRollouts(dir, files)) {
+  const roots = dir ? [dir] : [codexDir(), ...mirrorRoots('codex', { localDir: codexDir() }).map(r => r.dir)];
+  const recent = roots.length === 1 ? recentRollouts(roots[0], files) : roots.flatMap(d => recentRollouts(d, files)).sort((a, b) => b.mtime - a.mtime).slice(0, files);
+  for (const { f } of recent) {
     let text = '';
     try {
       const st = fs.statSync(f), len = Math.min(tail, st.size), fd = fs.openSync(f, 'r');
@@ -138,7 +145,9 @@ export function pollCodexLimits() {
 }
 
 /** Per-session settings that make a Kantor shift report its limits. Left out when the user has a statusline of their own. */
-export function statusLineSettings() {
+export function statusLineSettings(remote = null) {
+  // shift di Mac lain: remote = { node, root } milik mesin itu (statusline pengguna di sana sudah dicek pemanggil)
+  if (remote) return { statusLine: { type: 'command', command: `'${remote.node.replace(/'/g, `'\\''`)}' '${path.join(remote.root, 'hooks', 'kantor-statusline.cjs').replace(/'/g, `'\\''`)}'`, padding: 0 } };
   try { if (JSON.parse(fs.readFileSync(path.join(CLAUDE_DIR, 'settings.json'), 'utf8')).statusLine) return {}; } catch {}
   return { statusLine: { type: 'command', command: `node '${path.join(ROOT, 'hooks', 'kantor-statusline.cjs').replace(/'/g, `'\\''`)}'`, padding: 0 } };
 }
@@ -163,14 +172,15 @@ export function summary({ range = '7d', office = null, now = Date.now() } = {}) 
   const g = globalDb();
   const filter = office && office !== '_kompleks';
   const rows = all(g, `SELECT u.sid, u.office, u.role, u.model, u.day, u.msgs, u.input, u.output, u.cache_w, u.cache_r, u.cost,
-      s.title, s.first_prompt, s.started_at, s.ended_at, s.last_seen, o.name office_name
+      s.title, s.first_prompt, s.started_at, s.ended_at, s.last_seen, s.machine, o.name office_name
     FROM usage u LEFT JOIN sessions s ON s.sid = u.sid LEFT JOIN offices o ON o.id = u.office
     WHERE u.day >= ? AND u.day <= ? ${filter ? 'AND u.office = ?' : ''}`, ...(filter ? [from, to, office] : [from, to]));
 
   const totals = blank(), engines = { claude: blank(), codex: blank() };
   const daily = new Map();
   for (let i = days - 1; i >= 0; i--) daily.set(localDay(now - i * 86400e3), { day: localDay(now - i * 86400e3), ...blank(), claudeTokens: 0, codexTokens: 0 });
-  const groups = { office: new Map(), role: new Map(), model: new Map() };
+  const groups = { office: new Map(), role: new Map(), model: new Map(), machine: new Map() };
+  const host = os.hostname().split('.')[0] || 'lokal';
   const sess = new Map(), sessSet = new Set();
   const roleNames = new Map();
   const roleName = (off, role) => {
@@ -189,6 +199,8 @@ export function summary({ range = '7d', office = null, now = Date.now() } = {}) 
     bump(groups.office, r.office || '', { id: r.office || null, name: r.office_name || r.office || 'Tanpa kantor' }, r);
     bump(groups.role, `${r.office}/${r.role || ''}`, { id: r.role || null, office: r.office || null, officeName: r.office_name || null, name: roleName(r.office, r.role) }, r);
     bump(groups.model, r.model || '', { model: r.model || null, label: modelLabel(r.model), engine: eng }, r);
+    const mid = r.machine && r.machine !== 'local' ? r.machine : 'local';
+    bump(groups.machine, mid, { id: mid, name: mid === 'local' ? host : getMachine(mid)?.name || mid }, r);
     let s = sess.get(r.sid);
     if (!s) { s = { sid: r.sid, title: r.title || (r.first_prompt || '').slice(0, 80) || null, office: r.office || null, officeName: r.office_name || null, role: r.role || null, roleName: roleName(r.office, r.role), engine: eng, ...blank(), days: new Set(), started: r.started_at, ended: r.ended_at || r.last_seen }; sess.set(r.sid, s); }
     add(s, r); s.days.add(r.day);
@@ -207,14 +219,13 @@ export function summary({ range = '7d', office = null, now = Date.now() } = {}) 
   }
   seconds = Math.max(0, Math.round(seconds));
   const n = sessSet.size;
-  const host = os.hostname().split('.')[0] || 'lokal';
   return {
     range: RANGES[range] ? range : '7d', from, to, office: filter ? office : null,
     totals: { ...round(totals), sessions: n }, engines: { claude: round(engines.claude), codex: round(engines.codex) },
     avgPerSession: { tokens: n ? Math.round(totals.tokens / n) : 0, output: n ? Math.round(totals.output / n) : 0, cost: n ? Math.round(totals.cost / n * 1e4) / 1e4 : 0 },
     daily: [...daily.values()].map(round),
     byOffice: filter ? [] : fin(groups.office), byRole: fin(groups.role), byModel: fin(groups.model),
-    byMachine: [{ id: 'local', name: host, ...round(totals), sessions: n }],
+    byMachine: groups.machine.size ? fin(groups.machine) : [{ id: 'local', name: host, ...round(totals), sessions: n }],
     topSessions: top,
     work: { sessions: n, seconds, avgSeconds: timed ? Math.round(seconds / timed) : 0 },
     // not recorded anywhere yet: tool calls and edited lines

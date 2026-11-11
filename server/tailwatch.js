@@ -2,6 +2,8 @@
 // One watcher per transcript file of a live session (fs.watch, with a 1 s stat sweep as fallback);
 // a change is debounced and broadcast as { t: 'transcript', office, sid, size }.
 // Also follows a session onto its new transcript after /clear, /compact or a resume when no hook said so.
+// A remote session's transcript is a local mirror copy (server/mirror.js): the mirror appends to it, which fires the
+// same watcher; a copy that was recreated (new inode) is watched again.
 import fs from 'node:fs';
 import path from 'node:path';
 import { CLAUDE_DIR } from './config.js';
@@ -9,6 +11,7 @@ import { globalDb, run } from './db.js';
 import { live, bus, serialize, emitIfKonteksChanged } from './live.js';
 import { isRollout } from './codex.js';
 import { claudePid } from './termapp.js';
+import { remoteOfMirror } from './machines.js';
 
 const DEBOUNCE_MS = 200;
 const SWEEP_MS = 1000;
@@ -80,7 +83,7 @@ function reportedSessionId(s) {
 
 const watchers = new Map(); // file -> { w, poll, size, mtimeMs, changedAt, fire }
 
-function statOf(file) { try { const st = fs.statSync(file); return { size: st.size, mtimeMs: st.mtimeMs }; } catch { return null; } }
+function statOf(file) { try { const st = fs.statSync(file); return { size: st.size, mtimeMs: st.mtimeMs, ino: st.ino }; } catch { return null; } }
 
 function emitFor(file, size) {
   for (const s of live.values()) if (s.transcript === file) { bus.emit('msg', { t: 'transcript', office: s.office, sid: s.sid, size }); emitIfKonteksChanged(s); }
@@ -89,6 +92,11 @@ function emitFor(file, size) {
 function check(file) {
   const w = watchers.get(file); if (!w) return;
   const st = statOf(file); if (!st) return;
+  if (w.ino != null && st.ino !== w.ino && !w.poll) { // replaced (e.g. a mirror copy recreated): fs.watch follows the old inode
+    unwatch(file); watch(file);
+    const nw = watchers.get(file); if (nw) { nw.size = w.size; nw.mtimeMs = w.mtimeMs; nw.changedAt = w.changedAt; nw.lastSucc = w.lastSucc; }
+    return check(file);
+  }
   if (st.size === w.size && st.mtimeMs === w.mtimeMs) return;
   w.size = st.size; w.mtimeMs = st.mtimeMs; w.changedAt = Date.now();
   emitFor(file, st.size);
@@ -97,7 +105,7 @@ function check(file) {
 function watch(file) {
   if (watchers.has(file)) return;
   const st = statOf(file);
-  const w = { w: null, poll: false, size: st?.size ?? null, mtimeMs: st?.mtimeMs ?? 0, changedAt: Date.now(), lastSucc: 0 };
+  const w = { w: null, poll: false, size: st?.size ?? null, mtimeMs: st?.mtimeMs ?? 0, ino: st?.ino ?? null, changedAt: Date.now(), lastSucc: 0 };
   w.fire = debounce(() => check(file), DEBOUNCE_MS);
   try { w.w = fs.watch(file, { persistent: false }, () => w.fire()); w.w.on('error', () => { try { w.w.close(); } catch {} w.w = null; }); }
   catch { try { fs.watchFile(file, { interval: SWEEP_MS, persistent: false }, () => w.fire()); w.poll = true; } catch {} }
@@ -115,6 +123,8 @@ function unwatch(file) {
 function maybeFollow(s, w) {
   const now = Date.now();
   if (isRollout(s.transcript) || s.engine === 'codex' || s.engine === 'antigravity') return;
+  // ~/.claude/sessions here describes this Mac's processes, not the other machine's; its hooks report a new transcript
+  if (s.machine || remoteOfMirror(s.transcript)) return;
   if (now - w.changedAt < STALE_MS || now - (w.lastSucc || 0) < SUCCESSOR_EVERY) return;
   w.lastSucc = now;
   const reported = reportedSessionId(s);

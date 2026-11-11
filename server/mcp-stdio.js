@@ -4,10 +4,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import http from 'node:http';
+import https from 'node:https';
 import readline from 'node:readline';
 
+// Di Mac lain (docs/MULTI-PC.md): KANTOR_URL + KANTOR_TOKEN (token mesin) menunjuk ke hub, http atau https.
+// Hanya modul bawaan node: file ini disalin apa adanya ke Mac itu.
 function server() {
-  if (process.env.KANTOR_URL && process.env.KANTOR_TOKEN) return { url: process.env.KANTOR_URL, token: process.env.KANTOR_TOKEN };
+  if (process.env.KANTOR_URL && process.env.KANTOR_TOKEN) return { url: process.env.KANTOR_URL.replace(/\/+$/, ''), token: process.env.KANTOR_TOKEN };
   const s = JSON.parse(fs.readFileSync(path.join(process.env.KANTOR_HOME || path.join(os.homedir(), '.kantor-claude'), 'server.json'), 'utf8'));
   return { url: `http://127.0.0.1:${s.port}`, token: s.token };
 }
@@ -25,7 +28,7 @@ function api(p, body) {
   const u = new URL(s.url + p);
   const data = body ? JSON.stringify(body) : null;
   return new Promise((resolve, reject) => {
-    const req = http.request(u, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}`, ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
+    const req = (u.protocol === 'https:' ? https : http).request(u, { method: body ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.token}`, ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } }, res => {
       const chunks = [];
       res.on('data', c => chunks.push(c));
       res.on('end', () => {

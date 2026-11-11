@@ -2,6 +2,7 @@
 import { $, esc, short, sprite, guestLook, modelName, ago } from './util.js';
 import { drawerState } from './panel.js';
 import { topicHTML, subHTML, searchBits, topicOf } from './konteks.js';
+import { sessBadge, sessOffline, blockReason, machineLabel } from './lencana.js';
 
 const PIN_KEY = 'kc.agents.pins';
 let C = null;            // { ctx, openSession, go }
@@ -21,7 +22,7 @@ export function activeAgents() {
   return out.sort((a, b) => rank(a) - rank(b) || String(b.lastSeen || '').localeCompare(String(a.lastSeen || '')));
 }
 const nameOf = s => s.look?.name || (s.title && s.title !== 'Sesi belum terhubung' ? short(s.title, 34) : 'Sesi manual');
-const searchText = s => [nameOf(s), s.title, s.look?.title, s.office.name, s.room, s.model, s.engine || 'claude', toolText(s.tool), s.waiting?.summary, searchBits(s)].join(' ').toLowerCase();
+const searchText = s => [nameOf(s), s.title, s.look?.title, s.office.name, s.room, s.model, s.engine || 'claude', toolText(s.tool), s.waiting?.summary, machineLabel(s.machine), searchBits(s)].join(' ').toLowerCase();
 function whatOf(s) {
   if (s.waiting) return `${s.waiting.tool === 'AskUserQuestion' ? 'bertanya' : 'minta izin'}: ${short(s.waiting.summary || s.waiting.tool, 60)}`;
   const t = toolText(s.tool);
@@ -33,14 +34,15 @@ function whatOf(s) {
 function rowHTML(s, i) {
   const look = s.look || guestLook(s.sid), pin = pins.has(s.sid), st = rank(s);
   const meta = [esc(s.office.name), s.room ? esc(s.room) : '', s.lastSeen ? ago(s.lastSeen) : ''].filter(Boolean).join(' · ');
-  return `<li class="ag-li${i === cursor ? ' cur' : ''}" data-i="${i}">
+  const why = blockReason(s);
+  return `<li class="ag-li${i === cursor ? ' cur' : ''}${sessOffline(s) ? ' mx-dim' : ''}" data-i="${i}">
     <button class="ag-open" type="button" data-ag="open" data-office="${esc(s.office.id)}" data-sid="${esc(s.sid)}">
       <span class="ag-ava">${sprite(look, 2)}</span>
-      <span class="ag-b"><span class="ag-n"><b>${esc(nameOf(s))}</b><i class="ag-eng${isCodex(s) ? ' cx' : ''}">${s.engine === 'antigravity' ? 'Gemini' : isCodex(s) ? 'Codex' : 'Claude'}</i>${s.model ? `<i class="ag-mod">${esc(modelName(s.model))}</i>` : ''}${s.bgAgents ? `<i class="ag-sub" title="${s.bgAgents} subagent bekerja">⛓ ${s.bgAgents}</i>` : ''}</span>
+      <span class="ag-b"><span class="ag-n"><b>${esc(nameOf(s))}</b><i class="ag-eng${isCodex(s) ? ' cx' : ''}">${s.engine === 'antigravity' ? 'Gemini' : isCodex(s) ? 'Codex' : 'Claude'}</i>${s.model ? `<i class="ag-mod">${esc(modelName(s.model))}</i>` : ''}${s.bgAgents ? `<i class="ag-sub" title="${s.bgAgents} subagent bekerja">⛓ ${s.bgAgents}</i>` : ''}${sessBadge(s)}</span>
       ${topicOf(s) ? `${topicHTML(s, 'ag-tp')}<span class="ag-w">${subHTML(s, whatOf(s), 70)}</span>` : `<span class="ag-w">${esc(whatOf(s))}</span>`}<span class="ag-m">${meta}</span></span>
       <i class="ag-dot s${st}" title="${['menunggu izin', 'bekerja', 'idle'][st]}"></i>
     </button>
-    <button class="ag-btn" type="button" data-ag="term" data-office="${esc(s.office.id)}" data-sid="${esc(s.sid)}" title="Buka Terminal" aria-label="Buka Terminal">⌨</button>
+    <button class="ag-btn" type="button" data-ag="term" data-office="${esc(s.office.id)}" data-sid="${esc(s.sid)}" title="${esc(why || 'Buka Terminal')}" aria-label="Buka Terminal"${why ? ' disabled' : ''}>⌨</button>
     <button class="ag-btn pin${pin ? ' on' : ''}" type="button" data-ag="pin" data-sid="${esc(s.sid)}" aria-pressed="${pin}" title="${pin ? 'Lepas sematan' : 'Sematkan'}" aria-label="Sematkan">${pin ? '★' : '☆'}</button></li>`;
 }
 
@@ -119,7 +121,8 @@ export function agentsLive(m) {
     const next = { ...(prev || {}), ...m.session, look: prev?.look || null };
     if (i >= 0) o.sessions[i] = next; else { o.sessions.push(next); if (m.session.role) { clearTimeout(agentsLive.t); agentsLive.t = setTimeout(() => C.refresh().then(refresh), 800); } }
     changed = true;
-  } else if (m.t === 'session-gone') {
+  } else if (m.t === 'machine') changed = true;
+  else if (m.t === 'session-gone') {
     for (const o of st.offices) { const k = o.sessions.findIndex(x => x.sid === m.sid); if (k >= 0) { o.sessions.splice(k, 1); changed = true; } }
   }
   if (changed) refresh();

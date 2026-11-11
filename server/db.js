@@ -34,6 +34,8 @@ const GLOBAL_MIGRATIONS = [
    CREATE INDEX outbox_sid ON outbox(sid, at);`,
   // which coding agent runs the session: 'claude' (null) or 'codex'; effort = reasoning effort picked at start (codex)
   `ALTER TABLE sessions ADD COLUMN engine TEXT; ALTER TABLE sessions ADD COLUMN effort TEXT;`,
+  // mesin tempat sesi jalan (docs/MULTI-PC.md): null = Mac ini
+  `ALTER TABLE sessions ADD COLUMN machine TEXT;`,
 ];
 
 export const OFFICE_MIGRATIONS = [

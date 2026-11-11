@@ -3,30 +3,39 @@ import path from 'node:path';
 import { PROJECTS_DIR, config } from './config.js';
 import { globalDb, officeDb, all, one, run, tx } from './db.js';
 import { costOf, modelLabel } from './pricing.js';
-import { officeForCwd } from './offices.js';
+import * as offices from './offices.js';
 import { bus } from './live.js';
+import { mirrorRoots } from './mirror.js';
 
 const CHUNK = 8 * 1024 * 1024;
 let scanning = false;
 export const scanState = { running: false, files: 0, done: 0, lastRun: null, error: null };
 
-function listFiles(days) {
-  const cutoff = Date.now() - days * 86400e3;
+// Transcripts of this Mac (~/.claude/projects) plus the mirror copies of the other machines' (server/mirror.js),
+// so agents on Mac 2 are paid too. Every file is counted once: usage_files is keyed by path, and the mirror of a
+// loopback machine that copies this Mac's own folder is left out by mirrorRoots.
+export function listFiles(days, roots = [{ machine: null, dir: PROJECTS_DIR }, ...mirrorRoots('claude')]) {
   const out = [];
+  for (const r of roots) listRoot(r.dir, days, r.machine, out);
+  return out;
+}
+
+function listRoot(root, days, machine, out) {
+  const cutoff = Date.now() - days * 86400e3;
   let projects = [];
-  try { projects = fs.readdirSync(PROJECTS_DIR); } catch { return out; }
+  try { projects = fs.readdirSync(root); } catch { return out; }
   for (const p of projects) {
-    const dir = path.join(PROJECTS_DIR, p);
+    const dir = path.join(root, p);
     let names = [];
     try { names = fs.readdirSync(dir); } catch { continue; }
     for (const n of names) {
       const f = path.join(dir, n);
-      if (n.endsWith('.jsonl')) { try { const st = fs.statSync(f); if (st.mtimeMs >= cutoff) out.push({ f, st }); } catch {} }
+      if (n.endsWith('.jsonl')) { try { const st = fs.statSync(f); if (st.mtimeMs >= cutoff) out.push({ f, st, machine }); } catch {} }
       else if (!n.includes('.')) {
         const sub = path.join(f, 'subagents');
         let subs = [];
         try { subs = fs.readdirSync(sub); } catch { continue; }
-        for (const s of subs) if (s.endsWith('.jsonl')) { const sf = path.join(sub, s); try { const st = fs.statSync(sf); if (st.mtimeMs >= cutoff) out.push({ f: sf, st, parent: n }); } catch {} }
+        for (const s of subs) if (s.endsWith('.jsonl')) { const sf = path.join(sub, s); try { const st = fs.statSync(sf); if (st.mtimeMs >= cutoff) out.push({ f: sf, st, parent: n, machine }); } catch {} }
       }
     }
   }
@@ -47,7 +56,7 @@ export async function scanUsage() {
     const roleOf = new Map(all(g, 'SELECT sid, role, office FROM sessions WHERE role IS NOT NULL').map(r => [r.sid, r]));
     const officeCache = new Map();
     let touched = false;
-    for (const { f, st, parent } of files) {
+    for (const { f, st, parent, machine } of files) {
       scanState.done++;
       const prev = known.get(f);
       let offset = prev?.offset || 0;
@@ -70,7 +79,7 @@ export async function scanUsage() {
           rest = text.slice(lastNl + 1);
           for (const line of text.slice(0, lastNl).split('\n')) {
             if (!line.includes('"usage"') || !line.includes('"assistant"')) {
-              if (!fileOffice && line.includes('"cwd"')) { try { const d = JSON.parse(line); if (d.cwd) fileOffice = officeOf(d.cwd, officeCache); if (d.sessionId && !fileSid) fileSid = d.sessionId; } catch {} }
+              if (!fileOffice && line.includes('"cwd"')) { try { const d = JSON.parse(line); if (d.cwd) fileOffice = officeOf(d.cwd, officeCache, machine); if (d.sessionId && !fileSid) fileSid = d.sessionId; } catch {} }
               continue;
             }
             let d; try { d = JSON.parse(line); } catch { continue; }
@@ -80,7 +89,7 @@ export async function scanUsage() {
             lastMsg = m.id;
             const sid = parent || d.sessionId || fileSid;
             fileSid ||= sid;
-            if (!fileOffice && d.cwd) fileOffice = officeOf(d.cwd, officeCache);
+            if (!fileOffice && d.cwd) fileOffice = officeOf(d.cwd, officeCache, machine);
             const day = localDay(d.timestamp || Date.now());
             const key = `${sid}|${m.model}|${day}`;
             const a = acc.get(key) || { sid, model: m.model, day, msgs: 0, input: 0, output: 0, cache_w: 0, cache_r: 0, cost: 0 };
@@ -120,11 +129,14 @@ export async function scanUsage() {
   }
 }
 
-function officeOf(cwd, cache) {
-  if (cache.has(cwd)) return cache.get(cwd);
+function officeOf(cwd, cache, machine = null) {
+  const key = machine ? `${machine}\0${cwd}` : cwd;
+  if (cache.has(key)) return cache.get(key);
   let id = null;
-  try { id = officeForCwd(cwd, { create: true }); } catch {}
-  cache.set(cwd, id);
+  // a folder on another machine never creates an office here; it belongs to the office whose room points at it
+  if (machine) { try { const o = offices.roomForRemote?.(machine, cwd)?.office; id = (typeof o === 'string' ? o : o?.id) || null; } catch {} }
+  else { try { id = offices.officeForCwd(cwd, { create: true }); } catch {} }
+  cache.set(key, id);
   return id;
 }
 

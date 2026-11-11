@@ -5,6 +5,7 @@ import { subRows, fmtTokens, fmtElapsed } from './subagents.js';
 import { chatBubble, chatClick } from './pratinjau.js';
 import { chatTimeline } from './chat-timeline.js';
 import { mountPanel } from './konteks.js';
+import { sessOffline, offlineBanner, blockReason, outboxWaitText, machineLabel } from './lencana.js';
 
 // CSS tab ini dimuat dari sini supaya index.html tidak perlu diubah
 if (!document.getElementById('chatCss')) {
@@ -23,7 +24,7 @@ const toolName = n => n.startsWith('mcp__') ? n.split('__')[1] : n;
 const FRESH_MS = 4000;
 /** HTML indikator mengetik, atau '' bila sesi tidak sedang bekerja / jawaban terbarunya baru saja masuk. */
 export function typingHTML(s, gs, now = Date.now()) {
-  if (!s || !(s.status === 'working' || s.status === 'starting') || s.waiting || s.compacting) return '';
+  if (!s || !(s.status === 'working' || s.status === 'starting') || s.waiting || s.compacting || sessOffline(s)) return '';
   const last = gs?.[gs.length - 1];
   if (last?.k === 'text' && now - (Date.parse(last.at) || 0) < FRESH_MS) return '';
   const tl = s.tool && (s.tool.label || s.tool.name) ? `${s.tool.name || ''} ${short(s.tool.label || '', 60)}`.trim() : '';
@@ -158,7 +159,7 @@ const QUICK = [['lanjut', 'say', 'lanjut'], ['ya', 'say', 'ya'], ['Hentikan', 'd
  * Mengembalikan { update(), live(msg), refresh(), destroy() }.
  */
 export function mountChat(host, o) {
-  let size = null, timer = 0, bump = 0, dead = false, loading = false, sticky = true, items = [], gs = [], atts = [], outbox = [], unsub = null, pvs = [];
+  let size = null, timer = 0, bump = 0, dead = false, loading = false, sticky = true, items = [], gs = [], atts = [], outbox = [], unsub = null, pvs = [], wasOff = false;
   const pend = document.createElement('div'); pend.className = 'ch-pend';
   const typ = document.createElement('div'); typ.className = 'ch-typing-wrap';
   mounted.set(o.sid, (mounted.get(o.sid) || 0) + 1);
@@ -168,6 +169,7 @@ export function mountChat(host, o) {
     <div class="ch-drop" hidden>Lepas file untuk melampirkan</div>
     <div class="ch-foot">
       <div data-slot="perm"></div>
+      <div data-slot="mx"></div>
       <div class="ch-status" data-slot="status"></div>
       <details class="ch-subs" data-slot="subs" open hidden><summary></summary><div class="ch-subs-list"></div></details>
       <div class="ch-quick">${QUICK.map(([l, act, v]) => act === 'say'
@@ -186,6 +188,9 @@ export function mountChat(host, o) {
     const can = o.canSend() && o.sess()?.status !== 'ended';
     const ta = $('#drQuickIn', host);
     for (const el of host.querySelectorAll('.ch-form textarea, .ch-form button:not(.ch-attach), .ch-quick button')) el.disabled = !can;
+    // mesin offline: pesan tetap boleh (ditahan server), aksi yang butuh mesin tidak
+    const why = blockReason(o.sess());
+    for (const el of host.querySelectorAll('.ch-quick [data-act="dr-action"]')) { if (why) { el.disabled = true; el.title = why; } else el.removeAttribute('title'); }
     const at = $('.ch-attach', host); if (at) at.disabled = o.sess()?.status === 'ended';
     if (ta) ta.placeholder = can ? `Pesan untuk ${o.name()}…` : o.sess()?.status === 'ended' ? 'Sesi sudah selesai' : 'Tidak bisa mengetik ke sesi ini dari sini';
   }
@@ -194,6 +199,7 @@ export function mountChat(host, o) {
     const n = esc(o.name()), subs = (s.subs || []).filter(x => x.status !== 'done').length;
     let cls = s.status, t;
     if (s.status === 'ended') t = 'Sesi selesai';
+    else if (sessOffline(s)) { cls = 'idle'; t = `${n} tidak terjangkau sampai ${esc(machineLabel(s.machine))} online lagi`; }
     else if (s.waiting || s.status === 'waiting') t = `${n} menunggu izin`;
     else if (s.compacting) t = `${n} sedang meringkas percakapan`;
     else if (s.status === 'working' || s.status === 'starting') {
@@ -202,7 +208,12 @@ export function mountChat(host, o) {
     } else t = `${n} idle, menunggu pesanmu`;
     return `<i class="ch-dot ${esc(cls)}"></i><span>${t}${subs ? ` · ${subs} subagent jalan` : ''}</span>`;
   }
-  function paintStatus() { const el = $('[data-slot="status"]', host); if (el) el.innerHTML = statusHTML(); lock(); }
+  function paintStatus() {
+    const el = $('[data-slot="status"]', host); if (el) el.innerHTML = statusHTML();
+    const mx = $('[data-slot="mx"]', host), b = offlineBanner(o.sess()); if (mx && mx.innerHTML !== b) mx.innerHTML = b;
+    const off = sessOffline(o.sess()); if (off !== wasOff) { wasOff = off; if (outbox.length) paint(); } // label antrean ikut berubah
+    lock();
+  }
   /* ---- subagent yang jalan (dan yang baru selesai), dengan waktu berjalan dan token ---- */
   let subTick = 0;
   function paintSubs() {
@@ -315,7 +326,7 @@ export function mountChat(host, o) {
   function outboxRow(it) {
     return it.status === 'read'
       ? `<div class="ch-row me"><div class="ch-b me">${esc(it.text)}</div><time>${esc(hhmm(it.at))}</time></div>`
-      : `<div class="ch-row me ch-q-row"><div class="ch-b me pending">${esc(it.text)}</div><div class="ch-pending"><span aria-hidden="true">🕒</span> Terkirim · menunggu dibaca${it.local ? '' : `<button type="button" class="ch-x" data-act="ob-cancel" data-id="${esc(it.id)}">Batalkan</button>`}</div></div>`;
+      : `<div class="ch-row me ch-q-row"><div class="ch-b me pending">${esc(it.text)}</div><div class="ch-pending"><span aria-hidden="true">🕒</span> ${esc(outboxWaitText(o.sess()) || 'Terkirim · menunggu dibaca')}${it.local ? '' : `<button type="button" class="ch-x" data-act="ob-cancel" data-id="${esc(it.id)}">Batalkan</button>`}</div></div>`;
   }
   const obKey = it => norm(it.text);
   function setOutbox(arr) {

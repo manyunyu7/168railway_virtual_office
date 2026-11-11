@@ -5,6 +5,7 @@ import { execFileSync, execFile } from 'node:child_process';
 import { config, RUN_DIR, ROOT_DIR, CLAUDE_DIR } from './config.js';
 import { officeDb, globalDb, one, all, run, nowIso, j } from './db.js';
 import { officeModel } from './offices.js';
+import * as offices from './offices.js';
 import { expectSession, live, logOffice, whoOf, bus, serialize, stopHeld } from './live.js';
 import { createRole, listPlaybooks } from './store.js';
 import { statusLineSettings } from './usage.js';
@@ -15,6 +16,7 @@ import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, r
 import { agyBin, agyMode, agyArgs, agySettings, installAgyIntegration } from './antigravity.js';
 import { draftOnScreen } from './draft-prompt.js';
 import { who as actorName } from './actor.js';
+import * as mx from './machines.js';
 
 const which = bin => {
   for (const p of ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', path.join(process.env.HOME, '.local/bin'), path.join(process.env.HOME, '.claude/local')]) {
@@ -31,7 +33,20 @@ export function bins() {
   return { tmux: TMUX, claude: CLAUDE };
 }
 
+// Sesi tmux bisa jalan di Mac lain (docs/MULTI-PC.md): tmux() memilih mesinnya dari target `-t nama`
+// (lihat machines.setTmuxMachine), atau dari opts.machine untuk perintah tanpa target (new-session, set-buffer).
+const targetOf = args => { const i = args.indexOf('-t'); return i >= 0 ? String(args[i + 1] || '') : null; };
+export const machineOfTmuxArgs = args => { const t = targetOf(args); return t ? mx.tmuxMachineOf(t) : mx.LOCAL; };
 export function tmux(args, opts = {}) {
+  const { machine: wanted, ...rest } = opts;
+  const machine = wanted || machineOfTmuxArgs(args);
+  if (mx.isRemote(machine)) {
+    mx.ensureProbed(machine);
+    const out = mx.execSync(machine, 'tmux', args, rest);
+    if (args[0] === 'new-session' || args[0] === 'kill-session') mx.invalidateTmuxList(machine);
+    return out;
+  }
+  opts = rest;
   const { tmux: t } = bins();
   if (!t) throw new Error('tmux belum terpasang. Jalankan: brew install tmux');
   return execFileSync(t, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts });
@@ -48,7 +63,14 @@ function tmuxSessionsForRecovery() {
     return null;
   }
 }
-export const hasTmux = name => tmuxSessions().includes(name);
+export const hasTmux = name => {
+  const m = mx.tmuxMachineOf(name);
+  if (mx.isRemote(m)) {
+    if (mx.isOffline(m) || mx.getMachine(m).disabled) return false; // tanpa ssh: mesin offline bisa memblokir sampai ConnectTimeout
+    return !!mx.remoteTmuxSessions(m)?.includes(String(name).split(':')[0]);
+  }
+  return tmuxSessions().includes(name);
+};
 const q = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
 export function globalHooksInstalled() {
@@ -56,8 +78,11 @@ export function globalHooksInstalled() {
 }
 
 const HOOK_EVENTS = ['SessionStart', 'SessionEnd', 'UserPromptSubmit', 'PreToolUse', 'PostToolUse', 'PostToolUseFailure', 'SubagentStart', 'SubagentStop', 'Notification', 'Stop', 'PreCompact', 'PermissionRequest'];
-export function hookSettings() {
-  const cmd = `node ${q(path.join(ROOT_DIR, 'hooks', 'kantor-hook.cjs'))}`;
+/** Hook kantor untuk --settings. machine = mesin remote: node dan skrip hook di mesin itu. */
+export function hookSettings(machine = null) {
+  const cmd = machine && mx.isRemote(machine)
+    ? `${q(mx.ensureProbed(machine).node || 'node')} ${q(path.join(mx.machineRoot(machine), 'hooks', 'kantor-hook.cjs'))}`
+    : `node ${q(path.join(ROOT_DIR, 'hooks', 'kantor-hook.cjs'))}`;
   const hooks = {};
   for (const ev of HOOK_EVENTS) hooks[ev] = [{ matcher: '', hooks: [{ type: 'command', command: cmd, timeout: ev === 'PermissionRequest' ? 600 : 5 }] }];
   return { hooks };
@@ -92,7 +117,9 @@ export function rolePrompt(officeId, role, extra = '', engine = 'claude') {
   return [
     `# Peranmu di Kantor Claude`,
     `Kamu adalah **${role.name}**, ${role.title} di kantor **${m.name}** (\`${m.root}\`).`,
-    room ? `Ruanganmu: ${room.name}${room.path ? ` (\`${room.path}/\`)` : ''}.` : '',
+    room?.machine && mx.isRemote(room.machine)
+      ? `Ruanganmu: ${room.name} (\`${room.remotePath || '?'}/\` di Mac **${machineName(room.machine)}**). Kamu bekerja di Mac itu, bukan di Mac kantor: folder ruangan lain tidak bisa kamu buka langsung, jadi berbagi hasil lewat tool kantor (pesan_ke, board, wiki).`
+      : room ? `Ruanganmu: ${room.name}${room.path ? ` (\`${room.path}/\`)` : ''}.` : '',
     `Kepribadian: ${role.persona || '-'}`,
     skills.length ? `Keahlian: ${skills.join(', ')}.` : '',
     '',
@@ -122,7 +149,10 @@ export function rolePrompt(officeId, role, extra = '', engine = 'claude') {
   ].filter(x => x !== '').join('\n');
 }
 
-function mcpConfig(officeId, roleId, sid) {
+function mcpConfig(officeId, roleId, sid, rm = null) {
+  // shift di Mac lain: node dan mcp-stdio.js di mesin itu, bicara ke hub dengan token mesin
+  if (rm) return { mcpServers: { kantor: { type: 'stdio', command: rm.bins.node, args: [path.join(rm.root, 'server', 'mcp-stdio.js')],
+    env: { ...remoteEnv(rm.mc, sid), KANTOR_OFFICE: officeId, KANTOR_ROLE: roleId || '' } } } };
   const s = JSON.parse(fs.readFileSync(path.join(process.env.KANTOR_HOME || path.join(process.env.HOME, '.kantor-claude'), 'server.json'), 'utf8'));
   return { mcpServers: { kantor: { type: 'stdio', command: process.execPath, args: [path.join(ROOT_DIR, 'server', 'mcp-stdio.js')],
     env: { KANTOR_URL: `http://127.0.0.1:${s.port}`, KANTOR_TOKEN: s.token, KANTOR_OFFICE: officeId, KANTOR_ROLE: roleId || '', KANTOR_SID: sid } } } };
@@ -163,6 +193,8 @@ export function modeFromCapture(txt) {
 }
 /** paneMode without blocking the event loop (for the background poller). */
 export function paneModeAsync(name) {
+  const m = mx.tmuxMachineOf(name);
+  if (mx.isRemote(m)) return mx.execAsync(m, 'tmux', ['capture-pane', '-p', '-t', name], { timeout: 5000 }).then(r => r.code ? null : modeFromCapture(r.stdout));
   const { tmux: t } = bins();
   return new Promise(res => execFile(t, ['capture-pane', '-p', '-t', name], { timeout: 3000 }, (err, out) => res(err ? null : modeFromCapture(out))));
 }
@@ -204,59 +236,151 @@ export function setSessionBoss(sid, boss) {
   return { ok: true };
 }
 
+/* ---------------- shift di Mac lain (docs/MULTI-PC.md) ---------------- */
+const machineName = id => mx.getMachine(id)?.name || id;
+const offlineError = id => new Error(`Mac ${machineName(id)} sedang offline. Pastikan Mac itu menyala dan terhubung (Tailscale), lalu coba lagi.`);
+const isRemoteId = id => !!id && id !== mx.LOCAL;
+/** Lempar "Mac X sedang offline…" kalau mesin remote offline atau dinonaktifkan (sebelum ada ssh yang bisa menggantung). */
+function assertOnline(id) {
+  const mc = mx.getMachine(id);
+  if (!mc) throw new Error('Mesin ini sudah tidak terdaftar di kantor.');
+  if (mc.disabled) throw new Error(`Mac ${mc.name} sedang offline (dinonaktifkan di Pengaturan → Mesin).`);
+  if (mx.isOffline(id)) throw offlineError(id);
+}
+/** Env pane shift remote: hook, statusline, dan MCP di mesin itu mengirim ke hub dengan token mesin (bukan KANTOR_HOME lokal). */
+const remoteEnv = (mc, sid) => ({ KANTOR_SID: sid, KANTOR_URL: mc.hubUrl, KANTOR_TOKEN: mc.token, KANTOR_MACHINE: mc.id });
+const envArgs = env => Object.entries(env).filter(([, v]) => v != null && v !== '').flatMap(([k, v]) => ['-e', `${k}=${v}`]);
+// token mesin tidak boleh muncul di argv (ssh di hub, tmux/codex di Mac itu): ia hanya ada di file 0600 <sid>.env
+const withoutToken = ({ KANTOR_TOKEN, ...rest }) => rest;
+const envFileText = env => Object.entries(env).filter(([, v]) => v != null && v !== '').map(([k, v]) => `${k}=${q(v)}`).join('\n') + '\n';
+/** Tulis <sid>.env (0600) di machineRunDir lewat stdin ssh; → path-nya. */
+function writeRemoteEnv(rm, sid, extra = {}) {
+  const file = path.join(rm.runDir, `${sid}.env`);
+  mx.writeFile(rm.mc.id, file, envFileText({ ...remoteEnv(rm.mc, sid), ...extra }), 0o600);
+  return file;
+}
+
+/** Mesin dan folder kerja ruangan: { machine (null = Mac ini), cwd }. */
+export function roomPlace(m, room) {
+  const r = typeof offices.roomCwd === 'function' ? offices.roomCwd(m, room)
+    : isRemoteId(room?.machine) ? { machine: room.machine, cwd: room.remotePath } : null;
+  if (isRemoteId(r?.machine)) {
+    if (!mx.getMachine(r.machine)) throw new Error(`Ruangan ${room?.name || ''} ada di mesin yang sudah tidak terdaftar. Pindahkan ruangannya ke Mac lain dulu.`);
+    if (!r.cwd || !path.isAbsolute(r.cwd)) throw new Error(`Folder ruangan ${room?.name || ''} di Mac ${machineName(r.machine)} belum diatur.`);
+    return { machine: r.machine, cwd: r.cwd };
+  }
+  let cwd = r?.cwd || (room && room.path ? path.join(m.root, room.path) : m.root);
+  if (!fs.existsSync(cwd)) cwd = m.root;
+  return { machine: null, cwd };
+}
+
+const BIN_LABEL = { claude: 'Claude Code (claude)', codex: 'Codex CLI (codex)', tmux: 'tmux', node: 'node', git: 'git' };
+/**
+ * Pastikan mesin remote siap: online, bin yang dibutuhkan ada, folder kerja ada, dan (scripts) skrip kantor terpasang.
+ * → { mc (dengan token), bins, root, runDir, ownStatusLine }. Satu panggilan ssh untuk semua cek file.
+ */
+function remoteReady(id, { cwd, need = [], scripts = true } = {}) {
+  assertOnline(id);
+  const mc = mx.getMachine(id);
+  let bins = mx.ensureProbed(id);
+  const missing = () => ['tmux', ...(scripts ? ['node'] : []), ...need].filter(b => !bins?.[b]);
+  if (missing().length) { // bisa jadi baru dipasang setelah probe terakhir: cari ulang sekali
+    const p = mx.probeSync(id);
+    if (!p.ok) throw offlineError(id);
+    bins = p.bins;
+  }
+  const miss = missing();
+  if (miss.length) throw new Error(`${miss.map(b => BIN_LABEL[b] || b).join(', ')} tidak ditemukan di Mac ${mc.name}. Pasang dulu di sana${miss.some(b => b === 'claude' || b === 'codex') ? ' (dan login sekali)' : ''}, lalu tekan Tes di Pengaturan → Mesin.`);
+  const root = mx.machineRoot(id);
+  const checks = [`test -d ${q(cwd)} || echo NOCWD`];
+  if (scripts) checks.push(`{ test -f ${q(path.join(root, 'server', 'mcp-stdio.js'))} && test -f ${q(path.join(root, 'hooks', 'kantor-hook.cjs'))}; } || echo NOROOT`,
+    `grep -qs '"statusLine"' "$HOME/.claude/settings.json" && echo OWNSTATUS`);
+  let out;
+  try { out = mx.shSync(id, [...checks, 'true'].join('; '), { timeout: 10000 }); }
+  catch (e) {
+    if (e.status === 255 || mx.isOffline(id)) throw offlineError(id);
+    throw new Error(`Gagal memeriksa Mac ${mc.name}: ${String(e.stderr || e.message || e).trim().slice(0, 200)}`);
+  }
+  if (/NOCWD/.test(out)) throw new Error(`Folder ${cwd} tidak ada di Mac ${mc.name}. Periksa folder ruangannya.`);
+  if (/NOROOT/.test(out)) throw new Error(`Skrip kantor belum terpasang di Mac ${mc.name}. Buka Pengaturan → Mesin lalu tekan Pasang.`);
+  return { mc, bins, root, runDir: mx.machineRunDir(id), ownStatusLine: /OWNSTATUS/.test(out) };
+}
+
 /** Start (or resume) a shift for a role in tmux. Returns the session id. */
 export function startShift(officeId, roleId, { task = '', cardId = null, resumeSid = null, worktree = false, permissionMode = null, engine = null, model = null, effort = null } = {}) {
   const db = officeDb(officeId);
   const role = one(db, 'SELECT * FROM roles WHERE id = ? AND archived = 0', roleId);
   if (!role) throw new Error('Role tidak ditemukan');
   // engine of this shift: the one asked for at start, else the role's own
-  const previous = resumeSid ? one(globalDb(), 'SELECT engine, office FROM sessions WHERE sid = ?', resumeSid) : null;
+  const previous = resumeSid ? one(globalDb(), 'SELECT engine, office, machine FROM sessions WHERE sid = ?', resumeSid) : null;
   if (previous && previous.office !== officeId) throw new Error('Sesi resume berasal dari kantor lain');
   if (previous && engine && engineOf(engine) !== engineOf(previous.engine)) throw new Error('Resume harus memakai mesin sesi asal');
   const eng = engineOf(engine || (previous ? engineOf(previous.engine) : role.engine));
-  const { claude } = bins();
-  if (eng === 'claude' && !claude) throw new Error('Perintah claude tidak ditemukan. Atur "claudeBin" di ~/.kantor-claude/config.json');
-  if (eng === 'antigravity' && !agyBin()) throw new Error('Antigravity CLI belum terpasang. Pasang dari https://antigravity.google/cli lalu login Google dengan agy.');
-  if (eng === 'codex' && !codexBin()) throw new Error('Perintah codex tidak ditemukan. Pasang Codex CLI (brew install codex) atau atur "codex.bin" di ~/.kantor-claude/config.json');
   const m = officeModel(officeId);
   const room = m.plan.rooms.find(r => r.id === role.room);
-  let cwd = room && room.path ? path.join(m.root, room.path) : m.root;
-  if (!fs.existsSync(cwd)) cwd = m.root;
+  let { machine, cwd } = roomPlace(m, room);
+  let claude = null, rm = null;
+  if (previous && (isRemoteId(previous.machine) ? previous.machine : null) !== machine) {
+    throw new Error(`Sesi ini dulu jalan di ${isRemoteId(previous.machine) ? `Mac ${machineName(previous.machine)}` : 'Mac kantor'}, sedangkan ruangannya sekarang di ${machine ? `Mac ${machineName(machine)}` : 'Mac kantor'}. Percakapannya hanya bisa dilanjutkan di mesin asalnya; mulai shift baru saja.`);
+  }
+  if (machine) {
+    if (eng === 'antigravity') throw new Error(`Antigravity belum bisa jalan di Mac lain. Pakai Claude atau Codex untuk role di ruangan ${room?.name || ''} (Mac ${machineName(machine)}).`);
+    rm = remoteReady(machine, { cwd, need: [eng] });
+  } else {
+    ({ claude } = bins());
+    if (eng === 'claude' && !claude) throw new Error('Perintah claude tidak ditemukan. Atur "claudeBin" di ~/.kantor-claude/config.json');
+    if (eng === 'antigravity' && !agyBin()) throw new Error('Antigravity CLI belum terpasang. Pasang dari https://antigravity.google/cli lalu login Google dengan agy.');
+    if (eng === 'codex' && !codexBin()) throw new Error('Perintah codex tidak ditemukan. Pasang Codex CLI (brew install codex) atau atur "codex.bin" di ~/.kantor-claude/config.json');
+  }
 
   const active = [...live.values()].filter(s => s.office === officeId && s.role === roleId && s.status !== 'ended');
   const used = new Set(active.map(s => s.slot));
   let slot = 0; while (used.has(slot)) slot++;
-  if (worktree && slot > 0 && fs.existsSync(path.join(cwd, '.git'))) cwd = addWorktree(cwd, roleId, slot);
+  if (worktree && slot > 0 && machine) cwd = addRemoteWorktree(machine, cwd, roleId, slot);
+  else if (worktree && slot > 0 && fs.existsSync(path.join(cwd, '.git'))) cwd = addWorktree(cwd, roleId, slot);
 
   const sid = resumeSid || crypto.randomUUID();
-  const name = `${process.env.KANTOR_TMUX_PREFIX || 'kc'}-${officeId}-${roleId}${slot ? '-' + (slot + 1) : ''}`.replace(/[^A-Za-z0-9_-]/g, '-');
+  // shift di Mac lain berawalan kcr-: kalau Mac itu juga menjalankan kantornya sendiri, pane ini tidak tertukar dengan shift miliknya (procscan, adoptRunning)
+  const name = `${machine ? 'kcr' : process.env.KANTOR_TMUX_PREFIX || 'kc'}-${officeId}-${roleId}${slot ? '-' + (slot + 1) : ''}`.replace(/[^A-Za-z0-9_-]/g, '-');
+  mx.setTmuxMachine(name, machine); // hasTmux dan set-option di bawah harus bertanya ke server tmux mesin yang benar
   if (hasTmux(name)) throw new Error(`Sesi tmux ${name} masih ada`);
 
   const card = cardId ? one(db, 'SELECT id, title, desc FROM cards WHERE id = ?', cardId) : null;
   if (eng === 'antigravity') return launchAntigravity({ officeId, role, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort });
-  if (eng === 'codex') return launchCodex({ officeId, role, m, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort });
-  const promptFile = path.join(RUN_DIR, `${sid}.prompt.md`);
-  fs.writeFileSync(promptFile, rolePrompt(officeId, role, card ? `\n## Kartu shift ini\n${card.id}: ${card.title}\n${card.desc || ''}` : ''), { mode: 0o600 });
-  const mcpFile = path.join(RUN_DIR, `${sid}.mcp.json`);
-  fs.writeFileSync(mcpFile, JSON.stringify(mcpConfig(officeId, roleId, sid)), { mode: 0o600 });
-  const args = [q(claude)];
+  if (eng === 'codex') return launchCodex({ officeId, role, m, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort, machine, rm });
+  // file run: di Mac lain ditulis ke machineRunDir lewat mx.writeFile
+  const dir = rm ? rm.runDir : RUN_DIR;
+  const put = (file, content) => rm ? mx.writeFile(machine, file, content, 0o600) : fs.writeFileSync(file, content, { mode: 0o600 });
+  const promptFile = path.join(dir, `${sid}.prompt.md`);
+  put(promptFile, rolePrompt(officeId, role, card ? `\n## Kartu shift ini\n${card.id}: ${card.title}\n${card.desc || ''}` : ''));
+  const mcpFile = path.join(dir, `${sid}.mcp.json`);
+  put(mcpFile, JSON.stringify(mcpConfig(officeId, roleId, sid, rm)));
+  const args = [q(rm ? rm.bins.claude : claude)];
   if (resumeSid) args.push('--resume', q(resumeSid)); else args.push('--session-id', q(sid));
   args.push('--model', q(model || (role.engine === 'claude' || !role.engine ? role.model : '') || 'sonnet'), '--append-system-prompt-file', q(promptFile), '--mcp-config', q(mcpFile), '--name', q(`${role.name}${slot ? ' #' + (slot + 1) : ''} · ${m.name}`));
   args.push(...permissionArgs(permissionMode));
   // kantor's own MCP tools never need a prompt; hooks only when not installed globally
-  const settings = { permissions: { allow: ['mcp__kantor'] }, ...(globalHooksInstalled() ? {} : hookSettings()), ...statusLineSettings() };
-  const setFile = path.join(RUN_DIR, `${sid}.settings.json`);
-  fs.writeFileSync(setFile, JSON.stringify(settings), { mode: 0o600 });
+  // (di Mac lain hook selalu ikut: hook global di sana menunjuk ke daemon yang tidak ada)
+  const settings = rm
+    ? { permissions: { allow: ['mcp__kantor'] }, ...hookSettings(machine), ...(rm.ownStatusLine ? {} : statusLineSettings({ node: rm.bins.node, root: rm.root })) }
+    : { permissions: { allow: ['mcp__kantor'] }, ...(globalHooksInstalled() ? {} : hookSettings()), ...statusLineSettings() };
+  const setFile = path.join(dir, `${sid}.settings.json`);
+  put(setFile, JSON.stringify(settings));
   args.push('--settings', q(setFile));
   const first = task || (card ? `Kerjakan kartu ${card.id}: ${card.title}` : '');
   if (first && !resumeSid) args.push('--', q(first));
-  const cmd = `export KANTOR_SID=${q(sid)}${process.env.KANTOR_HOME ? `; export KANTOR_HOME=${q(process.env.KANTOR_HOME)}` : ''}; exec ${args.join(' ')}`;
-  const envs = ['-e', `KANTOR_SID=${sid}`];
-  if (process.env.KANTOR_HOME) envs.push('-e', `KANTOR_HOME=${process.env.KANTOR_HOME}`);
-  tmux(['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', ...envs, '/bin/zsh', '-lc', cmd]);
+  if (rm) {
+    const envFile = writeRemoteEnv(rm, sid);
+    tmux(['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', ...envArgs(withoutToken(remoteEnv(rm.mc, sid))), '/bin/zsh', '-lc', `set -a; . ${q(envFile)}; set +a; exec ${args.join(' ')}`], { machine });
+  } else {
+    const cmd = `export KANTOR_SID=${q(sid)}${process.env.KANTOR_HOME ? `; export KANTOR_HOME=${q(process.env.KANTOR_HOME)}` : ''}; exec ${args.join(' ')}`;
+    const envs = ['-e', `KANTOR_SID=${sid}`];
+    if (process.env.KANTOR_HOME) envs.push('-e', `KANTOR_HOME=${process.env.KANTOR_HOME}`);
+    tmux(['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', ...envs, '/bin/zsh', '-lc', cmd]);
+  }
   try { tmux(['set-option', '-t', name, 'status', 'off']); tmux(['set-option', '-t', name, 'mouse', 'on']); tmux(['set-option', '-t', name, 'history-limit', '20000']); } catch {}
 
-  expectSession({ sid, office: officeId, role: roleId, room: role.room, cwd, tmux: name, slot, title: first || card?.title || null });
+  expectSession({ sid, office: officeId, role: roleId, room: role.room, cwd, tmux: name, slot, title: first || card?.title || null, machine });
   run(db, `INSERT INTO shifts (sid, role, title, card, started_at, cwd, tmux, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'aktif')
            ON CONFLICT(sid) DO UPDATE SET started_at = excluded.started_at, ended_at = NULL, tmux = excluded.tmux, status = 'aktif'`,
     sid, roleId, first || card?.title || '', cardId, nowIso(), cwd, name);
@@ -265,26 +389,34 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
 }
 
 /** The Codex half of startShift: same tmux session, shift row and office log, different command line. */
-function launchCodex({ officeId, role, m, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort }) {
+function launchCodex({ officeId, role, m, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort, machine = null, rm = null }) {
   const db = officeDb(officeId);
   const own = role.engine === 'codex';
   const mdl = model || (own ? role.model : '') || '';
   const eff = effort || (own ? role.effort : '') || '';
   const mode = codexMode(permissionMode);
   const first = task || (card ? `Kerjakan kartu ${card.id}: ${card.title}` : '');
-  const home = process.env.KANTOR_HOME;
+  const home = rm ? null : process.env.KANTOR_HOME; // KANTOR_HOME lokal tidak berarti apa-apa di Mac lain
+  // Codex membawa hook dan MCP lewat -c: di Mac lain keduanya menunjuk ke node dan skrip kantor di mesin itu, dan
+  // env MCP harus memuat URL hub dan token mesin (Codex tidak meneruskan env induk ke server MCP)
   const args = codexArgs({ resumeSid, model: mdl, effort: eff, mode, cwd, task: first,
     instructions: rolePrompt(officeId, role, card ? `\n## Kartu shift ini\n${card.id}: ${card.title}\n${card.desc || ''}` : '', 'codex'),
-    mcp: { command: process.execPath, args: [path.join(ROOT_DIR, 'server', 'mcp-stdio.js')],
-      env: { KANTOR_OFFICE: officeId, KANTOR_ROLE: role.id, KANTOR_SID: sid, ...(home ? { KANTOR_HOME: home } : {}) } } });
+    // token diteruskan dari env proses codex (env_vars), bukan ditulis di -c: argv codex terlihat di ps
+    mcp: rm ? { command: rm.bins.node, args: [path.join(rm.root, 'server', 'mcp-stdio.js')], env: { KANTOR_OFFICE: officeId, KANTOR_ROLE: role.id, ...withoutToken(remoteEnv(rm.mc, sid)) }, envVars: ['KANTOR_TOKEN'] }
+      : { command: process.execPath, args: [path.join(ROOT_DIR, 'server', 'mcp-stdio.js')],
+        env: { KANTOR_OFFICE: officeId, KANTOR_ROLE: role.id, KANTOR_SID: sid, ...(home ? { KANTOR_HOME: home } : {}) } },
+    hook: rm ? { node: rm.bins.node, root: rm.root } : null });
   // the long role prompt lives in a private script, not on the tmux command line (or in `ps`)
-  const scriptFile = path.join(RUN_DIR, `${sid}.codex.sh`);
-  fs.writeFileSync(scriptFile, codexScript({ bin: codexBin(), args, env: { KANTOR_SID: sid, KANTOR_ENGINE: 'codex', KANTOR_HOME: home } }), { mode: 0o700 });
-  const envs = ['-e', `KANTOR_SID=${sid}`, '-e', 'KANTOR_ENGINE=codex'];
+  const scriptFile = path.join(rm ? rm.runDir : RUN_DIR, `${sid}.codex.sh`);
+  const env = rm ? { ...withoutToken(remoteEnv(rm.mc, sid)), KANTOR_ENGINE: 'codex' } : { KANTOR_SID: sid, KANTOR_ENGINE: 'codex', KANTOR_HOME: home };
+  const script = codexScript({ bin: rm ? rm.bins.codex : codexBin(), args, env, envFile: rm ? writeRemoteEnv(rm, sid, { KANTOR_ENGINE: 'codex' }) : null });
+  if (rm) mx.writeFile(machine, scriptFile, script, 0o700); else fs.writeFileSync(scriptFile, script, { mode: 0o700 });
+  const envs = rm ? envArgs(env) : ['-e', `KANTOR_SID=${sid}`, '-e', 'KANTOR_ENGINE=codex'];
   if (home) envs.push('-e', `KANTOR_HOME=${home}`);
-  tmux(['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', ...envs, '/bin/zsh', '-lc', `exec ${q(scriptFile)}`]);
+  tmux(['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', ...envs, '/bin/zsh', '-lc', `exec ${q(scriptFile)}`], rm ? { machine } : {});
   try { tmux(['set-option', '-t', name, 'status', 'off']); tmux(['set-option', '-t', name, 'mouse', 'on']); tmux(['set-option', '-t', name, 'history-limit', '20000']); } catch {}
-  expectSession({ sid, office: officeId, role: role.id, room: role.room, cwd, tmux: name, slot, title: first || card?.title || null, engine: 'codex', effort: eff || codexDefaults().effort, model: mdl || codexDefaults().model, permMode: mode });
+  const def = rm ? remoteCodexDefaults(machine) : codexDefaults();
+  expectSession({ sid, office: officeId, role: role.id, room: role.room, cwd, tmux: name, slot, title: first || card?.title || null, engine: 'codex', effort: eff || def.effort, model: mdl || def.model, permMode: mode, machine });
   run(db, `INSERT INTO shifts (sid, role, title, card, started_at, cwd, tmux, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'aktif')
            ON CONFLICT(sid) DO UPDATE SET started_at = excluded.started_at, ended_at = NULL, tmux = excluded.tmux, status = 'aktif'`,
     sid, role.id, first || card?.title || '', card?.id || null, nowIso(), cwd, name);
@@ -313,6 +445,28 @@ function launchAntigravity({ officeId, role, cwd, slot, sid, name, card, task, r
     sid, role.id, first || card?.title || '', card?.id || null, nowIso(), cwd, name);
   logOffice(officeId, role.name, resumeSid ? 'melanjutkan sesi Gemini (Antigravity)' : 'mulai shift Gemini (Antigravity)', 'session');
   return { sid, tmux: name, slot, engine: 'antigravity' };
+}
+
+/** Model dan effort bawaan Codex di Mac lain (config.toml di sana). */
+function remoteCodexDefaults(machine) {
+  let txt = '';
+  try { txt = mx.shSync(machine, 'cat "${CODEX_HOME:-$HOME/.codex}/config.toml" 2>/dev/null; true', { timeout: 8000 }); } catch {}
+  return codexDefaults(txt);
+}
+
+/** Worktree untuk slot kedua dst. di Mac lain, lewat git di mesin itu. Folder tanpa .git: tetap di folder ruangan. */
+function addRemoteWorktree(machine, repoDir, roleId, slot) {
+  const target = path.join(path.dirname(repoDir), `${path.basename(repoDir)}-kc-${roleId}-${slot + 1}`);
+  let out = '';
+  try { out = mx.shSync(machine, `test -e ${q(path.join(repoDir, '.git'))} && echo GIT; test -e ${q(target)} && echo ADA; true`, { timeout: 10000 }); }
+  catch (e) { if (e.status === 255 || mx.isOffline(machine)) throw offlineError(machine); throw e; }
+  if (!/GIT/.test(out)) return repoDir;
+  if (/ADA/.test(out)) return target;
+  if (!mx.ensureProbed(machine).git) throw new Error(`git tidak ditemukan di Mac ${machineName(machine)}, jadi worktree tidak bisa dibuat. Pasang git di sana atau mulai shift tanpa worktree.`);
+  const branch = `kc/${roleId}-${slot + 1}-${Date.now().toString(36)}`;
+  try { mx.execSync(machine, 'git', ['-C', repoDir, 'worktree', 'add', '-b', branch, target], { timeout: 60000 }); }
+  catch (e) { throw new Error(`Gagal membuat worktree di Mac ${machineName(machine)}: ${String(e.stderr || e.message || e).trim().slice(0, 200)}`); }
+  return target;
 }
 
 function addWorktree(repoDir, roleId, slot) {
@@ -363,7 +517,7 @@ export function sendText(name, text) {
   // saat draf laporan tampil, tombol 0/1/2 berarti pilihan: tempel supaya pesan yang diawali angka tidak ikut menekannya
   if (usePaste(text) || draftOnScreen(paneScreen(name))) {
     const buf = `kc-${process.pid}-${Date.now()}`;
-    tmux(['set-buffer', '-b', buf, '--', text]);
+    tmux(['set-buffer', '-b', buf, '--', text], { machine: mx.tmuxMachineOf(name) }); // buffer harus di server tmux yang sama dengan pane
     tmux(['paste-buffer', '-p', '-d', '-b', buf, '-t', name]);
   } else tmux(['send-keys', '-t', name, '-l', text]);
   return submit(name, text).catch(() => {});
@@ -429,9 +583,12 @@ export async function stopAll(name, liveCount = 0) {
 
 export async function sessionAction(sid, action, text) {
   const s = live.get(sid);
-  const row = one(globalDb(), 'SELECT tmux, tty FROM sessions WHERE sid = ?', sid);
+  const row = one(globalDb(), 'SELECT tmux, tty, machine FROM sessions WHERE sid = ?', sid);
   const name = s?.tmux || row?.tmux;
   const who = s ? whoOf(s) : 'Sesi';
+  const machine = isRemoteId(s?.machine || row?.machine) ? (s?.machine || row?.machine) : null;
+  if (machine && name && mx.tmuxMachineOf(name) !== machine) mx.setTmuxMachine(name, machine); // sesi yang belum dimuat ke live
+  if (machine) assertOnline(machine);
   if (name && hasTmux(name)) {
     switch (action) {
       case 'esc': {
@@ -466,21 +623,33 @@ export async function sessionAction(sid, action, text) {
       case 'clear': sendText(name, '/clear'); break;
       case 'exit': sendText(name, '/exit'); setTimeout(() => { if (hasTmux(name)) try { tmux(['kill-session', '-t', name]); } catch {} }, 8000); break;
       case 'kill': tmux(['kill-session', '-t', name]); markEnded(sid); logOffice(s?.office, who, 'dipulangkan paksa', 'session'); break;
-      case 'text': if (text) { sendText(name, text); recordOutgoing(sid, text); } break;
+      // Mac lain: tunggu sampai Enter benar-benar masuk (submit memeriksa layar lewat ssh)
+      case 'text': if (text) { const sent = sendText(name, text); recordOutgoing(sid, text); if (machine) await sent; } break;
       default: throw new Error('Aksi tidak dikenal');
     }
     return { via: 'tmux' };
   }
+  // sesi di Mac lain hanya dikendalikan lewat tmux; Terminal dan VS Code di sana tidak terjangkau
+  if (machine) {
+    assertOnline(machine);
+    // hasTmux bisa salah saat ssh lambat: pastikan lewat daftar yang ketat sebelum menganggap tmux-nya hilang
+    const list = remoteSessionsForRecovery(machine);
+    if (list === null) throw offlineError(machine);
+    if (name && list.includes(name)) throw new Error(`Mac ${machineName(machine)} lambat menjawab. Coba lagi sebentar lagi.`);
+    if (action === 'kill' || action === 'exit') { markEnded(sid); if (s) bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) }); return { via: 'tmux', gone: true }; }
+    throw new Error(`Sesi ini jalan di Mac ${machineName(machine)}, tapi tmux-nya sudah tidak ada di sana. Mulai shift baru dari kantor.`);
+  }
   // a session in a normal Terminal.app / iTerm2 tab: type into it
   const tty = s?.tty || row?.tty;
+  const topt = { machine: s?.machine || row?.machine || null }; // termapp menolak mesin remote (pengaman kedua)
   if (!tty) throw new Error('Terminal sesi ini belum diketahui. Kirim satu perintah dari jendelanya dulu, lalu coba lagi.');
   if (s?.host === 'vscode' && action !== 'kill') throw new Error('Sesi ini jalan di terminal VS Code, dan kantor tidak bisa mengetik ke sana. Pakai "Pindahkan ke kantor" supaya bisa dikendalikan dari sini.');
   switch (action) {
-    case 'text': { const app = await typeInto(tty, text); recordOutgoing(sid, text); logOffice(s?.office, actorName(), `mengirim perintah ke ${who} lewat ${app}`, 'prompt'); return { via: app }; }
-    case 'compact': return { via: await typeInto(tty, '/compact') };
-    case 'clear': return { via: await typeInto(tty, '/clear') };
-    case 'exit': return { via: await typeInto(tty, '/exit') };
-    case 'kill': { const pid = claudePid(tty); if (!pid) throw new Error('Proses Claude di terminal itu tidak ditemukan'); process.kill(pid, 'SIGTERM'); markEnded(sid); logOffice(s?.office, who, 'dipulangkan paksa', 'session'); return { via: 'signal' }; }
+    case 'text': { const app = await typeInto(tty, text, topt); recordOutgoing(sid, text); logOffice(s?.office, actorName(), `mengirim perintah ke ${who} lewat ${app}`, 'prompt'); return { via: app }; }
+    case 'compact': return { via: await typeInto(tty, '/compact', topt) };
+    case 'clear': return { via: await typeInto(tty, '/clear', topt) };
+    case 'exit': return { via: await typeInto(tty, '/exit', topt) };
+    case 'kill': { const pid = claudePid(tty, topt); if (!pid) throw new Error('Proses Claude di terminal itu tidak ditemukan'); process.kill(pid, 'SIGTERM'); markEnded(sid); logOffice(s?.office, who, 'dipulangkan paksa', 'session'); return { via: 'signal' }; }
     case 'stop-all': case 'kill-agents': throw new Error('Subagent latar hanya bisa dihentikan untuk sesi di tmux kantor. Pindahkan sesi ini ke kantor, atau tekan Ctrl+X Ctrl+K dua kali di jendelanya.');
     case 'esc': throw new Error('Esc tidak bisa dikirim ke Terminal dari sini. Pindahkan sesi ini ke kantor supaya bisa dihentikan, atau tekan Esc di jendelanya.');
     default: throw new Error('Aksi tidak dikenal');
@@ -497,6 +666,7 @@ export async function adoptSession(sid, roleId = null, permissionMode = null, ne
   const row = one(globalDb(), 'SELECT * FROM sessions WHERE sid = ?', sid);
   const office = s?.office || row?.office, cwd = s?.cwd || row?.cwd, tty = s?.tty || row?.tty;
   if (!office || !cwd) throw new Error('Sesi ini tidak dikenal kantor');
+  if (isRemoteId(s?.machine || row?.machine)) throw new Error(`Sesi ini jalan di Mac ${machineName(s?.machine || row?.machine)}. Memindahkan sesi Terminal dari Mac lain belum didukung; mulai shift dari kantor untuk ruangan di mesin itu.`);
   if ((s?.tmux || row?.tmux) && hasTmux(s?.tmux || row?.tmux)) throw new Error('Sesi ini sudah berjalan di tmux kantor');
   // after /clear the conversation can live in an office pane under another record: never start it twice
   for (const f of fs.readdirSync(path.join(CLAUDE_DIR, 'sessions')).filter(f => f.endsWith('.json'))) {
@@ -505,17 +675,18 @@ export async function adoptSession(sid, roleId = null, permissionMode = null, ne
     let alive = false; try { process.kill(d.pid, 0); alive = true; } catch {}
     if (alive && d.tmux) throw new Error(`Percakapan ini masih jalan di tmux ${String(d.tmux).split(':')[0]}. Buka sesi itu saja.`);
   }
-  const alive = s && s.status !== 'ended' && tty && claudePid(tty);
+  const topt = { machine: s?.machine || row?.machine || null };
+  const alive = s && s.status !== 'ended' && tty && claudePid(tty, topt);
   if (alive) {
-    const typed = s.host !== 'vscode' && await typeInto(tty, '/exit').then(() => true, () => false);
+    const typed = s.host !== 'vscode' && await typeInto(tty, '/exit', topt).then(() => true, () => false);
     if (!typed) {
       // VS Code (or an app we can't type into): stop it with a signal, but never in the middle of a turn
       if (s.status === 'working' || s.waiting) throw new Error('Sesi ini sedang bekerja. Tunggu sampai selesai menjawab, lalu pindahkan.');
       try { process.kill(alive, 'SIGTERM'); } catch {}
     }
-    for (let i = 0; i < 30 && claudePid(tty); i++) await new Promise(r => setTimeout(r, 500));
-    if (!typed && claudePid(tty)) { try { process.kill(claudePid(tty), 'SIGKILL'); } catch {} await new Promise(r => setTimeout(r, 800)); }
-    if (claudePid(tty)) throw new Error('Sesi di terminalnya belum keluar. Tutup dulu dari jendelanya, lalu coba lagi.');
+    for (let i = 0; i < 30 && claudePid(tty, topt); i++) await new Promise(r => setTimeout(r, 500));
+    if (!typed && claudePid(tty, topt)) { try { process.kill(claudePid(tty, topt), 'SIGKILL'); } catch {} await new Promise(r => setTimeout(r, 800)); }
+    if (claudePid(tty, topt)) throw new Error('Sesi di terminalnya belum keluar. Tutup dulu dari jendelanya, lalu coba lagi.');
     live.delete(sid);
   }
   const resumable = s?.transcript || row?.transcript;
@@ -575,6 +746,7 @@ export function reapGoneTmux(names = tmuxSessionsForRecovery()) {
   let n = 0;
   for (const s of [...live.values()]) {
     if (!s.tmux || s.status === 'ended' || s.sid.startsWith('pane-')) continue;
+    if (s.machine && s.machine !== mx.LOCAL) continue; // sesi di Mac lain: diurus per mesin (docs/MULTI-PC.md), jangan pernah diakhiri dari daftar tmux lokal
     if (present.has(s.tmux) || Date.parse(s.startedAt) > fresh) continue;
     markEnded(s.sid);
     bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
@@ -595,6 +767,7 @@ export function adoptRunning(sessionNames = tmuxSessionsForRecovery()) {
     || a.sid.localeCompare(b.sid));
   const adopted = new Set();
   for (const r of rows) {
+    if (r.machine && r.machine !== mx.LOCAL) continue; // sesi di Mac lain diadopsi per mesin (adoptRemote), bukan dari daftar tmux lokal
     if (!names.has(r.tmux) || adopted.has(r.tmux)) {
       const endedAt = nowIso();
       run(globalDb(), "UPDATE sessions SET status = 'ended', ended_at = COALESCE(ended_at, ?) WHERE sid = ?", endedAt, r.sid);
@@ -610,6 +783,88 @@ export function adoptRunning(sessionNames = tmuxSessionsForRecovery()) {
     s.transcript = r.transcript || null; // tanpa ini kesehatan dan konteks sesi Claude kosong sampai hook berikutnya
     if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
   }
+}
+
+/**
+ * Daftar sesi tmux di mesin remote untuk pemulihan, atau null bila tidak bisa dipercaya (offline, dinonaktifkan,
+ * timeout). Daftar kosong dicek ulang: hanya "no server running" yang berarti semua pane memang sudah hilang.
+ */
+function remoteSessionsForRecovery(id) {
+  if (!mx.isRemote(id) || mx.getMachine(id).disabled) return null;
+  const names = mx.remoteTmuxSessions(id, { fresh: true });
+  if (names === null || mx.isOffline(id)) return null;
+  if (names.length) return names;
+  try { return mx.execSync(id, 'tmux', ['list-sessions', '-F', '#{session_name}'], { timeout: 8000 }).split('\n').filter(Boolean); }
+  catch (e) { return e.status === 1 && /no server running|no sessions|error connecting/i.test(String(e.stderr || e.stdout || '')) ? [] : null; }
+}
+
+/**
+ * Mesin remote online (startup, kembali online, tiap 60 detik): ambil lagi shift kantor di mesin itu yang tmux-nya
+ * masih jalan, dan akhiri yang tmux-nya sudah hilang. Mesin tak terjangkau: tidak melakukan apa pun (aturan keras:
+ * sesi di mesin offline tidak pernah diakhiri). → { adopted, ended } atau null.
+ */
+export function adoptRemote(machineId) {
+  try { return adoptRemoteNow(machineId); } catch (e) { console.error('[kantor] adoptRemote', machineId, e.message); return null; }
+}
+function adoptRemoteNow(machineId) {
+  const list = remoteSessionsForRecovery(machineId);
+  if (list === null) return null;
+  const names = new Set(list);
+  const rows = all(globalDb(), 'SELECT * FROM sessions WHERE machine = ? AND tmux IS NOT NULL AND ended_at IS NULL', machineId);
+  // satu pane, beberapa id (setelah /clear): yang sedang dipegang live menang, lalu yang terbaru seperti adoptRunning
+  const held = r => Number(!(live.get(r.sid) && live.get(r.sid).status !== 'ended'));
+  rows.sort((a, b) => held(a) - held(b) || Number(a.sid.startsWith('pane-')) - Number(b.sid.startsWith('pane-'))
+    || Date.parse(b.last_seen || b.started_at) - Date.parse(a.last_seen || a.started_at)
+    || Date.parse(b.started_at) - Date.parse(a.started_at)
+    || a.sid.localeCompare(b.sid));
+  const fresh = Date.now() - 60e3, taken = new Set();
+  let adopted = 0, ended = 0;
+  for (const r of rows) {
+    const cur = live.get(r.sid);
+    if (names.has(r.tmux) && !taken.has(r.tmux)) {
+      taken.add(r.tmux);
+      mx.setTmuxMachine(r.tmux, machineId);
+      if (cur && cur.status !== 'ended') continue; // sudah dipegang: jangan setel ulang statusnya tiap putaran
+      const base = `${r.tmux.startsWith('kcr-') ? 'kcr' : 'kc'}-${r.office}-${r.role}`;
+      const slot = r.tmux.startsWith(base + '-') ? Math.max(0, Number(r.tmux.slice(base.length + 1)) - 1 || 0) : 0;
+      expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine !== 'claude' ? r.model : null, machine: machineId });
+      const s = live.get(r.sid); s.status = 'idle'; s.startedAt = r.started_at;
+      run(globalDb(), "UPDATE sessions SET status = 'idle' WHERE sid = ?", r.sid);
+      s.transcript = r.transcript || null; // path cermin lokal (mirror/<mesin>/...), jadi pembaca transkrip jalan seperti biasa
+      const src = s.transcript && mx.remoteOfMirror(s.transcript);
+      if (src) import('./mirror.js').then(mm => mm.mirrorTranscript?.(src.machine, src.file)).catch(() => {});
+      if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
+      bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
+      adopted++;
+      continue;
+    }
+    if (Date.parse(cur?.startedAt || r.started_at) > fresh) continue; // baru diluncurkan: beri waktu
+    const endedAt = nowIso();
+    if (cur && cur.status !== 'ended') { markEnded(r.sid); bus.emit('msg', { t: 'session', office: cur.office, session: serialize(cur) }); }
+    else {
+      run(globalDb(), "UPDATE sessions SET status = 'ended', ended_at = COALESCE(ended_at, ?) WHERE sid = ?", endedAt, r.sid);
+      if (r.office && r.role) try { run(officeDb(r.office), "UPDATE shifts SET ended_at = ?, status = 'selesai' WHERE sid = ?", endedAt, r.sid); } catch {}
+    }
+    ended++;
+  }
+  return { adopted, ended };
+}
+
+/** Seperti reapGoneTmux, hanya untuk sesi live di mesin itu, dan hanya kalau daftar tmux-nya bisa dibaca. */
+export function reapRemote(machineId, names) {
+  try { if (names === undefined) names = remoteSessionsForRecovery(machineId); } catch { return 0; }
+  if (names === null || names === undefined) return 0;
+  const present = new Set(names);
+  const fresh = Date.now() - 60e3;
+  let n = 0;
+  for (const s of [...live.values()]) {
+    if (s.machine !== machineId || !s.tmux || s.status === 'ended' || s.sid.startsWith('pane-')) continue;
+    if (present.has(s.tmux) || Date.parse(s.startedAt) > fresh) continue;
+    markEnded(s.sid);
+    bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
+    n++;
+  }
+  return n;
 }
 
 /** On daemon start: bring back Terminal/iTerm sessions whose Claude process is still alive. */
@@ -631,9 +886,19 @@ export function adoptManual() {
 export function ensureShell(officeId, roomId) {
   const m = officeModel(officeId);
   const room = m.plan.rooms.find(r => r.id === roomId);
-  const cwd = room && room.path ? path.join(m.root, room.path) : m.root;
   const name = `kcsh-${officeId}-${roomId}`.replace(/[^A-Za-z0-9_-]/g, '-');
-  if (!hasTmux(name)) { tmux(['new-session', '-d', '-s', name, '-c', fs.existsSync(cwd) ? cwd : m.root, '-x', '200', '-y', '50']); try { tmux(['set-option', '-t', name, 'status', 'off']); } catch {} }
+  const place = roomPlace(m, room);
+  mx.setTmuxMachine(name, place.machine);
+  if (place.machine) { // ruangan di Mac lain: shell-nya juga di sana
+    assertOnline(place.machine);
+    if (!hasTmux(name)) {
+      remoteReady(place.machine, { cwd: place.cwd, scripts: false });
+      tmux(['new-session', '-d', '-s', name, '-c', place.cwd, '-x', '200', '-y', '50'], { machine: place.machine });
+      try { tmux(['set-option', '-t', name, 'status', 'off']); } catch {}
+    }
+    return name;
+  }
+  if (!hasTmux(name)) { tmux(['new-session', '-d', '-s', name, '-c', place.cwd, '-x', '200', '-y', '50']); try { tmux(['set-option', '-t', name, 'status', 'off']); } catch {} }
   return name;
 }
 

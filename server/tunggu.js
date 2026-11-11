@@ -8,6 +8,7 @@ import { officeModel } from './offices.js';
 import { sessionAction } from './tmux.js';
 import { headOf } from './gitinfo.js';
 import { exhausted } from './budget.js';
+import { typeSerial, sessionOffline } from './dm.js';
 
 export const EVENTS = ['kartu_masuk', 'kartu_untukku', 'pesan', 'commit_baru', 'review_diminta'];
 export const DEFAULT_MAX_MIN = 180;
@@ -153,7 +154,7 @@ async function fire(w, s) {
   const onlyDm = w.pending.length && w.pending.every(p => p.ev === 'pesan');
   const who = st.getRole(w.office, w.role)?.name || 'Sesi';
   if (onlyDm) { logOffice(w.office, who, 'bangun dari tunggu: pesan masuk', 'tunggu'); return; } // dm.js types the message
-  try { await sender(w.sid, text); logOffice(w.office, who, `bangun dari tunggu: ${w.timedOut && !w.pending.length ? 'waktu habis' : w.pending.map(p => p.ev).join(', ')}`, 'tunggu'); }
+  try { await typeSerial(w.sid, text, sender); logOffice(w.office, who, `bangun dari tunggu: ${w.timedOut && !w.pending.length ? 'waktu habis' : w.pending.map(p => p.ev).join(', ')}`, 'tunggu'); }
   catch (e) { logOffice(w.office, who, `gagal membangunkan: ${e.message}`, 'tunggu'); }
 }
 
@@ -169,6 +170,7 @@ export async function tick(now = Date.now()) {
     const due = (w.pending.length && now - w.pendingAt >= COALESCE_MS) || (w.timedOut && !w.pending.length);
     if (!due) continue;
     if (w.role && exhausted(w.office, w.role)) continue; // out of budget: waking it would only spend more
+    if (sessionOffline(s)) continue; // its Mac is offline: keep the wait, wake it once the machine is back
     await fire(w, s);
     fired.push(w.sid);
   }

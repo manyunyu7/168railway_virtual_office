@@ -5,6 +5,7 @@ import { bus, live, logOffice } from './live.js';
 import * as st from './store.js';
 import { sessionAction } from './tmux.js';
 import { exhausted } from './budget.js';
+import { typeSerial, sessionOffline } from './dm.js';
 
 export const DEFAULTS = {
   pullWork: false,
@@ -90,6 +91,7 @@ export async function pullWorkTick(office, now = Date.now()) {
   const offeredTo = new Set(); // one session per role, even when it runs several shifts
   for (const s of [...live.values()].sort((a, b) => (a.slot || 0) - (b.slot || 0))) {
     if (s.office !== office || !s.role || offeredTo.has(s.role) || !s.tmux || s.kind === 'rapat' || s.status === 'ended') continue;
+    if (sessionOffline(s)) continue; // its Mac is offline: nothing can be typed there
     if (idleFor(s, now) < conf.idleMinutes * 60e3) continue;
     const role = st.getRole(office, s.role);
     if (!role || role.archived) continue;
@@ -104,7 +106,7 @@ export async function pullWorkTick(office, now = Date.now()) {
     if (!c) continue;
     offeredTo.add(s.role);
     try {
-      await sender(s.sid, offerText(office, role, c));
+      await typeSerial(s.sid, offerText(office, role, c), sender);
     } catch (e) { logOffice(office, role.name, `tawaran kerja ${c.id} gagal: ${e.message}`, 'autopilot'); continue; }
     offered.set(`${key}:${c.id}`, now);
     recent.push(now);
@@ -130,13 +132,13 @@ export async function managerRoundTick(office, now = Date.now()) {
   if (now - (lastRound.get(office) || 0) < mr.cooldownMinutes * 60e3) return null;
   const stale = staleCards(office, mr.staleMinutes, now);
   if (!stale.length) return null;
-  const mgr = [...live.values()].find(s => s.office === office && s.tmux && s.status === 'idle' && !s.waiting && s.kind !== 'rapat' && st.getRole(office, s.role)?.isMgr);
+  const mgr = [...live.values()].find(s => s.office === office && s.tmux && s.status === 'idle' && !s.waiting && s.kind !== 'rapat' && !sessionOffline(s) && st.getRole(office, s.role)?.isMgr);
   if (!mgr || now - Date.parse(mgr.lastSeen || 0) < conf.idleMinutes * 60e3) return null;
   if (exhausted(office, mgr.role)) return null;
   const mins = c => Math.round((now - Date.parse(c.updated_at)) / 60e3);
   const list = stale.slice(0, 8).map(c => `${c.id} "${String(c.title).slice(0, 50)}" (${st.colNameOf(office, c)}, ${mins(c)} menit${c.who ? `, ${st.getRole(office, c.who)?.name || c.who}` : ', tanpa pemilik'})`).join('; ');
   lastRound.set(office, now);
-  try { await sender(mgr.sid, `[Kantor · ronde manager] ${stale.length} kartu Siap/Review tidak bergerak lebih dari ${mr.staleMinutes} menit: ${list}${stale.length > 8 ? ', …' : ''}. Tindak lanjuti: tanya pemegangnya, tugaskan ulang, atau tutup. Kalau tidak ada yang perlu dilakukan, panggil tunggu_kerja.`); }
+  try { await typeSerial(mgr.sid, `[Kantor · ronde manager] ${stale.length} kartu Siap/Review tidak bergerak lebih dari ${mr.staleMinutes} menit: ${list}${stale.length > 8 ? ', …' : ''}. Tindak lanjuti: tanya pemegangnya, tugaskan ulang, atau tutup. Kalau tidak ada yang perlu dilakukan, panggil tunggu_kerja.`, sender); }
   catch (e) { logOffice(office, 'Autopilot', `ronde manager gagal: ${e.message}`, 'autopilot'); return null; }
   logOffice(office, st.getRole(office, mgr.role)?.name || 'Manager', `ronde manager: ${stale.length} kartu tidak bergerak`, 'autopilot');
   return { manager: mgr.role, cards: stale.map(c => c.id) };

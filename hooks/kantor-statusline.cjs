@@ -4,27 +4,33 @@
 // forwards that to the daemon (so the Usage screens can show the remaining quota) and prints one short line.
 // It reads no credentials and never fails the statusline: daemon down or slow means nothing is sent.
 // Optional: `--then "<command>"` runs your own statusline command with the same input and prints its output after ours.
+// Di Mac lain (docs/MULTI-PC.md): env KANTOR_URL + KANTOR_TOKEN → kirim ke hub itu (http/https), tanpa server.json.
 'use strict';
 const fs = require('fs');
 const http = require('http');
+const https = require('https');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
 const SERVER_JSON = path.join(process.env.KANTOR_HOME || path.join(os.homedir(), '.kantor-claude'), 'server.json');
 
+/** { url, token } atau null. */
 function readServer() {
+  if (process.env.KANTOR_URL && process.env.KANTOR_TOKEN) return { url: process.env.KANTOR_URL.replace(/\/+$/, ''), token: process.env.KANTOR_TOKEN };
   try {
     const s = JSON.parse(fs.readFileSync(SERVER_JSON, 'utf8'));
-    if (s && s.port && s.token) { try { process.kill(s.pid, 0); } catch { return null; } return s; }
+    if (s && s.port && s.token) { try { process.kill(s.pid, 0); } catch { return null; } return { url: `http://127.0.0.1:${s.port}`, token: s.token }; }
   } catch {}
   return null;
 }
 
 function post(server, body) {
   return new Promise(resolve => {
-    const req = http.request({
-      hostname: '127.0.0.1', port: server.port, path: '/api/usage/limits/claude', method: 'POST', timeout: 1200,
+    let u;
+    try { u = new URL(server.url + '/api/usage/limits/claude'); } catch { return resolve(); }
+    const req = (u.protocol === 'https:' ? https : http).request(u, {
+      method: 'POST', timeout: 1200,
       headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), Authorization: `Bearer ${server.token}` },
     }, res => { res.resume(); res.on('end', () => resolve()); });
     req.on('error', () => resolve());

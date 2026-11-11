@@ -2,8 +2,11 @@
 // Claude Code writes each subagent's transcript next to the parent's: <dir>/<sessionId>/subagents/agent-<agentId>.jsonl.
 // The figure is the size of the subagent's latest turn (input + cache read + cache creation + output of its last
 // assistant message), which is what Claude Code reports as the agent's total tokens.
+// A remote session's transcript is a mirror copy (server/mirror.js); its subagent files are mirrored on first use.
 import fs from 'node:fs';
 import path from 'node:path';
+import { remoteOfMirror, isRemote, shAsync, q } from './machines.js';
+import { mirrorLater } from './mirror.js';
 
 const TAIL = 256 * 1024;
 const cache = new Map(); // file -> { size, tokens }
@@ -27,20 +30,46 @@ export function lastUsageTokens(text) {
 export const subagentFile = (transcript, agentId) => transcript && agentId && /^[\w-]+$/.test(agentId)
   ? path.join(path.dirname(transcript), path.basename(transcript, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`) : null;
 
-export const subagentTokens = (transcript, agentId) => fileTokens(subagentFile(transcript, agentId));
+export function subagentTokens(transcript, agentId) {
+  const f = subagentFile(transcript, agentId);
+  const r = f && remoteOfMirror(f);
+  if (r) mirrorLater(r.machine, r.file); // registers once; the mirror poller pulls it (no ssh on this hot path)
+  return fileTokens(f);
+}
 
 const codexFiles = new Map(); // agentId -> rollout file
 const pad = n => String(n).padStart(2, '0');
-/** A Codex subagent's own rollout: ~/.codex/sessions/YYYY/MM/DD/rollout-<time>-<agentId>.jsonl (local date of its start). */
-export function codexSubagentFile(agentId, at = Date.now()) {
+/**
+ * A Codex subagent's own rollout: ~/.codex/sessions/YYYY/MM/DD/rollout-<time>-<agentId>.jsonl (local date of its start).
+ * With `machine` (a remote one) the rollout is looked up on that machine in the background and its mirror copy returned
+ * once found; until then null.
+ */
+export function codexSubagentFile(agentId, at = Date.now(), machine = null) {
   if (!agentId || !/^[\w-]+$/.test(agentId)) return null;
   if (codexFiles.has(agentId)) return codexFiles.get(agentId);
+  if (machine && isRemote(machine)) return remoteCodexFile(machine, agentId, at);
   const root = path.join(process.env.CODEX_HOME || path.join(process.env.HOME || '', '.codex'), 'sessions');
   for (const t of new Set([at, Date.now()])) {
     const d = new Date(t), dir = path.join(root, String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()));
     let name = null; try { name = fs.readdirSync(dir).find(n => n.endsWith(`-${agentId}.jsonl`)); } catch {}
     if (name) { if (codexFiles.size > 500) codexFiles.clear(); codexFiles.set(agentId, path.join(dir, name)); return codexFiles.get(agentId); }
   }
+  return null;
+}
+
+const remoteLookups = new Map(); // agentId -> time of the last lookup
+function remoteCodexFile(machine, agentId, at) {
+  const last = remoteLookups.get(agentId) || 0;
+  if (Date.now() - last < 15e3) return null;
+  if (remoteLookups.size > 500) remoteLookups.clear();
+  remoteLookups.set(agentId, Date.now());
+  // remote date folders, both for the start time and now (the remote's own clock and time zone decide the folder)
+  const days = [...new Set([at, Date.now()].map(t => { const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`; }))];
+  const line = `r="\${CODEX_HOME:-$HOME/.codex}/sessions"; for d in ${days.map(q).join(' ')} $(date +%Y/%m/%d); do ls "$r/$d" 2>/dev/null | grep -F -- ${q(`-${agentId}.jsonl`)} | head -n 1 | sed "s|^|$r/$d/|"; done | head -n 1`;
+  shAsync(machine, line, { timeout: 8000 }).then(r => {
+    const f = r.code === 0 ? String(r.stdout).trim() : '';
+    if (f.startsWith('/')) { if (codexFiles.size > 500) codexFiles.clear(); codexFiles.set(agentId, mirrorLater(machine, f)); }
+  });
   return null;
 }
 

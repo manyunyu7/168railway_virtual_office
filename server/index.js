@@ -53,7 +53,11 @@ import { listRules, setRule } from './aturan.js';
 import { listLocks } from './locks.js';
 import { startTailWatch } from './tailwatch.js';
 import { validateTabOrder } from './tab-order.js';
-import { withActor, actor, who, LOCAL, SYSTEM } from './actor.js';
+import { machineRoutes, startMachines, stopMachines } from './machines-api.js';
+import { withActor, actor, who, LOCAL, SYSTEM, machineActor, stampHook } from './actor.js';
+import * as authMx from './machines.js'; // auth: token mesin dan host hubUrl
+import * as termMx from './machines.js'; // terminal web dan poller mode izin untuk pane di mesin lain
+import { attachArgs } from './termapp.js';
 import * as audit from './audit.js';
 import * as akun from './akun.js';
 import { loginHtml, inviteHtml, PAGE_CSP } from './akun-pages.js';
@@ -72,6 +76,8 @@ const allowedHosts = () => new Set([
   ...['127.0.0.1', 'localhost', ...cfg.extraHosts].flatMap(h => [h, `${h}:${cfg.port}`]),
   ...(cfg.tls ? [cfg.tls.host, ...(cfg.tls.names || [])].flatMap(h => [h, `${h}:${cfg.tls.port || 443}`]) : []),
   ...(akunOn() ? cfg.akun.names || [] : []),
+  // Mac lain mengirim hook ke hubUrl-nya, jadi Host-nya nama hub di Tailscale (mis. hub.ts.net:4317)
+  ...authMx.listMachines().flatMap(m => { try { return [new URL(m.hubUrl).host]; } catch { return []; } }),
 ]);
 const cookieOf = (req, name) => { const c = new RegExp(`(?:^|;\\s*)${name}=([^;]+)`).exec(req.headers.cookie || ''); return c ? decodeURIComponent(c[1]) : null; };
 function tokenOf(req) {
@@ -98,6 +104,11 @@ function identify(req) {
   const ip = clientIp(req);
   const h = req.headers.authorization || '';
   if (h.startsWith('Bearer ')) {
+    // token mesin (hook/MCP dari Mac lain), di kedua mode dan dari alamat mana pun; policy() membatasi rutenya.
+    // Dicek sebelum token aplikasi anggota: token mesin baru berawalan kcmesin_, tapi token mesin lama
+    // masih berawalan kcm_ (sama dengan akun.TOKEN_PREFIX) dan tetap berlaku.
+    const mid = authMx.machineForToken(h.slice(7));
+    if (mid) return machineActor(mid, authMx.getMachine(mid)?.name, ip);
     // akun mode: a member's app token (Ghina) acts as that member, from anywhere
     if (akunOn() && h.startsWith('Bearer ' + akun.TOKEN_PREFIX)) { const m = akun.memberForToken(h.slice(7)); return m ? { kind: 'member', ...m, via: 'token', ip } : null; }
     if (h.slice(7) !== cfg.token) return null;
@@ -120,12 +131,15 @@ function originOk(req) {
 // in akun mode: what only the daemon's own clients may call, and what only admins may change
 const SYSTEM_ONLY = [/^POST \/api\/hook$/, /^(GET|POST) \/api\/agent\//, /^POST \/api\/usage\/limits\/claude$/];
 const ADMIN_ONLY = [
+  /^\w+ \/api\/machines(\/|$)/,
   /^\w+ \/api\/akun\/anggota/, /^GET \/api\/audit\/verify$/,
   /^POST \/api\/wizard\//, /^GET \/api\/(wizard\/folders|candidates)$/, /^POST \/api\/offices$/, /^POST \/api\/offices\/[^/]+\/(hide|open-local|budget)$/,
   /^GET \/api\/offices\/[^/]+\/browse$/, /^(POST|PATCH) \/api\/offices\/[^/]+\/rooms(\/[^/]+)?$/,
   /^POST \/api\/settings$/, /^POST \/api\/hooks\//, /^PUT \/api\/offices\/[^/]+\/(aturan|autopilot)$/, /^(PUT|POST) \/api\/pratinjau\/(storage|cleanup)$/,
 ];
 function policy(a, sig) {
+  // token mesin: hanya hook, MCP, dan limit, di mode apa pun
+  if (a.kind === 'machine') return SYSTEM_ONLY.some(re => re.test(sig)) ? null : 'Token mesin hanya untuk hook dan MCP.';
   if (!akunOn()) return null;
   if (SYSTEM_ONLY.some(re => re.test(sig))) return a.kind === 'system' ? null : 'Hanya untuk hooks dan MCP di server ini.';
   if (a.kind === 'member' && a.role !== 'admin' && ADMIN_ONLY.some(re => re.test(sig))) return 'Hanya admin yang boleh melakukan ini.';
@@ -163,7 +177,24 @@ function send(res, code, data) {
 const O = id => { if (id !== '_kompleks' && !one(globalDb(), 'SELECT 1 FROM offices WHERE id = ?', id)) throw Object.assign(new Error('Kantor tidak ditemukan'), { code: 404 }); return id; };
 
 /* ---------------- routes ---------------- */
-route('POST', '/api/hook', async (req, res) => send(res, 200, await handleHook(await body(req))));
+machineRoutes(route, body); // /api/machines (server/machines-api.js)
+/** Mesin tempat sesi tercatat: null = Mac ini, undefined = sesi tak dikenal. */
+function sessionMachine(sid) {
+  if (!sid || typeof sid !== 'string') return undefined;
+  const s = live.get(sid) || one(globalDb(), 'SELECT machine, tmux FROM sessions WHERE sid = ?', sid);
+  if (!s) return undefined;
+  const m = s.machine || (s.tmux ? authMx.tmuxMachineOf(s.tmux) : null);
+  return m && m !== authMx.LOCAL ? m : null;
+}
+/** true kalau actor bertoken mesin menyebut sesi yang tercatat di mesin lain (atau di Mac ini). */
+const foreignSid = (a, ...sids) => a?.kind === 'machine' && sids.some(sid => { const m = sessionMachine(sid); return m !== undefined && m !== a.machine; });
+const DENY_FOREIGN = () => Object.assign(new Error('Sesi itu bukan milik mesin ini.'), { code: 403 });
+
+route('POST', '/api/hook', async (req, res) => {
+  const p = await body(req), a = actor();
+  if (p && typeof p === 'object' && foreignSid(a, p.kantor_sid, p.session_id)) throw DENY_FOREIGN();
+  send(res, 200, await handleHook(stampHook(p, a)));
+});
 
 route('GET', '/api/state', () => {
   const offices = listOffices().map(o => {
@@ -178,7 +209,7 @@ route('GET', '/api/state', () => {
     try { roleRows = st.listRoles(o.id); } catch {}
     const look = s => { const r = roleRows.find(x => x.id === s.role); return r ? { name: r.name + (s.slot ? ` #${s.slot + 1}` : ''), color: r.color, hair: r.hair, skin: r.skin, hairStyle: r.hairStyle, outfit: r.outfit, acc: r.acc, hijab: r.hijab, tie: r.tie, title: r.title } : null; };
     return { id: o.id, name: o.name, root: o.root, fav: !!o.fav, style: o.style || officeModel(o.id)?.style,
-      sessions: sessions.map(s => ({ sid: s.sid, role: s.role, status: s.status, title: s.title, kind: s.kind, room: s.room, tool: s.tool, waiting: s.waiting, look: look(s), lastSeen: s.lastSeen, permMode: s.permMode || null, boss: s.boss || null, host: s.host || null, tty: s.tty || null, model: s.model || null, engine: s.engine || null, bgAgents: s.bgAgents || 0, slot: s.slot || 0, konteks: s.konteks })),
+      sessions: sessions.map(s => ({ sid: s.sid, role: s.role, status: s.status, title: s.title, kind: s.kind, room: s.room, tool: s.tool, waiting: s.waiting, look: look(s), lastSeen: s.lastSeen, permMode: s.permMode || null, boss: s.boss || null, host: s.host || null, machine: s.machine || null, machineOffline: authMx.isOffline(s.machine), tty: s.tty || null, model: s.model || null, engine: s.engine || null, bgAgents: s.bgAgents || 0, slot: s.slot || 0, konteks: s.konteks })),
       roles, cards, monthCost: monthCost(o.id), lastSeen: one(globalDb(), 'SELECT MAX(last_seen) t FROM sessions WHERE office = ?', o.id)?.t || o.created_at };
   });
   // sessions outside every office (e.g. claude started in ~/Developer itself)
@@ -255,7 +286,13 @@ route('POST', '/api/offices/:id/rooms/preview', async (req, res, p) => {
   const { model, room } = previewRoom(O(p.id), await body(req));
   const cur = officeModel(p.id);
   // live sessions whose folder would now belong to the new room
-  const moved = liveFor(p.id).filter(s => s.cwd && room.path && roomForCwd(model, s.cwd).room === '__pv')
+  // ruangan di mesin lain: cocokkan folder remote, jangan pernah lewat roomForCwd (itu path Mac ini)
+  const inRemote = s => {
+    if (!s.cwd || s.machine !== room.machine || !(s.cwd === room.remotePath || s.cwd.startsWith(room.remotePath + '/'))) return false;
+    const now = cur.plan.rooms.find(r => r.id === s.room);
+    return !(now?.remotePath && now.remotePath.length >= room.remotePath.length);
+  };
+  const moved = liveFor(p.id).filter(s => room.machine ? !!room.remotePath && inRemote(s) : (s.cwd && room.path && !s.machine && roomForCwd(model, s.cwd).room === '__pv'))
     .map(s => ({ sid: s.sid, role: s.role, title: s.title, from: cur.plan.rooms.find(r => r.id === s.room)?.name || s.room || null }));
   return { plan: model.plan, room, moved };
 });
@@ -407,7 +444,15 @@ route('GET', '/api/sessions/:sid/transcript', (req, res, p, q) => {
   const file = s?.transcript || one(globalDb(), 'SELECT transcript FROM sessions WHERE sid = ?', p.sid)?.transcript;
   return readTranscript(file, Number(q.get('n')) || 120);
 });
-route('GET', '/api/sessions/:sid/peek', (req, res, p) => { const s = live.get(p.sid); return { text: s?.tmux && hasTmux(s.tmux) ? capture(s.tmux, 120) : '' }; });
+route('GET', '/api/sessions/:sid/peek', async (req, res, p) => {
+  const s = live.get(p.sid);
+  const m = s?.tmux ? termMx.tmuxMachineOf(s.tmux) : null;
+  if (!m || !termMx.isRemote(m)) return { text: s?.tmux && hasTmux(s.tmux) ? capture(s.tmux, 120) : '' };
+  // pane di Mac lain: capture async lewat ssh; mesin offline langsung kosong (tidak menunggu ssh timeout)
+  if (termMx.isOffline(m)) return { text: '', offline: true };
+  const r = await termMx.execAsync(m, 'tmux', ['capture-pane', '-p', '-t', s.tmux, '-S', '-120'], { timeout: 5000 });
+  return { text: r.code === 0 ? r.stdout : '' };
+});
 route('GET', '/api/offices/:id/archive', (req, res, p) => {
   O(p.id);
   const rows = all(globalDb(), `SELECT s.sid, s.role, s.room, s.title, s.first_prompt, s.started_at, s.ended_at, s.last_seen, s.source, s.tmux,
@@ -557,7 +602,7 @@ route('GET', '/api/offices/:id/procs', (req, res, p, q) => {
   const m = officeModel(O(p.id));
   const procs = pr.listProcs(p.id), sugg = {};
   if (q.get('s') !== '0') for (const r of m.plan.rooms) {
-    const have = new Set(procs.filter(x => x.room === r.id).map(x => x.cmd)), list = pr.suggest(pr.roomDir(p.id, r.id)).filter(x => !have.has(x.cmd));
+    const have = new Set(procs.filter(x => x.room === r.id).map(x => x.cmd)), list = pr.suggestRoom(p.id, r.id).filter(x => !have.has(x.cmd));
     if (list.length) sugg[r.id] = list;
   }
   return { procs, suggestions: sugg };
@@ -583,6 +628,13 @@ route('GET', '/api/offices/:id/dm/:a/:b', (req, res, p) => dm.thread(O(p.id), p.
 route('GET', '/api/agent/tools', () => ({ tools: TOOLS }));
 route('POST', '/api/agent/call', async req => {
   const b = await body(req);
+  const a = actor();
+  if (a?.kind === 'machine') {
+    if (foreignSid(a, b.sid, b.callerSid)) throw DENY_FOREIGN();
+    // kantor dan role ikut sesi yang tercatat, bukan klaim body
+    const s = typeof b.sid === 'string' ? live.get(b.sid) : null;
+    if (s?.office) { b.office = s.office; b.role = s.role || null; }
+  }
   const ident = resolveIdentity(b);
   const out = await callTool(ident, b.tool, b.args || {});
   auditAgent(ident, String(b.tool || ''), b.args || {});
@@ -867,7 +919,9 @@ async function handle(req, res) {
   }
   // static
   if (!allowedHosts().has(req.headers.host)) { logDenied(req, 'host'); res.writeHead(403); return res.end(); }
-  if (!identify(req)) {
+  const viewer = identify(req);
+  if (viewer?.kind === 'machine') { logDenied(req, 'token mesin'); res.writeHead(403); return res.end(); }
+  if (!viewer) {
     if (url.pathname === '/' || url.pathname.endsWith('.html')) {
       logDenied(req, 'belum login');
       if (akunOn()) { res.writeHead(302, { Location: '/masuk', 'Cache-Control': 'no-store' }); return res.end(); }
@@ -890,6 +944,8 @@ function onUpgrade(req, sock, head) {
   const url = new URL(req.url, 'http://x');
   const a = identify(req);
   if (!a) { sock.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return sock.destroy(); }
+  // token mesin tidak pernah membuka events atau terminal
+  if (a.kind === 'machine') { logDenied(req, 'token mesin'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
   if (akunOn() && !originOk(req)) { logDenied(req, 'origin'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
   req._actor = a;
   if (url.pathname === '/ws') wssEvents.handleUpgrade(req, sock, head, ws => wssEvents.emit('connection', ws, req));
@@ -905,29 +961,33 @@ wssEvents.on('connection', ws => {
 bus.on('msg', m => { const s = JSON.stringify(m); for (const c of wssEvents.clients) if (c.readyState === 1) c.send(s); });
 
 wssTerm.on('connection', (ws, req, url) => {
-  let name, sess = null;
+  let name, sess = null, spawn;
   const kind = url.searchParams.get('kind');
   try {
+    // spawn: tmux attach di Mac ini, atau ssh -t ke mesin pemilik pane (termapp.attachArgs; mesin offline → pesan)
     if (kind === 'session') {
       const s = sess = live.get(url.searchParams.get('sid'));
       name = s?.tmux;
-      if (!name || !hasTmux(name)) throw new Error('Sesi ini tidak berjalan di tmux kantor.');
-    } else if (kind === 'shell') name = ensureShell(url.searchParams.get('office'), url.searchParams.get('room'));
-    else if (kind === 'dock') { name = url.searchParams.get('name'); if (!pr.dockSessionOk(name)) throw new Error('Terminal ini sudah tidak ada.'); }
+      if (!name) throw new Error('Sesi ini tidak berjalan di tmux kantor.');
+      spawn = attachArgs(name, bins().tmux); // sebelum hasTmux: mesin offline tidak perlu menunggu ssh
+      if (!hasTmux(name)) throw new Error('Sesi ini tidak berjalan di tmux kantor.');
+    } else if (kind === 'shell') { name = ensureShell(url.searchParams.get('office'), url.searchParams.get('room')); spawn = attachArgs(name, bins().tmux); }
+    else if (kind === 'dock') { name = url.searchParams.get('name'); if (!pr.dockSessionOk(name)) throw new Error('Terminal ini sudah tidak ada.'); spawn = attachArgs(name, bins().tmux); }
     else throw new Error('Jenis terminal tidak dikenal');
   } catch (e) { ws.send(`\r\n\x1b[31m${e.message}\x1b[0m\r\n`); return ws.close(); }
   const cols = Number(url.searchParams.get('cols')) || 100, rows = Number(url.searchParams.get('rows')) || 30;
   const by = req._actor || LOCAL, opened = Date.now();
   const label = kind === 'session' ? `terminal sesi ${sess ? whoOf(sess) : name}` : kind === 'shell' ? `terminal shell ${url.searchParams.get('room') || ''}`.trim() : `terminal ${name}`;
-  const where = { as: by, office: sess?.office || url.searchParams.get('office') || null, sid: sess?.sid || null, meta: { kind, tmux: name } };
+  const where = { as: by, office: sess?.office || url.searchParams.get('office') || null, sid: sess?.sid || null, meta: { kind, tmux: name, ...(spawn.machine ? { machine: spawn.machine } : {}) } };
   audit.record('terminal', { ...where, text: `membuka ${label}` });
-  const p = pty.spawn(bins().tmux, ['attach-session', '-t', name], { name: 'xterm-256color', cols, rows, cwd: process.env.HOME, env: { ...process.env, TERM: 'xterm-256color', LANG: process.env.LANG || 'en_US.UTF-8' } });
+  const p = pty.spawn(spawn.file, spawn.args, { name: 'xterm-256color', cols, rows, cwd: process.env.HOME, env: { ...process.env, TERM: 'xterm-256color', LANG: process.env.LANG || 'en_US.UTF-8' } });
   // Claude's TUI repaints in many tiny writes: send them as one message per tick
   let out = '', flushing = false;
   p.onData(d => { out += d; if (!flushing) { flushing = true; setTimeout(() => { flushing = false; if (ws.readyState === 1 && out) ws.send(out); out = ''; }, 4); } });
   let size = `${cols}x${rows}`;
   let dead = false;
-  p.onExit(() => { dead = true; try { ws.send('\r\n\x1b[90m[terminal ditutup]\x1b[0m\r\n'); ws.close(); } catch {} });
+  // ssh keluar dengan 255 kalau koneksinya sendiri yang putus (bukan tmux yang selesai)
+  p.onExit(({ exitCode } = {}) => { dead = true; const lost = spawn.machine && exitCode === 255; try { ws.send(lost ? `\r\n\x1b[31m[koneksi ke mesin ${termMx.getMachine(spawn.machine)?.name || spawn.machine} terputus]\x1b[0m\r\n` : '\r\n\x1b[90m[terminal ditutup]\x1b[0m\r\n'); ws.close(); } catch {} });
   ws.on('message', (data, isBinary) => {
     const s = data.toString();
     if (!isBinary && s.startsWith('\x00{')) { try { const m = JSON.parse(s.slice(1)); if (m.cols && m.rows) { const c = Math.max(20, m.cols), r = Math.max(5, m.rows); if (`${c}x${r}` !== size) { size = `${c}x${r}`; p.resize(c, r); } } } catch {} return; }
@@ -990,6 +1050,7 @@ autopilot.startAutopilot();
 budget.startBudget(listOffices);
 startHookContext();
 startOwnerSweep();
+if (!DEMO) startMachines(); // mesin lain: detak jantung, event 'machine', adopsi saat online, reap tiap 60 detik
 try { pr.discoverProcs(); } catch (e) { console.error('proses:', e.message); }
 for (const o of listOffices()) try { markInterrupted(o.id); } catch {}
 if (!DEMO) { setTimeout(() => scanProcesses(), 1500); setInterval(() => scanProcesses(), 20e3).unref(); }
@@ -1005,6 +1066,7 @@ setInterval(async () => {
   try {
     for (const s of [...live.values()]) {
       if (!s.tmux || s.status === 'ended' || s.engine === 'antigravity') continue;
+      if (termMx.isOffline(termMx.tmuxMachineOf(s.tmux))) continue; // mesin offline: mode terakhir dibiarkan, tanpa menunggu ssh
       const m = await paneModeAsync(s.tmux);
       if (m && m !== s.permMode) { s.permMode = m; bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) }); }
     }
@@ -1013,6 +1075,6 @@ setInterval(async () => {
 if (!DEMO) { setTimeout(() => scanUsage(), 3000); setInterval(() => scanUsage(), 90e3).unref(); }
 if (!DEMO) setInterval(() => { try { pollCodexLimits(); } catch {} }, 60e3).unref();
 if (!DEMO) { const cx = () => { try { scanCodexUsage(); } catch (e) { console.error('usage codex:', e.message); } }; setTimeout(cx, 5000); setInterval(cx, 120e3).unref(); }
-const stop = () => { try { if (JSON.parse(fs.readFileSync(SERVER_JSON, 'utf8')).pid === process.pid) fs.unlinkSync(SERVER_JSON); } catch {} closeAll(); process.exit(0); };
+const stop = () => { try { stopMachines(); } catch {} try { if (JSON.parse(fs.readFileSync(SERVER_JSON, 'utf8')).pid === process.pid) fs.unlinkSync(SERVER_JSON); } catch {} closeAll(); process.exit(0); };
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);

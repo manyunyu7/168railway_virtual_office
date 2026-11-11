@@ -1,5 +1,6 @@
 import { live, logOffice, whoOf, bus, serialize } from './live.js';
 import { tmux, sendKeys, hasTmux, paneMode } from './tmux.js';
+import * as mx from './machines.js';
 
 // Drives Claude Code's own /model picker inside a kantor tmux pane. The list is whatever the picker shows;
 // nothing here knows model names. Real screen (Claude Code 2.1.x):
@@ -17,6 +18,10 @@ import { tmux, sendKeys, hasTmux, paneMode } from './tmux.js';
 const screen = name => { try { return tmux(['capture-pane', '-p', '-t', name]); } catch { return ''; } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const OPEN_TIMEOUT_MS = 4000, IDLE_CLOSE_MS = 60000;
+// Pane di Mac lain: tiap capture dan send-keys lewat ssh, jadi batas tunggu ditambah (lokal tetap seperti semula).
+const remote = name => mx.isRemote(mx.tmuxMachineOf(name));
+export const slack = name => remote(name) ? Math.min(4000, 1500 + 4 * (mx.machineStatus(mx.tmuxMachineOf(name)).latencyMs || 0)) : 0;
+const step = name => remote(name) ? 120 : 70; // jeda sesudah satu tombol panah sebelum layar dibaca
 const open = new Map(); // tmux name -> { timer, cursor, n }
 
 const ROW = /^\s*(❯|↑|↓)?\s*(\d+)\.\s+(.*?)\s*$/;
@@ -38,7 +43,7 @@ export function parsePicker(text) {
 
 const err = (msg, code = 409) => Object.assign(new Error(msg), { code });
 async function waitFor(name, test, ms) {
-  const end = Date.now() + ms;
+  const end = Date.now() + ms + slack(name);
   for (;;) {
     const txt = screen(name), v = test(txt);
     if (v) return v;
@@ -63,7 +68,7 @@ export async function openPicker(name) {
   let rows = parsePicker(screen(name));
   if (!rows) {
     sendKeys(name, ['-l', '/model']);
-    await sleep(500);
+    await sleep(remote(name) ? 700 : 500);
     sendKeys(name, ['Enter']);
     rows = await waitFor(name, parsePicker, OPEN_TIMEOUT_MS);
     if (!rows) { try { sendKeys(name, ['Escape']); } catch {} throw err('Pemilih model tidak muncul. Coba lagi sebentar.', 504); }
@@ -74,7 +79,7 @@ export async function openPicker(name) {
   let cur = start;
   for (let i = 0; i < 60; i++) {
     sendKeys(name, ['Down']);
-    await sleep(70);
+    await sleep(step(name));
     const now = parsePicker(screen(name));
     if (!now) break;
     for (const r of now) all.set(r.index, { ...all.get(r.index), ...r, cursor: false });
@@ -105,7 +110,7 @@ export async function selectOption(name, index) {
   for (let i = 0; i < n + 2 && cur !== index; i++) {
     const fwd = ((index - cur) % n + n) % n;
     sendKeys(name, [fwd <= n / 2 ? 'Down' : 'Up']);
-    await sleep(70);
+    await sleep(step(name));
     rows = parsePicker(screen(name));
     if (!rows) throw err('Pemilih model tertutup di tengah jalan', 409);
     cur = cursorOf(rows);
@@ -133,6 +138,7 @@ function paneOf(sid) {
   if (!s) throw err('Sesi tidak ditemukan', 404);
   if (s.engine === 'antigravity') throw err('Ganti model Gemini lewat /model di tab Terminal sesi ini.', 400);
   if (s.engine === 'codex') throw err('Sesi Codex: ganti model lewat POST /api/sessions/:sid/codex/settings', 400);
+  if (name && mx.isOffline(mx.tmuxMachineOf(name))) throw err(`Mesin ${mx.getMachine(mx.tmuxMachineOf(name))?.name || mx.tmuxMachineOf(name)} sedang offline. Coba lagi setelah tersambung.`);
   if (!name || !hasTmux(name)) throw err('Ganti model hanya untuk sesi yang jalan di terminal kantor. Untuk sesi lain, ketik /model di jendelanya.');
   return { s, name };
 }

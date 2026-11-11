@@ -50,6 +50,8 @@ const DEFAULTS = {
   // names = public host names a reverse proxy sends (e.g. "kantor.example.com"); trustProxy = read X-Real-IP / X-Forwarded-Proto.
   // In this mode the config token still works for hooks and MCP, but only from loopback.
   akun: { enabled: false, names: [], trustProxy: false, sessionDays: 14 },
+  // Mac lain tempat agen jalan, dikendalikan lewat SSH (docs/MULTI-PC.md): [{ id, name, ssh, hubUrl, token, root?, disabled? }]
+  machines: [],
 };
 
 export function ensureDirs() {

@@ -4,9 +4,22 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 const als = new AsyncLocalStorage();
 
-/** kind: 'member' (akun login) | 'local' (single-user token) | 'system' (hooks, MCP, daemon) | 'agent' (a role via MCP) */
+/** kind: 'member' (akun login) | 'local' (single-user token) | 'system' (hooks, MCP, daemon) | 'agent' (a role via MCP)
+ *  | 'machine' (hook dan MCP dari Mac lain lewat token mesin; hanya rute hook/agen/limit, lihat docs/MULTI-PC.md) */
 export const LOCAL = Object.freeze({ kind: 'local', id: null, name: 'Kamu', role: 'admin' });
 export const SYSTEM = Object.freeze({ kind: 'system', id: null, name: 'Sistem', role: 'admin' });
+/** Actor untuk permintaan bertoken mesin. `id` sengaja null: di audit, actor_id dipakai untuk anggota. */
+export const machineActor = (machine, name, ip = null) => ({ kind: 'machine', id: null, machine, name: `Mesin ${name || machine}`, role: 'machine', ip });
+/** Payload hook: `kantor_machine` hanya dari token mesin, tidak pernah dari body (juga untuk token lokal). Mengubah `p`. */
+export function stampHook(p, a) {
+  if (!p || typeof p !== 'object') return p;
+  delete p.kantor_machine;
+  if (a?.kind === 'machine') {
+    p.kantor_machine = a.machine;
+    delete p.kantor_tty; // tty Mac lain tidak berarti apa-apa di hub (dan bisa menunjuk terminal lokal)
+  }
+  return p;
+}
 
 export const withActor = (actor, fn) => als.run(actor, fn);
 export const actor = () => als.getStore() || null;

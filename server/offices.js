@@ -6,6 +6,7 @@ import { globalDb, officeDb, all, one, run, nowIso, newId, j, tx } from './db.js
 import { autoLayout, railwayLayout, appendRow } from './layout.js';
 import { seedOffice } from './seed.js';
 import { checkPlaced } from './furniture.js';
+import * as mx from './machines.js';
 
 const SKIP = new Set(['node_modules', 'build', 'dist', 'vendor', '.git', '.idea', '.vscode', '__pycache__', 'Pods', '.dart_tool', 'target', 'out', 'tmp']);
 
@@ -15,14 +16,17 @@ const pretty = s => s.replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase
 function isDir(p) { try { return fs.statSync(p).isDirectory(); } catch { return false; } }
 
 function detectStack(dir) {
-  const has = f => fs.existsSync(path.join(dir, f));
+  return stackOf(f => fs.existsSync(path.join(dir, f)), () => fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
+}
+// has(nama) → apakah file penanda ada; pkg() → isi package.json. Dipakai untuk folder lokal dan folder di mesin lain.
+function stackOf(has, pkg) {
   if (has('pubspec.yaml')) return 'Flutter';
   if (has('artisan')) return 'Laravel';
   if (has('composer.json')) return 'PHP';
   if (has('go.mod')) return 'Go';
   if (has('Cargo.toml')) return 'Rust';
   if (has('build.gradle.kts') || has('build.gradle') || has('settings.gradle.kts')) return 'Kotlin';
-  if (has('package.json')) { try { const p = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')); const d = { ...p.dependencies, ...p.devDependencies }; if (d.next) return 'Next.js'; if (d.vite) return 'Vite'; if (d.react) return 'React'; } catch {} return 'Node'; }
+  if (has('package.json')) { try { const p = JSON.parse(pkg()); const d = { ...p.dependencies, ...p.devDependencies }; if (d.next) return 'Next.js'; if (d.vite) return 'Vite'; if (d.react) return 'React'; } catch {} return 'Node'; }
   if (has('pyproject.toml') || has('requirements.txt')) return 'Python';
   if (has('CMakeLists.txt')) return 'C++';
   if (has('index.html')) return 'Web';
@@ -186,7 +190,8 @@ export function basePlan(root, scan, roles = []) {
 
 /** Build rooms + floor plan for an office row. Cached until invalidate(). */
 const cache = new Map();
-export function invalidate(id) { cache.delete(id); }
+let remoteIndex = null; // mesin → [{ office, room, dir }] untuk roomForRemote; dibuang setiap invalidate()
+export function invalidate(id) { cache.delete(id); remoteIndex = null; }
 export function officeModel(id, { preview = null } = {}) {
   if (!preview && cache.has(id)) return cache.get(id);
   const row = one(globalDb(), 'SELECT * FROM offices WHERE id = ?', id);
@@ -335,8 +340,18 @@ function folderInfo(abs, rel, room) {
 }
 
 /** The floor plan as it would look with one more room, without saving anything. */
-export function previewRoom(id, { name, kind = 'kode', path: folder = '' }) {
+export function previewRoom(id, { name, kind = 'kode', path: folder = '', machine = null, remotePath = '' }) {
   if (!ROOM_KINDS.includes(kind)) throw new Error('Jenis ruangan tidak dikenal');
+  if (isRemoteRoomInput(machine)) {
+    const m = officeModel(id);
+    if (!m) throw new Error('Kantor tidak ditemukan');
+    const dir = cleanRemotePath(remotePath);
+    // pratinjau tidak menolak folder yang belum ada (sama seperti lokal), tapi mesin yang mati tetap dikabarkan
+    const info = dir ? remoteFolder(machine, dir) : null;
+    const room = { id: '__pv', name: (name || '').trim() || (dir ? pretty(path.posix.basename(dir)) : 'Ruangan baru'), kind, path: null, machine, remotePath: dir || null, extra: true, preview: true,
+      stack: info?.exists ? info.stack : '', md: !!info?.md };
+    return { model: officeModel(id, { preview: room }), room };
+  }
   folder = String(folder || '').trim().replace(/^\/+|\/+$/g, '');
   const m = officeModel(id);
   const abs = folder ? path.join(m.root, folder) : null;
@@ -346,11 +361,22 @@ export function previewRoom(id, { name, kind = 'kode', path: folder = '' }) {
 }
 
 export const ROOM_KINDS = ['kode', 'meeting', 'lib', 'qa', 'server', 'pantry', 'beku', 'game', 'manager', 'musik', 'musholla', 'lounge', 'gym', 'taman', 'telepon', 'tidur'];
-export function addRoom(id, { name, kind = 'kode', path: folder = '', create = false, gitInit = false }) {
+export function addRoom(id, { name, kind = 'kode', path: folder = '', create = false, gitInit = false, machine = null, remotePath = '' }) {
   const m = officeModel(id);
   if (!m) throw new Error('Kantor tidak ditemukan');
   if (!name?.trim()) throw new Error('Nama ruangan wajib diisi');
   if (!ROOM_KINDS.includes(kind)) throw new Error('Jenis ruangan tidak dikenal');
+  if (isRemoteRoomInput(machine)) {
+    const { dir, stack } = checkRemoteRoom(m, machine, remotePath);
+    const db = officeDb(id);
+    const extra = j(one(db, "SELECT value FROM meta WHERE key = 'extraRooms'")?.value, []);
+    let rid = slug(name);
+    while (m.plan.rooms.some(r => r.id === rid) || extra.some(r => r.id === rid)) rid += '2';
+    extra.push({ id: rid, name: name.trim(), kind, path: null, machine, remotePath: dir, stack });
+    run(db, "INSERT INTO meta (key, value) VALUES ('extraRooms', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify(extra));
+    invalidate(id);
+    return rid;
+  }
   folder = String(folder || '').trim().replace(/^\/+|\/+$/g, '');
   if (folder && (folder.includes('..') || path.isAbsolute(folder))) throw new Error('Folder harus relatif terhadap folder kantor');
   if (folder) {
@@ -382,6 +408,16 @@ export function updateRoom(id, roomId, patch) {
     if (patch.name) ex.name = patch.name.trim();
     if (patch.kind && ROOM_KINDS.includes(patch.kind)) ex.kind = patch.kind;
     if (patch.note !== undefined) ex.note = patch.note;
+    if (patch.machine !== undefined || patch.remotePath !== undefined) {
+      const machine = patch.machine !== undefined ? patch.machine : ex.machine;
+      if (isRemoteRoomInput(machine)) {
+        const { dir, stack } = checkRemoteRoom(officeModel(id), machine, patch.remotePath !== undefined ? patch.remotePath : ex.remotePath, roomId);
+        Object.assign(ex, { path: null, machine, remotePath: dir, stack });
+      } else if (ex.machine) {
+        // kembali ke Mac ini: ruangan tanpa folder (folder lokal dipilih lewat ruangan baru)
+        delete ex.machine; delete ex.remotePath; ex.path = null; ex.stack = '';
+      }
+    }
     run(db, "UPDATE meta SET value = ? WHERE key = 'extraRooms'", JSON.stringify(extra));
   } else {
     const ov = j(one(db, "SELECT value FROM meta WHERE key = 'rooms'")?.value, {});
@@ -392,4 +428,86 @@ export function updateRoom(id, roomId, patch) {
     run(db, "INSERT INTO meta (key, value) VALUES ('rooms', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify(ov));
   }
   invalidate(id);
+}
+
+
+/* ---------------- ruangan di mesin lain (docs/MULTI-PC.md) ---------------- */
+// machine kosong, null, atau 'local' = Mac ini (jalur lama). Id lain harus mesin terdaftar.
+function isRemoteRoomInput(machine) {
+  if (!machine || machine === mx.LOCAL) return false;
+  if (!mx.isRemote(machine)) throw new Error('Mesin tidak ditemukan. Tambahkan dulu di Pengaturan → Mesin.');
+  return true;
+}
+const cleanRemotePath = p => {
+  const v = String(p || '').trim();
+  if (!v) return '';
+  const n = path.posix.normalize(v);
+  return n.length > 1 ? n.replace(/\/+$/, '') : n;
+};
+const machineLabel = id => mx.getMachine(id)?.name || id;
+const STACK_FILES = ['pubspec.yaml', 'artisan', 'composer.json', 'go.mod', 'Cargo.toml', 'build.gradle.kts', 'build.gradle', 'settings.gradle.kts', 'package.json', 'pyproject.toml', 'requirements.txt', 'CMakeLists.txt', 'index.html', 'CLAUDE.md', '.git'];
+/**
+ * Cek satu folder di mesin lain dengan satu perintah: ada atau tidak, stack-nya, CLAUDE.md, git.
+ * Mesin tak terjangkau → Error dengan pesan jelas (bukan "folder tidak ada").
+ */
+function remoteFolder(machine, dir) {
+  if (mx.isOffline(machine)) throw new Error(`Mesin ${machineLabel(machine)} sedang offline. Folder di sana belum bisa dicek.`);
+  const d = mx.q(dir);
+  // baris pertama: OK/NO; lalu file penanda yang ada; lalu isi package.json (dibatasi)
+  const line = `if test -d ${d}; then echo OK; else echo NO; exit 0; fi; for f in ${STACK_FILES.map(mx.q).join(' ')}; do test -e ${d}/"$f" && echo "F:$f"; done; echo '--PKG--'; head -c 200000 ${d}/package.json 2>/dev/null; true`;
+  let out;
+  try { out = mx.shSync(machine, line, { timeout: 10000 }); }
+  catch (e) {
+    if (e.status === 255 || mx.isOffline(machine)) throw new Error(`Mesin ${machineLabel(machine)} tidak terjangkau: ${String(e.stderr || e.message || '').trim().slice(0, 160)}`);
+    throw new Error(`Gagal memeriksa folder di ${machineLabel(machine)}: ${String(e.stderr || e.message || '').trim().slice(0, 160)}`);
+  }
+  const at = out.indexOf('--PKG--');
+  const head = (at < 0 ? out : out.slice(0, at)).split('\n').map(l => l.trim()).filter(Boolean);
+  if (head[0] !== 'OK') return { exists: false, stack: '', md: false, git: false };
+  const files = new Set(head.filter(l => l.startsWith('F:')).map(l => l.slice(2)));
+  const pkg = at < 0 ? '' : out.slice(at + 8);
+  return { exists: true, stack: stackOf(f => files.has(f), () => pkg) || 'folder', md: files.has('CLAUDE.md'), git: files.has('.git') };
+}
+function checkRemoteRoom(m, machine, remotePath, selfId = null) {
+  const dir = cleanRemotePath(remotePath);
+  if (!dir) throw new Error(`Pilih folder di mesin ${machineLabel(machine)}`);
+  if (!dir.startsWith('/')) throw new Error('Folder di mesin lain harus path absolut, mis. /Users/kamu/Developer/repo');
+  if (dir === '/') throw new Error('Folder akar (/) tidak bisa jadi ruangan');
+  const info = remoteFolder(machine, dir);
+  if (!info.exists) throw new Error(`Folder ${dir} tidak ada di mesin ${machineLabel(machine)}`);
+  if (m.plan.rooms.some(r => r.id !== selfId && r.machine === machine && r.remotePath === dir)) throw new Error('Folder itu sudah punya ruangan');
+  return { dir, stack: info.stack };
+}
+
+/**
+ * Tempat agen ruangan ini bekerja: { machine: 'local' | id mesin, cwd }.
+ * room boleh objek ruangan atau id-nya. Lokal: folder ruangan di bawah root kantor, atau root kantor.
+ */
+export function roomCwd(model, room) {
+  const r = typeof room === 'string' ? model?.plan?.rooms.find(x => x.id === room) : room;
+  if (r?.machine && r.machine !== mx.LOCAL && r.remotePath) return { machine: r.machine, cwd: r.remotePath };
+  return { machine: mx.LOCAL, cwd: r && r.path ? path.join(model.root, r.path) : model.root };
+}
+
+/**
+ * Ruangan pemilik sebuah cwd di mesin lain: { office, room } (keduanya id) atau null.
+ * Hanya ruangan yang memang ditaruh di mesin itu yang dicocokkan; folder terdalam yang cocok menang, lintas kantor.
+ */
+export function roomForRemote(machine, cwd) {
+  if (!machine || machine === mx.LOCAL || !cwd) return null;
+  const dir = cleanRemotePath(cwd);
+  if (!remoteIndex) {
+    remoteIndex = new Map();
+    for (const o of all(globalDb(), 'SELECT id FROM offices')) {
+      let m; try { m = officeModel(o.id); } catch { continue; }
+      for (const r of m?.plan.rooms || []) {
+        if (!r.machine || !r.remotePath) continue;
+        if (!remoteIndex.has(r.machine)) remoteIndex.set(r.machine, []);
+        remoteIndex.get(r.machine).push({ office: o.id, room: r.id, dir: r.remotePath });
+      }
+    }
+    for (const xs of remoteIndex.values()) xs.sort((a, b) => b.dir.length - a.dir.length);
+  }
+  const hit = (remoteIndex.get(machine) || []).find(x => dir === x.dir || dir.startsWith(x.dir === '/' ? '/' : x.dir + '/'));
+  return hit ? { office: hit.office, room: hit.room } : null;
 }

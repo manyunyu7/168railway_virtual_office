@@ -1,5 +1,6 @@
 import { live, logOffice, whoOf, bus, serialize } from './live.js';
 import { tmux, sendKeys, hasTmux } from './tmux.js';
+import * as mx from './machines.js';
 import { codexScreen, parseModelPicker, parseEffortPicker, parsePermPicker, parsePickerRows, codexModels, modeLabelRe, effortLabelRe, footerModel, CODEX_MODES, validEffort, readCodexSettings } from './codex.js';
 
 // Drives Codex's own /model and /permissions pickers inside a kantor tmux pane, the Codex twin of modelpick.js.
@@ -21,9 +22,13 @@ import { codexScreen, parseModelPicker, parseEffortPicker, parsePermPicker, pars
 const screen = name => { try { return tmux(['capture-pane', '-p', '-t', name]); } catch { return ''; } };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const err = (msg, code = 409) => Object.assign(new Error(msg), { code });
+// Pane di Mac lain: tiap capture dan send-keys lewat ssh, jadi batas tunggu dan jeda ditambah (lokal tetap seperti semula).
+const remote = name => mx.isRemote(mx.tmuxMachineOf(name));
+const slack = name => remote(name) ? Math.min(4000, 1500 + 4 * (mx.machineStatus(mx.tmuxMachineOf(name)).latencyMs || 0)) : 0;
+const pause = (name, ms) => sleep(remote(name) ? ms + Math.min(400, Math.round(ms / 2)) : ms);
 
 async function waitFor(name, test, ms) {
-  const end = Date.now() + ms;
+  const end = Date.now() + ms + slack(name);
   for (;;) {
     const v = test(screen(name));
     if (v) return v;
@@ -42,9 +47,9 @@ async function openMenu(name, cmd, parser, { busyOk = false } = {}) {
   const ready = t => { const sc = codexScreen(t); return busyOk ? sc.composer && !sc.picker && !sc.approval : sc.idle; };
   for (let attempt = 0; attempt < 2; attempt++) {
     if (!await waitFor(name, ready, 8000)) throw err('Codex belum siap menerima perintah. Coba lagi sebentar.', 504);
-    await sleep(attempt ? 1500 : 400);
+    await pause(name, attempt ? 1500 : 400);
     sendKeys(name, ['-l', cmd]);
-    await sleep(500);
+    await pause(name, 500);
     sendKeys(name, ['Enter']);
     const rows = await waitFor(name, parser, 6000);
     if (rows) return rows;
@@ -65,7 +70,7 @@ async function moveTo(name, parser, match) {
   for (let i = 0; i < n + 2 && cur !== target.index; i++) {
     const idx = rows.findIndex(r => r.index === cur), tgt = rows.findIndex(r => r.index === target.index);
     sendKeys(name, [tgt > idx ? 'Down' : 'Up']);
-    await sleep(80);
+    await pause(name, 80);
     rows = parser(screen(name));
     if (!rows) throw err('Menu tertutup di tengah jalan', 409);
     cur = cursorOf(rows);
@@ -78,6 +83,7 @@ function paneOf(sid) {
   const s = live.get(sid), name = s?.tmux;
   if (!s) throw err('Sesi tidak ditemukan', 404);
   if (s.engine !== 'codex') throw err('Ini bukan sesi Codex');
+  if (name && mx.isOffline(mx.tmuxMachineOf(name))) throw err(`Mesin ${mx.getMachine(mx.tmuxMachineOf(name))?.name || mx.tmuxMachineOf(name)} sedang offline. Coba lagi setelah tersambung.`);
   if (!name || !hasTmux(name)) throw err('Ganti pengaturan hanya untuk sesi yang jalan di terminal kantor. Untuk sesi lain, ketik perintahnya di jendela terminalnya.');
   return { s, name };
 }
@@ -99,7 +105,7 @@ async function pickEffort(name, effort) {
     const more = await moveTo(name, parseEffortPicker, r => /^more reasoning/i.test(r.label));
     if (!more) throw err(`Model ini tidak menyediakan effort ${effort}`, 400);
     sendKeys(name, ['Enter']);
-    await sleep(400);
+    await pause(name, 400);
     hit = await moveTo(name, parseEffortPicker, r => re.test(r.label));
     if (!hit) throw err(`Model ini tidak menyediakan effort ${effort}`, 400);
   }
@@ -148,7 +154,7 @@ export async function readCodexMode(name, { busyOk = false } = {}) {
   await openMenu(name, '/permissions', parsePermPicker, { busyOk });
   const rows = parsePermPicker(screen(name)) || [];
   sendKeys(name, ['Escape']);
-  await sleep(250);
+  await pause(name, 250);
   const cur = rows.find(r => r.current);
   return cur ? (CODEX_MODES.find(m => modeLabelRe(m).test(cur.label)) || null) : null;
 }
@@ -163,12 +169,12 @@ export async function setCodexMode(sid, target) {
     const hit = await moveTo(name, parsePermPicker, r => modeLabelRe(target).test(r.label));
     if (!hit) throw err('Mode itu tidak ada di menu /permissions Codex', 400);
     sendKeys(name, ['Enter']);
-    await sleep(900);
+    await pause(name, 900);
     // a confirmation (Full Access) may follow: Codex words it as a numbered list headed "…permission…"
     let t = screen(name);
     if (parsePickerRows(t, /full access|are you sure|confirm/i) && !codexScreen(t).idle) {
       const yes = await moveTo(name, x => parsePickerRows(screen(name), /full access|are you sure|confirm/i), r => /^yes|^enable|^continue|^proceed|^i understand/i.test(r.label));
-      if (yes) { sendKeys(name, ['Enter']); await sleep(700); }
+      if (yes) { sendKeys(name, ['Enter']); await pause(name, 700); }
     }
   } catch (e) {
     for (let i = 0; i < 3 && codexScreen(screen(name)).picker; i++) { try { sendKeys(name, ['Escape']); } catch {} await sleep(250); }

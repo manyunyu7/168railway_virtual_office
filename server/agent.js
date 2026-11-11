@@ -1,5 +1,8 @@
 // Tools exposed to Claude sessions through the `kantor` MCP server.
 import { officeForCwd, officeModel } from './offices.js';
+import * as offices from './offices.js';
+import * as mx from './machines.js';
+import { actor } from './actor.js';
 import { bus, emitIfKonteksChanged } from './live.js';
 import { sessionKonteks, setKerjaan } from './konteks.js';
 import * as st from './store.js';
@@ -56,7 +59,7 @@ export const TOOLS = [
   { name: 'announce', description: 'Tempel pengumuman singkat di papan pengumuman kantor.', inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } },
   { name: 'kerjaan_set', description: 'Laporkan ke pemilik apa yang sedang kamu kerjakan; tampil di daftar agen dan di atas chat, di web dan HP. Panggil saat mulai pekerjaan baru atau pindah tahap besar, bukan tiap langkah kecil. Permintaan baru dari pemilik membuat laporan lama tidak ditampilkan, jadi panggil lagi kalau pekerjaannya berganti. Pemanggilan dengan selesai:true menghapus laporan.',
     inputSchema: { type: 'object', properties: { judul: { type: 'string', description: 'apa yang dikerjakan, satu kalimat pendek dan jelas bagi pemilik' }, langkah: { type: 'string', description: 'sekarang sampai mana atau sedang apa' }, persen: { type: 'number', description: 'perkiraan progres 0-100, hanya kalau memang terukur' }, selesai: { type: 'boolean', description: 'true untuk menghapus laporan' } } } },
-  { name: 'sessions_list', description: 'Siapa saja yang sedang bekerja di kantor ini sekarang: tiap sesi Claude yang jalan (shift role maupun sesi manual dari Terminal/VS Code), di ruangan mana, folder, status, dan apa yang sedang dikerjakan. Sesi yang memanggil ditandai kamu: true.', inputSchema: { type: 'object', properties: { room: { type: 'string', description: 'id ruangan untuk menyaring (opsional)' } } } },
+  { name: 'sessions_list', description: 'Siapa saja yang sedang bekerja di kantor ini sekarang: tiap sesi Claude yang jalan (shift role maupun sesi manual dari Terminal/VS Code), di ruangan mana, folder, status, dan apa yang sedang dikerjakan. Sesi yang memanggil ditandai kamu: true. Sesi yang jalan di Mac lain diberi `mesin` (nama Mac itu) dan `mesin_offline: true` bila Mac itu sedang tak terjangkau; folder-nya path di Mac itu.', inputSchema: { type: 'object', properties: { room: { type: 'string', description: 'id ruangan untuk menyaring (opsional)' } } } },
   { name: 'meeting_start', description: 'Khusus manager: buka rapat di Ruang Meeting. Tiap peserta bicara bergiliran sebagai rolenya (claude -p dengan persona role dan tool hanya-baca, BUKAN sesi yang sedang jalan), lalu notulen dan tindak lanjut masuk wiki. Pakai roles_list untuk id role.',
     inputSchema: { type: 'object', properties: { topic: { type: 'string' }, agenda: { type: 'string' }, participants: { type: 'array', items: { type: 'string' }, description: 'id role, minimal 2' }, rounds: { type: 'number', description: '1-4, bawaan 2' } }, required: ['topic', 'participants'] } },
   { name: 'tunjukkan', description: 'Buka file, folder, atau URL lokal (mis. http://localhost:5173) di layar pengguna, seperti membuka file di editor untuknya. HANYA panggil kalau pengguna MEMINTA melihat sesuatu ("coba buka", "aku mau lihat", "tunjukkan"). Pengguna mendapat notifikasi dan membukanya sendiri. path boleh relatif terhadap folder kerjamu, harus di dalam folder kantor.',
@@ -98,14 +101,24 @@ export const TOOLS = [
 const text = v => ({ content: [{ type: 'text', text: typeof v === 'string' ? v : JSON.stringify(v, null, 2) }] });
 
 export function resolveIdentity({ office, role, sid, cwd, callerSid }) {
-  const o = office || (cwd ? officeForCwd(cwd) : null) || (callerSid ? live.get(callerSid)?.office : null);
-  if (!o) throw new Error('Folder ini bukan bagian dari kantor mana pun.');
-  const s = sid ? live.get(sid) : null;
+  // MCP dari Mac lain datang dengan token mesin: cwd-nya path di mesin itu, jadi jangan dicari (atau dibuatkan kantor) di Mac ini
+  const a = actor(), fromMachine = a?.kind === 'machine' ? a.machine : null;
+  let s = sid ? live.get(sid) : null;
+  if (fromMachine && s && s.machine !== fromMachine) s = null; // token mesin hanya boleh mengaku sesi di mesinnya sendiri
+  if (fromMachine && sid && !s) sid = null;
+  const machine = s ? (s.machine || null) : fromMachine;
+  const byCwd = () => machine ? (typeof offices.roomForRemote === 'function' ? offices.roomForRemote(machine, cwd)?.office : null) : officeForCwd(cwd);
+  const o = (fromMachine ? s?.office || office : office) || (cwd ? byCwd() : null) || (callerSid ? live.get(callerSid)?.office : null);
+  if (!o) throw new Error(machine ? `Folder ini (di ${mx.getMachine(machine)?.name || machine}) bukan ruangan kantor mana pun. Tambahkan ruangannya dulu di kantor.` : 'Folder ini bukan bagian dari kantor mana pun.');
   const roleId = role || s?.role || null;
   const r = roleId ? st.getRole(o, roleId) : null;
   const by = r?.name || (s ? whoOf(s) : 'Sesi manual');
-  return { office: o, role: r, by, sid, callerSid: callerSid || null, cwd: s?.cwd || cwd || null };
+  return { office: o, role: r, by, sid, callerSid: callerSid || null, cwd: s?.cwd || cwd || null, ...(machine ? { machine } : {}) };
 }
+
+/** Mesin sesi atau ruangan: { mesin, mesin_offline } untuk hasil tool, kosong untuk Mac ini. */
+const machineTag = id => id && id !== mx.LOCAL && mx.isRemote(id) ? { mesin: mx.getMachine(id).name, mesin_id: id, mesin_offline: mx.isOffline(id) || undefined } : {};
+const roomMachine = (m, roomId) => { const rm = m.plan.rooms.find(x => x.id === roomId); return rm?.machine && rm.machine !== mx.LOCAL ? rm.machine : null; };
 
 // the caller's live session; after /clear its id changed, so look it up through its tmux pane
 function callerSession(sid) {
@@ -209,7 +222,7 @@ async function runTool(ident, name, a = {}) {
     }
     case 'attach_file': {
       if (!a.card && !a.wiki) throw new Error('Isi card dan/atau wiki sebagai tujuan lampiran.');
-      const m = await saveFromPath(office, a.path, by);
+      const m = await saveFromPath(office, a.path, by, ident.machine ? { machine: ident.machine, cwd: ident.cwd } : undefined);
       const done = [];
       if (a.card) { st.attachToCard(office, a.card, m.id, by); done.push(`kartu ${a.card}`); }
       if (a.wiki) {
@@ -240,7 +253,7 @@ async function runTool(ident, name, a = {}) {
       return text(rows.map(x => ({ id: x.sid.slice(0, 8), siapa: x.role ? st.getRole(office, x.role)?.name || x.role : (x.title && x.title !== 'Sesi belum terhubung' ? x.title : 'Sesi manual'), role: x.role || undefined,
         ruangan: m.plan.rooms.find(r => r.id === x.room)?.name || x.room || '-', folder: x.cwd ? x.cwd.replace(m.root, '.') : undefined, status: x.waiting ? 'menunggu izin' : x.status,
         kerjaan: sessionKonteks(x).kerjaan?.judul || undefined, menunggu: x.tunggu?.label || undefined, anggaran: x.anggaran || undefined,
-        sedang: x.tool ? `${x.tool.name} ${x.tool.label || ''}`.trim() : undefined, mulai: ago(x.startedAt), asal: x.tmux ? `tmux ${x.tmux}` : x.host || 'terminal', atasan: x.boss ? st.getRole(office, x.boss)?.name || x.boss : undefined, kamu: me?.sid === x.sid || undefined })));
+        sedang: x.tool ? `${x.tool.name} ${x.tool.label || ''}`.trim() : undefined, mulai: ago(x.startedAt), asal: x.tmux ? `tmux ${x.tmux}` : x.host || 'terminal', ...machineTag(x.machine), atasan: x.boss ? st.getRole(office, x.boss)?.name || x.boss : undefined, kamu: me?.sid === x.sid || undefined })));
     }
     case 'meeting_start': {
       if (!role?.isMgr) throw new Error('Hanya manager yang boleh membuka rapat.');
@@ -248,7 +261,7 @@ async function runTool(ident, name, a = {}) {
       return text(`Rapat "${m.topic}" dibuka (id ${m.id}) dengan ${m.participants.length} peserta. Hasilnya masuk wiki setelah selesai; pantau di tab Rapat.`);
     }
     case 'tunjukkan': {
-      const it = addShow({ office, sid: ident.sid, who: by, cwd: ident.cwd, path: a.path, url: a.url, note: a.catatan, lines: a.baris });
+      const it = addShow({ office, sid: ident.sid, who: by, cwd: ident.cwd, machine: ident.machine, path: a.path, url: a.url, note: a.catatan, lines: a.baris });
       return text(`${it.kind === 'url' ? it.target : it.target + (it.kind === 'folder' ? '/' : '')} sudah dikirim ke layar pengguna sebagai notifikasi; dia membukanya sendiri.`);
     }
     case 'kirim_ke_pemilik': {
@@ -273,7 +286,7 @@ async function runTool(ident, name, a = {}) {
     case 'roles_list': {
       const active = new Set([...live.values()].filter(s => s.office === office && s.status !== 'ended').map(s => s.role));
       const m = officeModel(office);
-      return text(st.listRoles(office).map(r => ({ id: r.id, nama: r.name, jabatan: r.title, ruangan: m.plan.rooms.find(x => x.id === r.room)?.name || r.room, model: r.model, ...(r.engine && r.engine !== 'claude' ? { mesin: r.engine, effort: r.effort || undefined } : {}), sedang_shift: active.has(r.id), atasan: r.reportsTo || undefined, mode_izin: [...live.values()].find(x => x.office === office && x.role === r.id && x.status !== 'ended')?.permMode || undefined })));
+      return text(st.listRoles(office).map(r => ({ id: r.id, nama: r.name, jabatan: r.title, ruangan: m.plan.rooms.find(x => x.id === r.room)?.name || r.room, ...machineTag(roomMachine(m, r.room)), model: r.model, ...(r.engine && r.engine !== 'claude' ? { mesin: r.engine, effort: r.effort || undefined } : {}), sedang_shift: active.has(r.id), atasan: r.reportsTo || undefined, mode_izin: [...live.values()].find(x => x.office === office && x.role === r.id && x.status !== 'ended')?.permMode || undefined })));
     }
     case 'shift_start': {
       if (!role?.isMgr) throw new Error('Hanya manager yang boleh memulai shift role lain.');

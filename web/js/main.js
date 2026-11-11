@@ -33,6 +33,8 @@ import { bindDmCard, paintDmCard, dmLive } from './dm.js';
 import { minionCardHTML, paintMinionCard, showMinionMenu, closeMinionMenu } from './minions-ui.js';
 import { kunciCardHTML, paintKunciCard, kunciLive } from './kunci-ui.js';
 import { mountTabBar, refitTabBar } from './tab-bar.js';
+import { onMachineEvent, machines, machineName, loadMachines } from './mesin.js';
+import { setMachineSource, sessBadge, roomBadge, sessOffline, roomOffline, roomMachine, roomBlockReason, anyRemote } from './lencana.js';
 
 export const ctx = { st: null, office: null, stage: null, view: null, route: null };
 const view = $('#view');
@@ -246,7 +248,7 @@ const sessLabel = x => x.waiting ? `menunggu izin: ${x.waiting.tool}` : x.tool ?
 function agentRow(x) {
   const name = x.look?.name || (x.title && x.title !== 'Sesi belum terhubung' ? short(x.title, 30) : 'Sesi manual');
   const what = x.look?.name && x.title && !x.title.startsWith(x.look.name) && !x.tool && !x.waiting ? short(x.title, 40) : sessLabel(x);
-  return `<li><button class="hm-agent" data-act="go-sess" data-office="${esc(x.office.id)}" data-sid="${esc(x.sid)}" title="${esc(sessLabel(x))}">${mini(x.look || guestLook(x.sid))}<span class="hm-ab"><b>${esc(name)}</b>${topicHTML(x)}${topicOf(x) ? `<span>${subHTML(x, what, 44)}</span>` : `<span>${esc(x.office.name)} · ${esc(short(what, 44))}</span>`}</span>${stDot(x)}</button></li>`;
+  return `<li><button class="hm-agent${sessOffline(x) ? ' mx-dim' : ''}" data-act="go-sess" data-office="${esc(x.office.id)}" data-sid="${esc(x.sid)}" title="${esc(sessLabel(x))}">${mini(x.look || guestLook(x.sid))}<span class="hm-ab"><b>${esc(name)}${sessBadge(x)}</b>${topicHTML(x)}${topicOf(x) ? `<span>${subHTML(x, what, 44)}</span>` : `<span>${esc(x.office.name)} · ${esc(short(what, 44))}</span>`}</span>${stDot(x)}</button></li>`;
 }
 function endedRow(x) {
   const t = x.title && x.title !== 'Sesi belum terhubung' ? x.title : x.first_prompt || 'Sesi tanpa judul';
@@ -416,7 +418,7 @@ const kantorView = {
     const o = ctx.office, el = $('#roombar'); if (!el) return;
     const list = o.plan.rooms.filter(r => !['openplan', 'toilet', 'booth', 'lobby'].includes(r.kind));
     const cnt = id => o.sessions.filter(s => s.room === id && s.status !== 'ended').length;
-    el.innerHTML = `<button data-act="zfit" aria-pressed="${!ctx.stage?.focus}">Seluruh lantai</button>` + list.map(r => `<button data-act="focus" data-id="${r.id}" aria-pressed="${ctx.stage?.focus === r.id}">${esc(r.name)}${cnt(r.id) ? `<span class="n">${cnt(r.id)}</span>` : ''}</button>`).join('');
+    el.innerHTML = `<button data-act="zfit" aria-pressed="${!ctx.stage?.focus}">Seluruh lantai</button>` + list.map(r => `<button data-act="focus" data-id="${r.id}" aria-pressed="${ctx.stage?.focus === r.id}"${roomMachine(r) ? ` class="${roomOffline(r) ? 'mx-dim' : ''}" title="${esc(`Di ${machineName(r.machine)}${roomOffline(r) ? ', sedang offline' : ''}`)}"` : ''}>${esc(r.name)}${cnt(r.id) ? `<span class="n">${cnt(r.id)}</span>` : ''}</button>`).join('');
   },
   inbox() { const el = $('#inboxOffice'); if (el) el.innerHTML = inboxHTML(ctx.st.inbox.filter(i => i.office === ctx.office.id), false); this.agents(); },
   sess() {
@@ -430,7 +432,7 @@ const kantorView = {
       const nm = r ? r.name + (s.slot ? ` #${s.slot + 1}` : '') : short(s.title || 'Sesi manual', 26);
       const who = [r ? r.title : 'Sesi manual', s.model ? modelName(s.model) : r ? modelName(r.model) : ''].filter(Boolean).join(' · ');
       const task = s.waiting ? 'menunggu izin' : s.tool ? `${s.tool.name} ${s.tool.label || ''}` : s.title || '';
-      return `<li><button class="ag-row" data-act="open-sess" data-sid="${s.sid}"><span class="ag-ava">${mini(r || guestLook(s.sid))}</span><span class="ag-body"><b class="ag-name">${esc(nm)}</b><span class="ag-meta">${esc(who)}</span>${topicOf(s) ? topicHTML(s, 'ag-tp') : ''}<span class="ag-task">${topicOf(s) ? subHTML(s, task, 48) : esc(short(task, 48))}</span></span><span class="ag-st ${cls(s)}">${label(s)}</span></button></li>`;
+      return `<li><button class="ag-row${sessOffline(s) ? ' mx-dim' : ''}" data-act="open-sess" data-sid="${s.sid}"><span class="ag-ava">${mini(r || guestLook(s.sid))}</span><span class="ag-body"><b class="ag-name">${esc(nm)}${sessBadge(s)}</b><span class="ag-meta">${esc(who)}</span>${topicOf(s) ? topicHTML(s, 'ag-tp') : ''}<span class="ag-task">${topicOf(s) ? subHTML(s, task, 48) : esc(short(task, 48))}</span></span><span class="ag-st ${cls(s)}">${label(s)}</span></button></li>`;
     }).join('')}</ul>` : '<p class="empty-line">Belum ada sesi berjalan.</p>') +
       (off.length ? `<p class="off-line">Libur: ${off.map(r => `<a href="#" data-act="open-role" data-id="${r.id}">${esc(r.name)}</a>`).join(', ')}</p>` : '');
   },
@@ -456,13 +458,14 @@ const kantorView = {
     // roles come in the order you arranged them (drag cards in the strip, or Alt+←/→)
     const roles = o.roles.filter(r => !r.archived);
     const room = id => o.plan.rooms.find(r => r.id === id)?.name || '';
+    const roomMx = id => { const rm = o.plan.rooms.find(r => r.id === id); return roomMachine(rm) ? machineName(rm.machine) : ''; };
     const st = s => !s ? 'off' : s.waiting ? 'wait' : s.status === 'working' ? 'work' : s.status === 'starting' ? 'start' : 'idle';
     const what = (s, fallback) => s.waiting ? `minta izin: ${s.waiting.tool || ''}` : s.tool ? `${s.tool.name} ${s.tool.label || ''}` : s.status === 'working' ? 'sedang bekerja' : fallback;
     const cxTag = s => isCodex(s) ? '<i class="kf-mode kf-cx" title="Mesin: OpenAI Codex">Codex</i>' : '';
-    const modeTag = s => cxTag(s) + (s?.permMode && !['default', 'auto'].includes(s.permMode)
+    const modeTag = s => cxTag(s) + sessBadge(s, 'kf-mx') + (s?.permMode && !['default', 'auto'].includes(s.permMode)
       ? `<i class="kf-mode m-${esc(s.permMode)}" title="Mode izin: ${esc(MODE_LABEL[s.permMode] || s.permMode)}">${esc({ bypassPermissions: 'bypass', acceptEdits: 'edit', dontAsk: 'tanpa tanya', readOnly: 'baca' }[s.permMode] || s.permMode)}</i>` : '');
     // one card: avatar with a status dot, name, and one line of what they are doing
-    const card = (look, name, sub, s, attrs, boss, roleId, job = '') => `<div class="kf-card st-${st(s)}"${roleId ? ` draggable="true" data-role="${esc(roleId)}"` : ''}>
+    const card = (look, name, sub, s, attrs, boss, roleId, job = '') => `<div class="kf-card st-${st(s)}${sessOffline(s) ? ' mx-dim' : ''}"${roleId ? ` draggable="true" data-role="${esc(roleId)}"` : ''}>
         <button class="kf-hit" ${attrs} title="${esc([name, job, s ? topicOf(s) : '', sub].filter(Boolean).join(' · '))}"></button>
         <span class="kf-ava">${sprite(look, 4)}<i class="kf-dot"></i></span>
         <span class="kf-txt"><span class="kf-cname"><span class="kf-nm">${esc(name)}</span>${job ? `<span class="kf-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}${modeTag(s)}</span><span class="kf-csub">${s && topicOf(s) ? `${pillHTML(s)}<span class="kx-d">${esc(topicOf(s))}</span>` : esc(sub)}</span></span>
@@ -482,7 +485,7 @@ const kantorView = {
       const boss = s.boss && o.roles.find(r => r.id === s.boss)?.name;
       active.push(card(guestLook(s.sid), loose ? 'Sesi manual' : s.title, what(s, loose ? `belum terhubung${where ? ' · ' + where : ''}` : where || 'manual'), s, `data-act="open-sess" data-sid="${s.sid}"`, false, null, boss ? `anak buah ${boss}` : ''));
     }
-    const offGroup = off.length ? `<div class="kf-off"><span class="kf-off-h">Libur</span><span class="kf-off-avas">${off.map(r => `<button data-act="open-role" data-id="${r.id}" title="${esc(r.name)} · ${esc(r.title)} · ${esc(room(r.room))}">${sprite(r, 3)}</button>`).join('')}</span></div>` : '';
+    const offGroup = off.length ? `<div class="kf-off"><span class="kf-off-h">Libur</span><span class="kf-off-avas">${off.map(r => `<button data-act="open-role" data-id="${r.id}" title="${esc([r.name, r.title, room(r.room), roomMx(r.room)].filter(Boolean).join(' · '))}">${sprite(r, 3)}</button>`).join('')}</span></div>` : '';
     const stripLeft = el.scrollLeft;
     el.innerHTML = [...boss, ...active].join('') + offGroup;
     el.scrollLeft = stripLeft;
@@ -503,10 +506,10 @@ const kantorView = {
     const live = o.sessions.filter(s => s.status !== 'ended');
     const room = id => o.plan.rooms.find(r => r.id === id)?.name || '';
     const inbox = ctx.st.inbox.filter(i => i.office === o.id);
-    const row = (look, name, job, sub, s, attrs, boss, roleId) => `<div class="al-row ${s ? (s.waiting ? 'wait' : s.status === 'working' ? 'work' : 'idle') : 'off'}">
+    const row = (look, name, job, sub, s, attrs, boss, roleId) => `<div class="al-row ${s ? (s.waiting ? 'wait' : s.status === 'working' ? 'work' : 'idle') : 'off'}${sessOffline(s) ? ' mx-dim' : ''}">
         <button class="al-hit" ${attrs} aria-label="${esc(name)}"></button>
         <span class="al-ava">${sprite(look, 4)}<i class="kf-dot"></i></span>
-        <span class="al-txt"><span class="al-name"><b>${esc(name)}</b>${job ? `<span class="al-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}</span>${s && topicOf(s) ? topicHTML(s, 'al-tp') : ''}<span class="al-sub">${s && topicOf(s) ? `${pillHTML(s)}<span class="kx-d">${esc(detailOf(s, sub))}</span>` : esc(sub)}</span></span>
+        <span class="al-txt"><span class="al-name"><b>${esc(name)}</b>${job ? `<span class="al-job">${esc(job)}</span>` : ''}${boss ? '<i class="kf-boss">bos</i>' : ''}${sessBadge(s)}</span>${s && topicOf(s) ? topicHTML(s, 'al-tp') : ''}<span class="al-sub">${s && topicOf(s) ? `${pillHTML(s)}<span class="kx-d">${esc(detailOf(s, sub))}</span>` : esc(sub)}</span></span>
         ${boss && roleId ? `<button class="al-talk" data-act="kf-talk" data-id="${esc(roleId)}">Suruh</button>` : ''}</div>`;
     const waitG = [], workG = [], idleG = [], off = [];
     const put = (s, look, name, job, boss, roleId, fallback) => {
@@ -550,14 +553,16 @@ const kantorView = {
         <div class="btn-row" style="margin-top:10px"><a class="btn sm primary" href="#/o/${esc(o.id)}/rapat">${now.length ? 'Ikuti rapat' : 'Mulai rapat'}</a></div>`;
       return;
     }
-    el.innerHTML = `<h2>${esc(r.name)}</h2><dl>
+    const noShift = roomBlockReason(r);
+    el.innerHTML = `<h2>${esc(r.name)}${roomBadge(r)}</h2><dl>
+      ${roomMachine(r) ? `<dt>Mesin</dt><dd>${esc(machineName(r.machine))}${roomOffline(r) ? ' · offline' : ''}</dd>${r.remotePath ? `<dt>Folder</dt><dd><code>${esc(r.remotePath)}/</code></dd>` : ''}` : ''}
       ${r.path ? `<dt>Folder</dt><dd><code>${esc(r.path)}/</code></dd>` : ''}${r.stack ? `<dt>Jenis</dt><dd>${esc(r.stack)}</dd>` : ''}
       ${r.worktrees?.length ? `<dt>Worktree</dt><dd>${r.worktrees.map(w => `<code>${esc(w)}</code>`).join(' ')}</dd>` : ''}
       ${r.md ? `<dt>Aturan</dt><dd><code>${esc(r.path)}/CLAUDE.md</code></dd>` : ''}
       <dt>Penghuni</dt><dd>${res.length ? res.map(x => `<a href="#" data-act="open-role" data-id="${x.id}">${esc(x.name)}</a>`).join(', ') : 'belum ada'}</dd>
       <dt>Sesi</dt><dd>${ss.length}</dd>
       <dt>Kartu</dt><dd>${cards.length ? cards.map(c => esc(short(c.title, 34))).join('<br>') : 'tidak ada'}</dd></dl>
-      <div class="btn-row" style="margin-top:10px">${r.path != null ? `<button class="btn sm" data-act="room-dock" data-id="${r.id}">Proses &amp; terminal</button><button class="btn sm" data-act="room-shell" data-id="${r.id}">Buka shell di sini</button>` : ''}<button class="btn sm" data-act="new-shift-room" data-id="${r.id}">Mulai shift di sini</button></div>`;
+      <div class="btn-row" style="margin-top:10px">${r.path != null ? `<button class="btn sm" data-act="room-dock" data-id="${r.id}">Proses &amp; terminal</button><button class="btn sm" data-act="room-shell" data-id="${r.id}">Buka shell di sini</button>` : ''}<button class="btn sm" data-act="new-shift-room" data-id="${r.id}"${noShift ? ` disabled title="${esc(noShift)}"` : ''}>Mulai shift di sini</button></div>`;
   },
   subs() {
     const o = ctx.office, el = $('#subList'); if (!el) return;
@@ -573,6 +578,7 @@ const kantorView = {
     if (m.t === 'session' || m.t === 'session-gone') { ctx.stage?.sync(o.sessions); this.sess(); this.strip(); this.roombar(); this.subs(); updateSub(); }
     if (m.t === 'log') { const f = $('#feed'); if (f) { f.insertAdjacentHTML('afterbegin', feedLi(m.entry)); while (f.children.length > 60) f.lastChild.remove(); } }
     if (m.t?.startsWith('inbox')) this.inbox();
+    if (m.t === 'machine') { this.sess(); this.strip(); this.roombar(); this.roomInfo(); }
   },
 };
 const feedLi = l => `<li><time>${hhmm(l.at)}</time><span><b>${esc(l.who)}</b> ${esc(l.text)}</span></li>`;
@@ -580,6 +586,12 @@ const feedLi = l => `<li><time>${hhmm(l.at)}</time><span><b>${esc(l.who)}</b> ${
 /* ---------------- live events ---------------- */
 onLive(async m => {
   const o0 = ctx.office;
+  if (m.t === 'machine') {
+    // latensi/lastSeen saja yang berubah: lencana tetap, jadi jangan gambar ulang kantor, chat, dan drawer
+    onMachineEvent(m.machine, m); // m.removed = mesin dihapus
+    if (machineSig() === mxSig) { if (ctx.view !== kantorView && ctx.view !== chatmode) ctx.view?.live?.(m, ctx); return; }
+    mxSig = machineSig();
+  }
   if (m.t === 'dm') dmLive(m, ctx);
   if (m.t === 'pratinjau' && o0 && m.office === o0.id && ctx.view !== pratinjau) pratinjau.badge(o0.id).then(n => paintPvBadge(o0.id, n));
   if (m.t === 'pratinjau' && ctx.view !== pratinjau) pratinjau.liveViewer(m); // penampil yang dibuka dari chat
@@ -588,7 +600,7 @@ onLive(async m => {
     if (m.t === 'minions') { o0.minions = m.minions; ctx.stage.minions.apply(m.minions); if (ctx.view === kantorView) kantorView.minionCard(); }
     else ctx.stage.minions.live(m);
   }
-  if (m.t === 'reconnected') { if (ctx.route) { await refreshState().catch(() => {}); if (ctx.office && ctx.office.id !== '_kompleks') { await loadOffice(ctx.office.id).catch(() => {}); ctx.stage?.sync(ctx.office.sessions); ctx.stage?.minions?.apply(ctx.office.minions); } } return; }
+  if (m.t === 'reconnected') { if (anyRemote()) loadMachines(true).then(machinesRepaint).catch(() => {}); if (ctx.route) { await refreshState().catch(() => {}); if (ctx.office && ctx.office.id !== '_kompleks') { await loadOffice(ctx.office.id).catch(() => {}); ctx.stage?.sync(ctx.office.sessions); ctx.stage?.minions?.apply(ctx.office.minions); } } return; }
   if (m.t === 'hello') return;
   agentsLive(m);
   const o = ctx.office;
@@ -616,7 +628,7 @@ onLive(async m => {
     if (m.what === 'news') { o.news = await api(`/api/offices/${o.id}`).then(x => x.news).catch(() => o.news); kantorView.news?.(); }
     if (m.what === 'notes') { o.wall = await api(`/api/offices/${o.id}`).then(x => x.wall).catch(() => o.wall); if (ctx.view === kantorView) kantorView.wall(); }
   }
-  if (ctx.route?.name === 'map' && (m.t === 'session' || m.t === 'session-gone')) debounceMap();
+  if (ctx.route?.name === 'map' && (m.t === 'session' || m.t === 'session-gone' || m.t === 'machine')) debounceMap();
   ctx.view?.live?.(m, ctx);
   drawerOnLive(ctx, m);
 });
@@ -682,6 +694,20 @@ document.addEventListener('submit', async e => {
   }
 });
 document.addEventListener('keydown', e => { if (e.target.id === 'mgrInput' && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#mgrForm')?.requestSubmit(); return; } if (e.key === 'Escape' && !$('#modal').hidden) $('#modal').hidden = true; else if (e.key === 'Escape' && drawerState().open && !e.target.closest('.xterm')) closeDrawer(); });
+
+/* Multi-PC: daftar mesin untuk lencana; berubah = gambar ulang seperti event { t:'machine' } */
+setMachineSource({ machines, machineName });
+const machineSig = () => (machines() || []).map(x => `${x.id}:${x.name}:${x.online}`).join('|');
+let mxSig = '';
+function machinesRepaint() {
+  if (machineSig() === mxSig) return;
+  mxSig = machineSig();
+  const m = { t: 'machine' };
+  try { agentsLive(m); ctx.view?.live?.(m, ctx); drawerOnLive(ctx, m); } catch (e) { console.error(e); }
+  if (ctx.route?.name === 'map') debounceMap();
+}
+document.addEventListener('kantor:machines', machinesRepaint);
+loadMachines().then(machinesRepaint).catch(() => {});
 
 /* boot */
 connectLive();

@@ -8,6 +8,8 @@ import { pipeline } from 'node:stream/promises';
 import { OFFICE_DIR } from './config.js';
 import { officeDb, one, all, run, nowIso } from './db.js';
 import { officeModel } from './offices.js';
+import * as mx from './machines.js';
+import { remoteResolve, pullFile, machineLabel } from './files.js';
 
 const MAX = 500 * 1024 * 1024;
 const MAX_LABEL = 'maks 500 MB';
@@ -48,14 +50,32 @@ export function saveUpload(office, name, req, by) {
   return store(office, name, req, by);
 }
 
-/** Attach a file an agent made: it must be inside the office folder or the temp folder. */
-export async function saveFromPath(office, file, by) {
+/** Attach a file an agent made: it must be inside the office folder or the temp folder.
+ *  where = { machine, cwd } untuk sesi di Mac lain: path relatif ke cwd di mesin itu, file ditarik ke Mac ini dulu. */
+export async function saveFromPath(office, file, by, where) {
+  if (where?.machine && where.machine !== mx.LOCAL && mx.isRemote(where.machine)) return saveFromRemote(office, file, by, where);
   const m = officeModel(office);
   const real = fs.realpathSync(path.resolve(m.root, String(file || '')));
   const okRoots = [m.root, os.tmpdir(), '/tmp', '/private/tmp'].map(p => { try { return fs.realpathSync(p); } catch { return p; } });
   if (!okRoots.some(r => real === r || real.startsWith(r + path.sep))) throw new Error('File harus berada di folder kantor atau folder sementara (/tmp)');
   if (!fs.statSync(real).isFile()) throw new Error('Bukan file');
   return store(office, path.basename(real), fs.createReadStream(real), by);
+}
+
+async function saveFromRemote(office, file, by, { machine, cwd }) {
+  if (!cwd || !String(cwd).startsWith('/')) throw new Error(`Folder kerja di ${machineLabel(machine)} tidak diketahui`);
+  const info = remoteResolve(machine, cwd, String(file || ''));
+  if (!info.exists || !info.real) throw new Error(`Tidak ada file ${file} di ${machineLabel(machine)}`);
+  const roots = [info.rootReal, cwd, info.tmp, '/tmp', '/private/tmp'].filter(Boolean);
+  if (!roots.some(r => info.real === r || info.real.startsWith(r + '/'))) throw new Error('File harus berada di folder kerja atau folder sementara (/tmp) di mesin itu');
+  if (info.type !== 'file') throw new Error('Bukan file');
+  if (info.size > MAX) throw new Error(`File terlalu besar (${MAX_LABEL})`);
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kc-media-'));
+  try {
+    const local = path.join(tmp, 'isi');
+    await pullFile(machine, info.real, local, { size: info.size, max: MAX });
+    return await store(office, path.posix.basename(info.real), fs.createReadStream(local), by);
+  } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 }
 
 /** Store a file the daemon itself owns (e.g. a pratinjau snapshot); no path checks, callers pass trusted paths only. */

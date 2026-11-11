@@ -3,7 +3,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { officeDb, all, one, run, nowIso, newId, j } from './db.js';
-import { officeModel } from './offices.js';
+import { officeModel, roomCwd } from './offices.js';
+import { LOCAL, getMachine } from './machines.js';
 import { bus, logOffice, expectSession, live } from './live.js';
 import { bins, globalHooksInstalled, hookSettings } from './tmux.js';
 import { listCards, getRole, saveWiki, COLS, createCard } from './store.js';
@@ -184,6 +185,20 @@ async function runMeeting(office, id, roles, chair, state, resume = false) {
   logOffice(office, chair.name, `menutup rapat "${meet.topic.slice(0, 40)}" (${actions.length} tindak lanjut)`, 'meeting');
 }
 
+/**
+ * Folder a meeting turn runs in. Participants always run on this Mac (the hub), also for a role whose room is on another
+ * machine (docs/MULTI-PC.md): that repo is not reachable here, and the same path on this disk may be another checkout, so
+ * such a turn runs in the office root and the persona says so. `remote` is that note ('' for a room on this Mac).
+ */
+export function meetingCwd(m, role) {
+  const at = roomCwd(m, role.room);
+  if (at.machine && at.machine !== LOCAL) {
+    const name = getMachine(at.machine)?.name || at.machine;
+    return { cwd: m.root, remote: `\nRepo ruanganmu ada di mesin ${name} (${at.cwd}). Rapat ini jalan di Mac kantor, jadi Read/Grep/Glob tidak menjangkau repo itu: jawab dari pengetahuanmu, buku catatanmu, dan board.` };
+  }
+  return { cwd: fs.existsSync(at.cwd) ? at.cwd : m.root, remote: '' };
+}
+
 function parseJson(text) {
   const s = text.indexOf('{'), e = text.lastIndexOf('}');
   if (s < 0 || e <= s) return null;
@@ -196,11 +211,9 @@ export function askCodex(office, role, prompt, title, state, { tools = true, typ
   const bin = codexBin();
   if (!bin) throw new Error('Perintah codex tidak ditemukan');
   const m = officeModel(office);
-  const room = m.plan.rooms.find(r => r.id === role.room);
-  let cwd = room?.path ? path.join(m.root, room.path) : m.root;
-  if (!fs.existsSync(cwd)) cwd = m.root;
+  const { cwd, remote } = meetingCwd(m, role);
   const sid = crypto.randomUUID();
-  const persona = `Kamu adalah ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}. Keahlian: ${(role.skills || []).join(', ') || '-'}.${role.notes ? `\nBuku catatanmu:\n${role.notes.slice(0, 3000)}` : ''}${tools ? '' : '\nJawab langsung dari pengetahuan dan konteks rapat; jangan memakai tool.'}`;
+  const persona = `Kamu adalah ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}. Keahlian: ${(role.skills || []).join(', ') || '-'}.${role.notes ? `\nBuku catatanmu:\n${role.notes.slice(0, 3000)}` : ''}${remote}${tools ? '' : '\nJawab langsung dari pengetahuan dan konteks rapat; jangan memakai tool.'}`;
   const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'read-only', '-C', cwd, '-c', `developer_instructions=${tomlStr(persona)}`];
   if (role.model) args.push('-m', role.model);
   if (role.effort) args.push('-c', `model_reasoning_effort=${tomlStr(role.effort)}`);
@@ -237,14 +250,13 @@ export function askCodex(office, role, prompt, title, state, { tools = true, typ
 // meeting turns may only research files, never perform work on behalf of the role.
 export function askAntigravity(office, role, prompt, title, state, { tools = true, typing = false } = {}) {
   const bin = agyBin(); if (!bin) throw new Error('Antigravity CLI belum terpasang');
-  const m = officeModel(office), room = m.plan.rooms.find(r => r.id === role.room);
-  let cwd = room?.path ? path.join(m.root, room.path) : m.root;
-  if (!fs.existsSync(cwd)) cwd = m.root;
+  const m = officeModel(office);
+  const { cwd, remote } = meetingCwd(m, role);
   const sid = crypto.randomUUID(), file = path.join(RUN_DIR, `${sid}.meeting-agy.json`);
   const settings = agySettings(cwd, { deny: ['write_file(*)', 'command(*)', 'mcp(*)', 'read_url(*)', 'execute_url(*)', ...(tools ? [] : ['read_file(*)'])], allow: tools ? ['read_file(*)'] : [] });
   settings.permissions.allow = tools ? ['read_file(*)'] : [];
   fs.writeFileSync(file, JSON.stringify(settings), { mode: 0o600 });
-  const persona = `Kamu ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}.\n${role.notes || ''}\nIni rapat: jawab pendapatmu, jangan mengubah file, menjalankan perintah atau memakai MCP.`;
+  const persona = `Kamu ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}.\n${role.notes || ''}\nIni rapat: jawab pendapatmu, jangan mengubah file, menjalankan perintah atau memakai MCP.${remote}`;
   const args = ['--settings', file, '--mode', 'plan', '--output-format', 'stream-json', '--print-timeout', '240s'];
   if (role.model) args.push('--model', role.model);
   if (role.effort) args.push('--effort', role.effort);
@@ -282,11 +294,9 @@ function ask(office, role, prompt, title, state, { tools = true, typing = false 
   const { claude } = bins();
   if (!claude) throw new Error('Perintah claude tidak ditemukan');
   const m = officeModel(office);
-  const room = m.plan.rooms.find(r => r.id === role.room);
-  let cwd = room?.path ? path.join(m.root, room.path) : m.root;
-  if (!fs.existsSync(cwd)) cwd = m.root;
+  const { cwd, remote } = meetingCwd(m, role);
   const sid = crypto.randomUUID();
-  const persona = `Kamu adalah ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}. Keahlian: ${(role.skills || []).join(', ') || '-'}.${role.notes ? `\nBuku catatanmu:\n${role.notes.slice(0, 3000)}` : ''}`;
+  const persona = `Kamu adalah ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}. Keahlian: ${(role.skills || []).join(', ') || '-'}.${role.notes ? `\nBuku catatanmu:\n${role.notes.slice(0, 3000)}` : ''}${remote}`;
   const args = ['-p', prompt, '--session-id', sid, '--model', (role.engine === 'codex' ? '' : role.model) || 'sonnet', '--output-format', 'stream-json', '--verbose', '--include-partial-messages', '--append-system-prompt', persona,
     '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}', '--max-turns', tools ? '8' : '2'];
   if (tools) args.push('--allowedTools', 'Read', 'Grep', 'Glob', '--permission-mode', 'dontAsk');

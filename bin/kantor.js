@@ -57,6 +57,30 @@ const cmds = {
     } else if (sub === 'uninstall') execFileSync('claude', ['mcp', 'remove', '-s', 'user', 'kantor'], { stdio: 'inherit' });
     else console.log('Pakai: kantor mcp install | uninstall');
   },
+  // Mac lain tempat agen jalan (docs/MULTI-PC.md)
+  async mesin(sub, ...rest) {
+    const show = m => console.log(`${m.id.padEnd(16)} ${m.online === true ? 'online ' : m.online === false ? 'offline' : '?      '} ${m.ssh}  hub ${m.hubUrl}${m.disabled ? '  (nonaktif)' : ''}`);
+    if (!sub || sub === 'list') { const { machines } = await api('/api/machines', 'GET'); if (!machines.length) console.log('Belum ada mesin. Tambah: kantor mesin tambah <nama> <user@host> <url hub>'); machines.forEach(show); }
+    else if (sub === 'tambah') {
+      const [name, ssh, hubUrl, root] = rest;
+      if (!name || !ssh || !hubUrl) return console.log('Pakai: kantor mesin tambah <nama> <user@host> <url hub> [root]');
+      const { machine } = await api('/api/machines', 'POST', { name, ssh, hubUrl, root });
+      console.log(`Mesin ditambahkan: ${machine.id}. Lanjut: kantor mesin tes ${machine.id}, lalu kantor mesin pasang ${machine.id}`);
+    } else if (sub === 'tes') {
+      if (!rest[0]) return console.log('Pakai: kantor mesin tes <id>');
+      const r = await api(`/api/machines/${encodeURIComponent(rest[0])}/test`);
+      console.log(r.ok ? `Siap (${r.latencyMs} ms, ${r.os || '?'})` : 'Belum siap:');
+      for (const p of r.problems) console.log(`  - ${p}`);
+    } else if (sub === 'pasang') {
+      if (!rest[0]) return console.log('Pakai: kantor mesin pasang <id>');
+      const r = await api(`/api/machines/${encodeURIComponent(rest[0])}/install`);
+      console.log(`Skrip versi ${r.version} terpasang di ${r.root}`);
+    } else if (sub === 'hapus') {
+      if (!rest[0]) return console.log('Pakai: kantor mesin hapus <id>');
+      await api(`/api/machines/${encodeURIComponent(rest[0])}`, 'DELETE');
+      console.log('Mesin dihapus.');
+    } else console.log('Pakai: kantor mesin [list] | tambah <nama> <user@host> <url hub> [root] | tes <id> | pasang <id> | hapus <id>');
+  },
   // shared office (config akun.enabled): members with username + password + 2FA, see docs/AKUN.md
   async akun(sub, ...rest) {
     const find = async u => { const m = (await api('/api/akun/anggota', 'GET')).members.find(x => x.username === String(u || '').toLowerCase()); if (!m) throw new Error(`Anggota "${u}" tidak ada`); return m; };

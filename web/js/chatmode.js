@@ -10,6 +10,7 @@ import { startShiftDialog } from './roles.js';
 import { drawerState, closeDrawer } from './panel.js';
 import { sidSave } from './nav-memory.js';
 import { topicHTML, subHTML, searchBits, topicOf } from './konteks.js';
+import { sessBadge, sessOffline, offlineBanner, blockReason } from './lencana.js';
 
 if (!document.getElementById('chatmodeCss')) {
   const l = document.createElement('link');
@@ -133,7 +134,7 @@ function itemHTML(e) {
   }
   const s = e.s, perm = inboxOf(s.sid).length, q = M.queue.get(s.sid) || 0, cur = s.sid === M.sid;
   const badges = (perm ? `<i class="cm-bd wait" title="${perm} izin menunggu">${perm} izin</i>` : '') + (q ? `<i class="cm-bd q" title="${q} pesan terkirim, belum dibaca">${q} antre</i>` : '') + (bgCount(s) > 0 ? `<i class="cm-bd q" title="Subagent masih jalan di latar">${bgCount(s)} sub</i>` : '');
-  return `<button class="cm-ag st-${e.g}${cur ? ' cur' : ''}" role="option" aria-selected="${cur}" data-act="cm-pick" data-sid="${esc(s.sid)}"><span class="cm-ava">${sprite(look(s), 3)}<i class="cm-dot"></i></span><span class="cm-tx"><b>${esc(nameOf(s))}${codexBadge(s)}</b>${topicOf(s) ? `${topicHTML(s)}<span class="cm-kx">${subHTML(s, doing(s), 60)}</span>` : `<span>${esc(short(doing(s), 60))}</span>`}</span>${badges}</button>`;
+  return `<button class="cm-ag st-${e.g}${cur ? ' cur' : ''}${sessOffline(s) ? ' mx-dim' : ''}" role="option" aria-selected="${cur}" data-act="cm-pick" data-sid="${esc(s.sid)}"><span class="cm-ava">${sprite(look(s), 3)}<i class="cm-dot"></i></span><span class="cm-tx"><b>${esc(nameOf(s))}${codexBadge(s)}${sessBadge(s)}</b>${topicOf(s) ? `${topicHTML(s)}<span class="cm-kx">${subHTML(s, doing(s), 60)}</span>` : `<span>${esc(short(doing(s), 60))}</span>`}</span>${badges}</button>`;
 }
 function paintList() {
   const el = $('#cmList', M.el); if (!el) return;
@@ -183,8 +184,13 @@ function destroyChat() {
 }
 /** Isi kanan tab Terminal: panel konteks, terminal sesi, dan tombol khusus HP. Sesi di luar tmux tidak punya terminal di sini. */
 function mountTermPane(body, sid, s0) {
+  M.off = sessOffline(s0);
   if (!s0.tmux) {
     body.innerHTML = `<div class="cm-empty"><b>Terminal sesi ini ada di luar kantor</b><p>${esc(s0.host && s0.host !== 'lain' ? `Sesinya jalan di ${HOSTS[s0.host]}.` : 'Sesinya tidak jalan di tmux kantor.')} Isi percakapannya tetap bisa dibaca di tab Chat.</p><a class="btn sm" href="${esc(hashFor(sid, 'chat'))}">Buka chat</a></div>`;
+    return { update() {}, live() {}, refresh() {}, destroy() {} };
+  }
+  if (M.off) {
+    body.innerHTML = `<div class="cm-empty">${offlineBanner(s0)}<b>Terminal tidak tersedia</b><p>Terminal tersambung lagi otomatis begitu mesinnya online. Pesan tetap bisa dikirim dari tab Chat.</p><a class="btn sm" href="${esc(hashFor(sid, 'chat'))}">Buka chat</a></div>`;
     return { update() {}, live() {}, refresh() {}, destroy() {} };
   }
   body.innerHTML = '<div class="cm-term"><div data-slot="kx"></div><div class="termbox"><div class="xt"></div></div><div data-slot="kb"></div></div>';
@@ -210,26 +216,30 @@ function mountSel() {
   M.focusNext = false;
 }
 function modeSelect(s) {
-  if (isAntigravity(s)) return '<button class="btn sm" data-act="cm-term" title="Gunakan /model atau /permissions di terminal">Model & izin Gemini</button>';
-  if (isCodex(s)) return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="cm-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label><button class="btn sm" data-act="cm-model" title="Ganti model dan effort Codex (sesi harus diam)">Model: ${esc(codexSessSub(s))}</button>`;
-  return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="cm-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label><button class="btn sm" data-act="cm-model" title="Ganti model sesi ini (/model)">Ganti model</button>`;
+  // mesin offline: kontrol tetap terlihat tapi nonaktif, dengan alasan di tooltip
+  const why = blockReason(s), dis = why ? ' disabled' : '', t = title => ` title="${esc(why || title)}"`;
+  if (isAntigravity(s)) return `<button class="btn sm" data-act="cm-term"${t('Gunakan /model atau /permissions di terminal')}${dis}>Model & izin Gemini</button>`;
+  if (isCodex(s)) return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}"${t('Mode izin Codex.')}><select data-act="cm-mode" aria-label="Mode izin"${dis}>${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label><button class="btn sm" data-act="cm-model"${t('Ganti model dan effort Codex (sesi harus diam)')}${dis}>Model: ${esc(codexSessSub(s))}</button>`;
+  return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}"${t('Mode izin. Sama dengan menekan Shift+Tab di terminalnya.')}><select data-act="cm-mode" aria-label="Mode izin"${dis}>${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label><button class="btn sm" data-act="cm-model"${t('Ganti model sesi ini (/model)')}${dis}>Ganti model</button>`;
 }
 function paintHead() {
   const el = $('#cmHead', M.el), s = findSess(M.sid); if (!el || !s) return;
-  const can = !!s.tmux || typeable(s), model = s.model ? modelName(s.model) : (roleOf(s.role) ? modelName(roleOf(s.role).model) : '');
+  const can = !!s.tmux || typeable(s), why = blockReason(s), model = s.model ? modelName(s.model) : (roleOf(s.role) ? modelName(roleOf(s.role).model) : '');
   const st = s.waiting ? 'waiting' : s.status;
   const active = document.activeElement;
   const keepMode = active?.dataset?.act === 'cm-mode';
   const modeSlot = $('[data-slot="mode"]', el);
   if (keepMode && modeSlot) return; // jangan menutup dropdown yang sedang dipilih
+  const act = title => why ? ` disabled title="${esc(why)}"` : ` title="${title}"${can ? '' : ' disabled'}`;
+  el.classList.toggle('mx-off', !!why);
   el.innerHTML = `<button class="icon-btn cm-back" data-act="cm-back" aria-label="Kembali ke daftar agen">←</button>
     <span class="cm-ava lg">${sprite(look(s), 4)}</span>
-    <div class="cm-id"><div class="cm-name"><b>${esc(nameOf(s))}</b>${codexBadge(s)}<span class="st ${esc(st)}">${esc(s.tunggu && st === 'idle' ? s.tunggu.label : STATUS[st] || st)}</span>${s.anggaran === 'habis' ? '<span class="st wait">anggaran habis</span>' : ''}${s.compacting ? '<span class="st starting">Meringkas</span>' : ''}${bgCount(s) > 0 ? `<span class="st working" title="Subagent masih jalan di latar">${bgCount(s)} subagent latar</span>` : ''}</div><div class="cm-sub">${esc(subOf(s))}${model && !isCodex(s) && !subOf(s).includes(model) ? ' · ' + esc(model) : ''}</div></div>
-    <div class="cm-tools">${M.tab === 'terminal' ? `<a class="btn sm" href="${esc(hashFor(M.sid, 'chat'))}">Buka chat</a>` : `<a class="btn sm" href="${esc(hashFor(M.sid, 'terminal'))}" title="Buka terminal sesi ini">Buka terminal</a>`}<button class="btn sm cm-aa" data-act="cm-view" title="Ukuran huruf dan tampilan" aria-label="Ukuran huruf dan tampilan">Aa</button><span data-slot="mode">${s.tmux ? modeSelect(s) : ''}</span>
-      <button class="btn sm halt" data-act="cm-action" data-a="esc" title="Hentikan pekerjaan yang sedang jalan (Esc)"${can ? '' : ' disabled'}>Hentikan</button>
-      <button class="btn sm" data-act="cm-action" data-a="compact" title="/compact"${can ? '' : ' disabled'}>Ringkas</button>
-      <button class="btn sm" data-act="cm-action" data-a="clear" title="/clear"${can ? '' : ' disabled'}>Reset</button>
-      <button class="btn sm" data-act="cm-action" data-a="exit" title="Selesaikan sesi (/exit)"${can ? '' : ' disabled'}>Selesai</button>
+    <div class="cm-id"><div class="cm-name"><b>${esc(nameOf(s))}</b>${codexBadge(s)}${sessBadge(s)}<span class="st ${esc(st)}">${esc(s.tunggu && st === 'idle' ? s.tunggu.label : STATUS[st] || st)}</span>${s.anggaran === 'habis' ? '<span class="st wait">anggaran habis</span>' : ''}${s.compacting ? '<span class="st starting">Meringkas</span>' : ''}${bgCount(s) > 0 ? `<span class="st working" title="Subagent masih jalan di latar">${bgCount(s)} subagent latar</span>` : ''}</div><div class="cm-sub">${esc(subOf(s))}${model && !isCodex(s) && !subOf(s).includes(model) ? ' · ' + esc(model) : ''}</div></div>
+    <div class="cm-tools">${M.tab === 'terminal' ? `<a class="btn sm" href="${esc(hashFor(M.sid, 'chat'))}">Buka chat</a>` : why ? `<button class="btn sm" disabled title="${esc(why)}">Buka terminal</button>` : `<a class="btn sm" href="${esc(hashFor(M.sid, 'terminal'))}" title="Buka terminal sesi ini">Buka terminal</a>`}<button class="btn sm cm-aa" data-act="cm-view" title="Ukuran huruf dan tampilan" aria-label="Ukuran huruf dan tampilan">Aa</button><span data-slot="mode">${s.tmux ? modeSelect(s) : ''}</span>
+      <button class="btn sm halt" data-act="cm-action" data-a="esc"${act('Hentikan pekerjaan yang sedang jalan (Esc)')}>Hentikan</button>
+      <button class="btn sm" data-act="cm-action" data-a="compact"${act('/compact')}>Ringkas</button>
+      <button class="btn sm" data-act="cm-action" data-a="clear"${act('/clear')}>Reset</button>
+      <button class="btn sm" data-act="cm-action" data-a="exit"${act('Selesaikan sesi (/exit)')}>Selesai</button>
       </div>`;
 }
 
@@ -244,6 +254,7 @@ async function sendAction(sid, action, text) {
 }
 function doAction(a) {
   const sid = M.sid, def = ACTIONS[a]; if (!sid || !def) return;
+  if (sessOffline(findSess(sid))) { toast(blockReason(findSess(sid)), 'warn'); return; }
   if (a === 'esc' && bgCount(findSess(sid)) > 0) { stopFlow(findSess(sid), x => sendAction(sid, x).then(ok => ok && toast(x === 'stop-all' ? 'Semua dihentikan' : def.ok, 'ok'))); return; }
   const run = async () => { if (await sendAction(sid, a)) toast(def.ok, 'ok'); };
   if (!def.title) { run(); return; }
@@ -254,7 +265,7 @@ function doAction(a) {
 async function onClick(e) {
   const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   const act = b.dataset.act;
-  if (act === 'cm-model') { const cs = findSess(M.sid); if (isCodex(cs)) pickCodexSettings(cs); else pickModel(M.sid); }
+  if (act === 'cm-model') { const cs = findSess(M.sid); if (sessOffline(cs)) toast(blockReason(cs), 'warn'); else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(M.sid); }
   else if (act === 'cm-pick') { M.focusNext = false; go(b.dataset.sid); }
   else if (act === 'cm-back') go(null);
   else if (act === 'cm-action' || act === 'dr-action') doAction(b.dataset.a);
@@ -340,6 +351,7 @@ export function live(m, ctx) {
   if (m.t === 'outbox' && m.sid) { reloadQueue(m.sid); return; }
   if (m.t?.startsWith('inbox')) { repaint(); M.chat?.live(m); if (M.chat) M.chat.update(); return; }
   if (m.t === 'changed' && (m.what === 'roles' || m.what === 'roles-order' || m.what === 'plan')) { repaint(); return; }
+  if (m.t === 'machine') { repaint(); paintHead(); M.chat?.update(); termFlip(); return; }
   if (m.t !== 'session' && m.t !== 'session-gone') return;
   const sid = m.t === 'session' ? m.session?.sid : m.sid;
   // shift yang baru dimulai dari daftar libur: langsung buka percakapannya
@@ -357,4 +369,11 @@ export function live(m, ctx) {
   }
   paintHead();
   M.chat?.update();
+  termFlip();
+}
+/** Tab Terminal: mesin sesi berganti offline/online, pasang ulang (banner ↔ terminal). */
+function termFlip() {
+  const s = M.sid && findSess(M.sid);
+  if (M.tab !== 'terminal' || !s || !M.chat || M.chatSid !== M.sid || s.status === 'ended' || sessOffline(s) === !!M.off) return;
+  destroyChat(); mountSel();
 }

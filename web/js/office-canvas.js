@@ -3,6 +3,7 @@ import { short, hashStr, guestLook } from './util.js';
 import { loadCatalog, getCatalog, createEngine, prayPhase } from './furniture.js';
 import { attachOwner } from './owner.js';
 import { createMinions } from './minions.js';
+import { roomMachine, roomOffline, machineLabel, sessOffline } from './lencana.js';
 
 const T = 8, WH = 4;
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -1067,7 +1068,7 @@ export function createStage(host, opts) {
     }
   }
   function drawEnt(c, e, time) {
-    c.globalAlpha = Math.max(0, e.alpha);
+    c.globalAlpha = Math.max(0, e.alpha) * (sessOffline(e.s) ? .45 : 1); // mesinnya offline: redup
     lanNow = e.minion ? e.look.lanyard || '#3E6BA8' : null;
     R(c, e.x - 6, e.y - 1, 12, 3, 'rgba(0,0,0,.22)');
     if (e.s?.status === 'working' || e.sub) glow(c, e.x, e.y - 10, e.sub ? e.cap : e.look.color, false);
@@ -1180,6 +1181,8 @@ export function createStage(host, opts) {
       if (r.kind === 'openplan') continue;
       let wx, wy;
       if (r.kind === 'zone') { const op = plan.rooms.find(q => q.id === r.zoneOf); wx = (r.x + 1) * T; wy = (op.y + WH) * T + 2; } else { wx = r.x * T + 10; wy = r.y * T + 8; }
+      const mx = r.kind !== 'zone' && roomMachine(r), down = mx && roomOffline(r);
+      if (down && r.w && r.h) { const [ox, oy] = Sx(r.x * T, r.y * T); c.fillStyle = 'rgba(48,52,60,.42)'; c.fillRect(ox, oy, r.w * T * z, r.h * T * z); } // ruangan di mesin offline: abu
       const [sx, sy] = Sx(wx, wy); if (sx > canvas._w || sy > canvas._h || sx < -220 || sy < -40) continue;
       const fs = z < 1.2 ? 8 : 10;
       c.font = `700 ${fs}px ${PIX}`;
@@ -1199,6 +1202,16 @@ export function createStage(host, opts) {
       rr(c, sx, sy, w1 + w2 + 12, fs + 8, 4); c.fill();
       c.fillStyle = sel === r.id ? '#3A240F' : '#FBF4EA'; c.font = `700 ${fs}px ${PIX}`; c.fillText(name, sx + 6, sy + (fs + 8) / 2 + .5);
       if (sub) { c.fillStyle = sel === r.id ? '#3A240F' : '#B8AEBF'; c.font = `500 ${fs}px ${MONO}`; c.fillText(sub, sx + 6 + w1 + 8, sy + (fs + 8) / 2 + .5); }
+      if (mx) { // pelat mesin di bawah nama ruangan: hanya ruangan di Mac lain
+        const mf = fs - 1; c.font = `700 ${mf}px ${PIX}`;
+        let t = machineLabel(r.machine).toUpperCase() + (down ? ' · OFFLINE' : '');
+        while (t.length > 4 && c.measureText(t).width + 20 > maxW) t = t.slice(0, -2).trimEnd() + '…';
+        const tw = c.measureText(t).width, my = sy + fs + 10;
+        c.fillStyle = down ? 'rgba(90,94,102,.92)' : 'rgba(27,90,130,.9)'; rr(c, sx, my, tw + 20, mf + 7, 4); c.fill();
+        const ix = sx + 5, iy = my + (mf + 7) / 2 - 3; c.fillStyle = down ? '#C9CDD3' : '#CDEBFF'; c.fillRect(ix, iy, 8, 5); c.fillRect(ix + 3, iy + 5, 2, 1); c.fillRect(ix + 2, iy + 6, 4, 1); // ikon layar kecil
+        c.fillStyle = down ? 'rgba(48,52,60,.9)' : 'rgba(27,90,130,.9)'; c.fillRect(ix + 1, iy + 1, 6, 3);
+        c.fillStyle = down ? '#E4E6EA' : '#EAF6FF'; c.fillText(t, sx + 16, my + (mf + 7) / 2 + .5);
+      }
     }
     if (z >= .7) for (const wg of plan.wings || []) { const [sx, sy] = Sx(wg.x * T, wg.y * T); c.font = `700 ${z < 1.4 ? 8 : 10}px ${PIX}`; c.fillStyle = 'rgba(251,244,234,.7)'; c.fillText(wg.t.toUpperCase(), sx, sy); }
     for (const e of ents.values()) {
@@ -1229,6 +1242,10 @@ export function createStage(host, opts) {
         } else if (e.owner) { // "OWNER" badge right of the name
           c.font = `700 7px ${PIX}`; const bw = c.measureText('OWNER').width + 6, bx = sx + tw / 2 + 7;
           c.fillStyle = '#3A240F'; rr(c, bx, sy + 3, bw, 11, 3); c.fill(); c.fillStyle = '#F5C84C'; c.fillText('OWNER', bx + 3, sy + 9);
+        }
+        if (!e.sub && sessOffline(e.s)) { // mesin agen ini offline
+          c.font = `700 7px ${PIX}`; const bx = sx + tw / 2 + 7 + (e.s.engine === 'codex' ? c.measureText('CX').width + 9 : 0), bw = c.measureText('OFFLINE').width + 6;
+          c.fillStyle = '#5A5E66'; rr(c, bx, sy + 3, bw, 11, 3); c.fill(); c.fillStyle = '#E4E6EA'; c.fillText('OFFLINE', bx + 3, sy + 9);
         }
       }
       const say = e.say && e.say.until > performance.now() ? e.say.text : '';

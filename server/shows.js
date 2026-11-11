@@ -9,10 +9,12 @@ import { officeModel } from './offices.js';
 import { bus } from './live.js';
 import { config } from './config.js';
 import { mimeOf } from './pratinjau.js';
+import * as mx from './machines.js';
+import { remoteResolve, remoteRelOf, isRemoteRel, machineLabel, rsh } from './files.js';
 
 const isHtml = t => /\.html?$/i.test(String(t || ''));
 const row = r => r && { id: r.id, office: r.office, sid: r.sid, who: r.who, kind: r.kind, target: r.target, note: r.note, lines: r.lines || null, at: r.at, seen: !!r.seen, closed: !!r.closed,
-  ...(r.kind === 'file' && isHtml(r.target) ? { html: true, view: viewUrl(r) } : {}) };
+  ...(r.kind === 'file' && isHtml(r.target) && !isRemoteRel(r.office, r.target) ? { html: true, view: viewUrl(r) } : {}) };
 
 /* ---------- rendered HTML: /sv/<id>/<key>/<path> ----------
    A shown .html file is served from a signed path (no cookie: a sandboxed page has an opaque origin) with a sandbox CSP,
@@ -72,13 +74,39 @@ export function serveShow(req, res, pathname) {
   } catch { return fail(404, 'Tidak ditemukan'); }
 }
 
+const LOOPBACK = /^(localhost|127(\.\d+){3}|0\.0\.0\.0|\[::1?\]|::1?)$/i;
+const hostHints = new Map(); // mesin -> nama .local
+/** Nama yang bisa dibuka browser pemilik untuk Mac itu: <LocalHostName>.local, dan host ssh-nya (mis. nama Tailscale). */
+function macHosts(machine) {
+  const m = mx.getMachine(machine), out = [];
+  if (!hostHints.has(machine)) { let h = ''; try { h = rsh(machine, 'scutil --get LocalHostName 2>/dev/null || hostname -s', { timeout: 5000 }).trim(); } catch {} hostHints.set(machine, h); }
+  if (hostHints.get(machine)) out.push(`${hostHints.get(machine)}.local`);
+  const ssh = String(m?.ssh || '').replace(/^.*@/, '');
+  if (ssh && ssh !== 'local:' && !out.includes(ssh)) out.push(ssh);
+  return out;
+}
+
 /** Record something to show. path is resolved against the caller's folder, and must stay inside the office. */
-export function addShow({ office, sid, who, cwd, path: p, url, note, lines }) {
+export function addShow({ office, sid, who, cwd, machine, path: p, url, note, lines }) {
   let kind, target;
+  const remote = machine && machine !== mx.LOCAL && mx.isRemote(machine) ? machine : null;
   if (url) {
     const u = new URL(String(url));
     if (!/^https?:$/.test(u.protocol)) throw new Error('URL harus http atau https');
+    if (remote && LOOPBACK.test(u.hostname)) {
+      const hosts = macHosts(remote), port = u.port ? `:${u.port}` : '';
+      throw new Error(`${u.href} adalah localhost di Mac ${machineLabel(remote)}, tempat sesimu jalan; pemilik membuka kantor dari Mac lain, jadi alamat itu tidak sampai ke server-mu. ` +
+        `Pakai ${hosts.length ? hosts.map(h => `http://${h}${port}${u.pathname === '/' ? '' : u.pathname}`).join(' atau ') : `http://<nama-mac>.local${port}`}, dan pastikan server-nya mendengarkan di 0.0.0.0 (bukan hanya 127.0.0.1).`);
+    }
     kind = 'url'; target = u.href;
+  } else if (p && remote) { // file di Mac lain: ditunjukkan lewat path virtual @<ruangan>/… (file manager menariknya dari mesin itu)
+    if (!cwd || !String(cwd).startsWith('/')) throw new Error(`Folder kerja di ${machineLabel(remote)} tidak diketahui`);
+    const info = remoteResolve(remote, cwd, String(p));
+    if (!info.exists || !info.real) throw new Error(`Tidak ada file atau folder ${p} di ${machineLabel(remote)}`);
+    const rel = remoteRelOf(office, remote, info.real) || remoteRelOf(office, remote, info.abs);
+    if (!rel) throw new Error(`Yang bisa ditunjukkan hanya isi folder ruangan kantor di ${machineLabel(remote)}. File lain: kirim dengan kirim_ke_pemilik.`);
+    kind = info.type === 'dir' ? 'folder' : 'file';
+    target = rel;
   } else if (p) {
     const m = officeModel(office);
     const abs = path.resolve(cwd || m.root, String(p));
@@ -109,6 +137,7 @@ export function markShow(id, { seen, closed }) {
 
 /** Open an office path on this Mac: in VS Code, or revealed in Finder. */
 export function openLocal(office, rel, app) {
+  if (isRemoteRel(office, rel)) return Promise.reject(Object.assign(new Error(`Membuka di ${app === 'finder' ? 'Finder' : 'VS Code'} belum didukung untuk ruangan di Mac lain. Buka file-nya di file manager kantor, atau langsung di Mac itu.`), { code: 400 }));
   const m = officeModel(office);
   const root = fs.realpathSync(m.root);
   const abs = fs.realpathSync(path.resolve(root, String(rel || '')));

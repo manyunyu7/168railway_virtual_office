@@ -2,6 +2,11 @@
 // by finding the tab whose tty matches the session and typing into it with AppleScript.
 import fs from 'node:fs';
 import { execFile, execFileSync } from 'node:child_process';
+import { isRemote, isOffline, getMachine, tmuxMachineOf, ensureProbed, spawnArgs } from './machines.js';
+
+// tty sesi di Mac lain (docs/MULTI-PC.md) bernama sama dengan tty di Mac ini (/dev/ttys003 ada di keduanya):
+// mengetik atau mengirim sinyal ke sana akan mengenai tab atau proses yang salah. Sesi remote hanya lewat tmux.
+export const REMOTE_TTY_MSG = 'Sesi ini jalan di mesin lain dan hanya bisa dikendalikan lewat tmux kantor. Mesinnya mungkin sedang offline.';
 
 const TERMINAL = `on run argv
   set theTty to item 1 of argv
@@ -50,8 +55,9 @@ const osa = (script, args) => new Promise((resolve, reject) => {
   });
 });
 
-/** Type a line into the terminal tab that owns this tty (Enter is pressed after it). */
-export async function typeInto(tty, text) {
+/** Type a line into the terminal tab that owns this tty (Enter is pressed after it). `machine`: mesin sesi itu (remote → ditolak). */
+export async function typeInto(tty, text, { machine = null } = {}) {
+  if (isRemote(machine)) throw new Error(REMOTE_TTY_MSG);
   if (!tty || !fs.existsSync(tty)) throw new Error('Terminal sesi ini tidak ditemukan. Mungkin tab-nya sudah ditutup.');
   const line = String(text).replace(/\s*\n\s*/g, ' ').trim();
   if (!line) throw new Error('Teks kosong');
@@ -60,11 +66,28 @@ export async function typeInto(tty, text) {
   throw new Error('Tab untuk sesi ini tidak ditemukan di Terminal maupun iTerm2.');
 }
 
-/** The claude process attached to a tty (for force-quit). */
-export function claudePid(tty) {
+/** The claude process attached to a tty (for force-quit). Mesin remote → null (pid lokal bukan miliknya). */
+export function claudePid(tty, { machine = null } = {}) {
+  if (!tty || isRemote(machine)) return null;
   try {
     const rows = execFileSync('/bin/ps', ['-t', tty.replace('/dev/', ''), '-o', 'pid=,comm='], { encoding: 'utf8' }).trim().split('\n');
     const row = rows.map(r => r.trim().split(/\s+/)).find(([, comm]) => /(^|\/)claude$/.test(comm || ''));
     return row ? Number(row[0]) : null;
   } catch { return null; }
+}
+
+/**
+ * { file, args, machine } untuk pty.spawn yang menempel ke sesi tmux kantor `name` (terminal web), di Mac ini atau di
+ * mesin tempat sesi itu jalan (ssh -t). Lokal: `localTmux attach-session -t name` seperti semula, machine null.
+ * Mesin offline → Error dengan pesan yang bisa ditampilkan; dicek sebelum ssh supaya tidak menunggu timeout.
+ */
+export function attachArgs(name, localTmux) {
+  const machine = tmuxMachineOf(name);
+  if (!isRemote(machine)) return { file: localTmux, args: ['attach-session', '-t', name], machine: null };
+  const offline = () => new Error(`Mesin ${getMachine(machine)?.name || machine} sedang offline. Terminal ini bisa dibuka lagi setelah mesinnya tersambung.`);
+  if (isOffline(machine)) throw offline();
+  ensureProbed(machine);
+  if (isOffline(machine)) throw offline();
+  // -u: locale lewat ssh belum tentu UTF-8, padahal TUI Claude penuh karakter garis dan simbol
+  return { ...spawnArgs(machine, 'tmux', ['-u', 'attach-session', '-t', name]), machine };
 }

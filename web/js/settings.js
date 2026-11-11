@@ -1,5 +1,6 @@
 import { $, esc, api, post, toast, confirmDo, getTheme } from './util.js';
 import { refreshState } from './main.js';
+import { mountMesin } from './mesin.js';
 
 // where this repo lives on the machine running the daemon (filled in from /api/state)
 let REPO = 'kantor-claude';
@@ -58,6 +59,8 @@ function draw() {
 
     <section class="card" id="stPv"><h2>Penyimpanan pratinjau</h2><p class="hint">Memuat…</p></section>
 
+    <section class="card" id="stMesin" hidden></section>
+
     <section class="card"><h2>Akses dari HP</h2>
       <p>Daemon hanya menerima alamat lokal secara bawaan. Untuk membuka dari HP lewat Tailscale, tambahkan IP Tailscale Mac ini ke <code>extraHosts</code> di <code>~/.kantor-claude/config.json</code>, lalu mulai ulang daemon.</p>
       ${cmd('{ "extraHosts": ["100.x.y.z:4317"] }', 'stHost')}
@@ -71,6 +74,7 @@ function draw() {
       <div><p>Fungsi <code>kc</code> untuk <code>~/.zshrc</code>. Menjalankan <code>claude</code> lewat <code>kc</code> memasukkannya ke tmux, sehingga kantor bisa menempelkan terminal ke sesi itu.</p>${cmd(KC, 'stC4')}</div></div></section>
   </div></div>`;
   drawPv();
+  mountMesin($('#stMesin', root), st);
 }
 
 const mb = n => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${(n / 1024 ** 2).toFixed(1)} MB`;

@@ -2,13 +2,15 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { config } from './config.js';
 import { globalDb, officeDb, one, run, all, nowIso, newId } from './db.js';
-import { officeForCwd, officeModel, roomForCwd } from './offices.js';
+import { officeForCwd, officeModel, roomForCwd, roomForRemote } from './offices.js';
 import { sessionHealth } from './health.js';
 import { sessionKonteks } from './konteks.js';
 import { subagentTokens, fileTokens, codexSubagentFile } from './subtokens.js';
 import * as gitinfo from './gitinfo.js';
 import { codexHealth, normalizeHook, engineOf, readCodexSettings } from './codex.js';
 import { who as actorName } from './actor.js';
+import { setTmuxMachine, isOffline, LOCAL as LOCAL_MACHINE, events as machineEvents } from './machines.js';
+import { mirrorTranscript } from './mirror.js';
 
 export const bus = new EventEmitter();
 bus.setMaxListeners(100);
@@ -44,7 +46,7 @@ export function serialize(s) {
   return {
     sid: s.sid, office: s.office, room: s.room, role: s.role, kind: s.kind, worktree: s.worktree || null, cwd: s.cwd,
     status: s.status, tool: s.tool, title: s.title, model: s.model, startedAt: s.startedAt, lastSeen: s.lastSeen, tmux: s.tmux || null,
-    waiting: s.waiting || null, slot: s.slot || 0, compacting: !!s.compacting, tty: s.tty || null, host: s.host || null, permMode: s.permMode || null, boss: s.boss || null, engine: s.engine || 'claude', effort: s.effort || null,
+    waiting: s.waiting || null, slot: s.slot || 0, compacting: !!s.compacting, tty: s.tty || null, host: s.host || null, machine: s.machine || null, machineOffline: isOffline(s.machine), permMode: s.permMode || null, boss: s.boss || null, engine: s.engine || 'claude', effort: s.effort || null,
     tunggu: s.tunggu || null, anggaran: s.anggaran || null, konteks: sessionKonteks(s),
     subs: [...s.subs.values()].map(x => ({ id: x.id, type: x.type, desc: x.desc, status: x.status, tool: x.tool, started: x.started, ended: x.ended || null, tokens: s.engine === 'codex' ? fileTokens(x.transcript || codexSubagentFile(x.id, x.started)) : subagentTokens(s.transcript, x.id) })),
     bgAgents: [...s.subs.values()].filter(x => x.status !== 'done').length,
@@ -92,9 +94,10 @@ function roleName(office, roleId) {
 export function whoOf(s) { return roleName(s.office, s.role) || (s.title ? `Sesi: ${shortStr(s.title, 24)}` : 'Sesi manual'); }
 
 /** Pre-register a session the daemon is about to start in tmux. */
-export function expectSession({ sid, office, role, room, cwd, tmux, slot, title, engine, effort, model, permMode }) {
+export function expectSession({ sid, office, role, room, cwd, tmux, slot, title, engine, effort, model, permMode, machine = null }) {
   const s = blank(sid);
-  Object.assign(s, { office, role, room, cwd, tmux, slot: slot || 0, kind: 'kantor', status: 'starting', title: title || null, engine: engineOf(engine), effort: effort || null });
+  Object.assign(s, { office, role, room, cwd, tmux, slot: slot || 0, kind: 'kantor', status: 'starting', title: title || null, engine: engineOf(engine), effort: effort || null, machine: machine && machine !== LOCAL_MACHINE ? machine : null });
+  if (tmux) setTmuxMachine(tmux, s.machine);
   if (model) s.model = model;
   if (permMode) s.permMode = permMode;
   live.set(sid, s);
@@ -107,25 +110,26 @@ export function expectSession({ sid, office, role, room, cwd, tmux, slot, title,
 
 function blank(sid) {
   return { sid, office: null, room: null, role: null, kind: 'manual', cwd: null, status: 'idle', tool: null, title: null, model: null,
-    startedAt: nowIso(), lastSeen: nowIso(), subs: new Map(), pendingAgents: [], waiting: null, worktree: null, slot: 0, tmux: null };
+    startedAt: nowIso(), lastSeen: nowIso(), subs: new Map(), pendingAgents: [], waiting: null, worktree: null, slot: 0, tmux: null, machine: null };
 }
 
 function restoreFromDb(sid) {
   const row = one(globalDb(), 'SELECT * FROM sessions WHERE sid = ?', sid);
   if (!row) return null;
   const s = blank(sid);
-  Object.assign(s, { office: row.office, room: row.room, role: row.role, cwd: row.cwd, kind: row.source || 'manual', tmux: row.tmux, title: row.title, model: row.model, startedAt: row.started_at, tty: row.tty, transcript: row.transcript, boss: row.boss || null, engine: engineOf(row.engine), effort: row.effort || null });
+  Object.assign(s, { office: row.office, room: row.room, role: row.role, cwd: row.cwd, kind: row.source || 'manual', tmux: row.tmux, title: row.title, model: row.model, startedAt: row.started_at, tty: row.tty, transcript: row.transcript, boss: row.boss || null, engine: engineOf(row.engine), effort: row.effort || null, machine: row.machine || null });
+  if (s.tmux) setTmuxMachine(s.tmux, s.machine);
   return s;
 }
 
 function persist(s) {
-  run(globalDb(), `INSERT INTO sessions (sid, office, room, role, cwd, transcript, source, tmux, title, model, status, started_at, last_seen, tty, engine, effort)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  run(globalDb(), `INSERT INTO sessions (sid, office, room, role, cwd, transcript, source, tmux, title, model, status, started_at, last_seen, tty, engine, effort, machine)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(sid) DO UPDATE SET office=excluded.office, room=excluded.room, role=excluded.role, cwd=excluded.cwd,
       transcript=COALESCE(excluded.transcript, sessions.transcript), tmux=COALESCE(excluded.tmux, sessions.tmux), title=COALESCE(excluded.title, sessions.title),
-      model=COALESCE(excluded.model, sessions.model), status=excluded.status, last_seen=excluded.last_seen, tty=COALESCE(excluded.tty, sessions.tty), engine=excluded.engine, effort=COALESCE(excluded.effort, sessions.effort),
+      model=COALESCE(excluded.model, sessions.model), status=excluded.status, last_seen=excluded.last_seen, tty=COALESCE(excluded.tty, sessions.tty), engine=excluded.engine, effort=COALESCE(excluded.effort, sessions.effort), machine=COALESCE(excluded.machine, sessions.machine),
       ended_at=CASE WHEN excluded.status = 'ended' THEN sessions.ended_at ELSE NULL END`,
-    s.sid, s.office, s.room, s.role, s.cwd, s.transcript || null, s.kind, s.tmux || null, s.title, s.model, s.status, s.startedAt, s.lastSeen, s.tty || null, engineOf(s.engine) === 'claude' ? null : s.engine, s.effort || null);
+    s.sid, s.office, s.room, s.role, s.cwd, s.transcript || null, s.kind, s.tmux || null, s.title, s.model, s.status, s.startedAt, s.lastSeen, s.tty || null, engineOf(s.engine) === 'claude' ? null : s.engine, s.effort || null, s.machine || null);
 }
 
 // /clear and /resume give the conversation a new session id inside the same tmux pane. The hook carries the id
@@ -137,7 +141,9 @@ function inheritShift(s, p) {
   const src = prev || restoreFromDb(origin.sid);
   Object.assign(s, { office: src.office, role: src.role, room: src.room, tmux: origin.tmux, slot: prev?.slot || 0, kind: 'kantor',
     worktree: prev?.worktree || null, cwd: src.cwd || s.cwd, startedAt: src.startedAt || origin.started_at,
-    engine: engineOf(prev?.engine || src.engine || origin.engine), effort: prev?.effort || src.effort || origin.effort || null, permMode: prev?.permMode || s.permMode || null });
+    engine: engineOf(prev?.engine || src.engine || origin.engine), effort: prev?.effort || src.effort || origin.effort || null, permMode: prev?.permMode || s.permMode || null,
+    machine: s.machine || prev?.machine || src.machine || origin.machine || null });
+  setTmuxMachine(origin.tmux, s.machine);
   if (s.office && s.role) try {
     run(officeDb(s.office), "UPDATE shifts SET sid = ?, status = 'aktif', ended_at = NULL WHERE sid = (SELECT sid FROM shifts WHERE tmux = ? ORDER BY started_at DESC LIMIT 1)", s.sid, origin.tmux);
   } catch {}
@@ -151,21 +157,42 @@ function inheritShift(s, p) {
   }
 }
 
+/** Path transkrip dari hook: sesi di mesin lain → salinan cermin lokalnya (didaftarkan sekali per path per proses). */
+function transcriptOf(s, file) {
+  if (!s.machine || !file) return file;
+  s.mirrored ||= new Map(); // path remote → path cermin; tidak disimpan, jadi setelah daemon restart didaftarkan ulang
+  let local = s.mirrored.get(file);
+  if (!local) { local = mirrorTranscript(s.machine, file); s.mirrored.set(file, local); }
+  return local;
+}
+
 function sessionFor(p) {
   let s = live.get(p.session_id) || restoreFromDb(p.session_id);
   if (!s) s = blank(p.session_id);
   if (p.kantor_engine) s.engine = engineOf(p.kantor_engine); // before inheritShift, which keeps it
+  // kantor_machine diisi server dari token mesin (bukan dari body hook)
+  if (p.kantor_machine && p.kantor_machine !== LOCAL_MACHINE) s.machine = p.kantor_machine;
   if (p.kantor_sid && p.kantor_sid !== s.sid && !s.tmux && p.hook_event_name !== 'SessionEnd') inheritShift(s, p);
   live.set(s.sid, s);
-  if (p.cwd && (!s.cwd || !s.office)) {
-    s.cwd = p.cwd;
-    s.office = s.office || officeForCwd(p.cwd);
+  if (s.machine) {
+    // cwd di mesin lain: hanya ruangan yang ditaruh di mesin itu yang dicocokkan. Jangan pernah officeForCwd/roomForCwd
+    // (itu path Mac ini, dan officeForCwd bisa mendaftarkan kantor baru). Sesi manual remote yang tak cocok dibiarkan tanpa kantor.
+    if (p.cwd && (!s.cwd || !s.office)) s.cwd = p.cwd;
+    if (!s.office || !s.room) {
+      const hit = s.cwd ? roomForRemote(s.machine, s.cwd) : null;
+      if (hit && (!s.office || s.office === hit.office)) { s.office = hit.office; s.room = s.room || hit.room; }
+    }
+  } else {
+    if (p.cwd && (!s.cwd || !s.office)) {
+      s.cwd = p.cwd;
+      s.office = s.office || officeForCwd(p.cwd);
+    }
+    if (s.office && !s.room) {
+      const m = officeModel(s.office);
+      if (m) { const r = roomForCwd(m, s.cwd || p.cwd); s.room = r.room; s.worktree = r.worktree || null; }
+    }
   }
-  if (s.office && !s.room) {
-    const m = officeModel(s.office);
-    if (m) { const r = roomForCwd(m, s.cwd || p.cwd); s.room = r.room; s.worktree = r.worktree || null; }
-  }
-  if (p.transcript_path) s.transcript = p.transcript_path;
+  if (p.transcript_path) s.transcript = transcriptOf(s, p.transcript_path);
   if (p.kantor_tty) {
     s.tty = p.kantor_tty;
     // the process scanner may be showing this terminal as a placeholder; the real session replaces it
@@ -245,10 +272,11 @@ export async function handleHook(p) {
       }
       // only the tool that asked releases the hold: Codex keeps running other tools while an approval waits
       if (s.waiting && finishedWaitingTool(s.waiting, p)) clearWaiting(s, 'terminal');
-      if (s.office) gitinfo.touch(s.office, gitinfo.roomOfToolUse(s.office, p, s.room));
+      // file_path dan cwd sesi di mesin lain adalah path di sana; git ruangan remote belum dibaca dari hub
+      if (s.office && !s.machine) gitinfo.touch(s.office, gitinfo.roomOfToolUse(s.office, p, s.room));
       break;
     case 'SubagentStart': addSub(s, p.agent_id, p.agent_type); logOffice(s.office, who, `memanggil subagent ${p.agent_type || ''}`.trim(), 'sub'); break;
-    case 'SubagentStop': { const x = s.subs.get(p.agent_id); if (x) { if (/\/sessions\/.+\/rollout-[\w.:-]+\.jsonl$/.test(p.agent_transcript_path || '')) x.transcript = p.agent_transcript_path; x.result = shortStr(p.last_assistant_message, 120); finishSub(s, x); } break; }
+    case 'SubagentStop': { const x = s.subs.get(p.agent_id); if (x) { if (/\/sessions\/.+\/rollout-[\w.:-]+\.jsonl$/.test(p.agent_transcript_path || '')) x.transcript = transcriptOf(s, p.agent_transcript_path); x.result = shortStr(p.last_assistant_message, 120); finishSub(s, x); } break; }
     case 'Notification':
       if (p.notification_type === 'elicitation_dialog') bus.emit('notify', { kind: 'question', sid: s.sid, office: s.office, who, text: shortStr(p.message, 100) });
       if (p.notification_type === 'idle_prompt') { s.status = 'idle'; s.tool = null; }
@@ -490,6 +518,17 @@ export function openInbox() {
 export function liveFor(office) {
   return [...live.values()].filter(s => s.office === office && s.status !== 'ended').map(serialize);
 }
+
+// mesin lain online/offline: kabarkan ulang sesinya supaya machineOffline di UI ikut berubah
+// hanya saat status offline mesin benar-benar berubah (event 'machine' juga datang untuk Tes, Pasang, cek versi)
+const lastOffline = new Map();
+machineEvents.on('machine', m => {
+  if (!m?.id) return;
+  const off = isOffline(m.id);
+  if (lastOffline.get(m.id) === off) return;
+  lastOffline.set(m.id, off);
+  for (const s of live.values()) if (s.machine && s.machine === m?.id && s.status !== 'ended') { try { emitSession(s); } catch {} }
+});
 
 /** Drop sessions we have not heard from in a long time (crashed terminals). */
 setInterval(() => {

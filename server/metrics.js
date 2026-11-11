@@ -5,6 +5,8 @@ import { execFile } from 'node:child_process';
 import { globalDb, officeDb, all, one } from './db.js';
 import { officeModel } from './offices.js';
 import { boardMap, nameAt, DEFAULT_BOARD } from './boards.js';
+import * as mx from './machines.js';
+import { remoteRoomOf } from './files.js';
 
 const HOUR = 3600e3, DAY = 86400e3;
 const WORK_GAP = 180e3;      // a gap between two log lines up to this long counts as working time
@@ -294,25 +296,36 @@ function costMetrics(g, office, r, roles, done, commits) {
 }
 
 /* ---------------- git ---------------- */
-function git(args, cwd) {
+function git(args, cwd, machine = null) {
+  if (machine) { // ruangan di Mac lain: git jalan di sana; mesin tak terjangkau = tidak dihitung
+    const line = `cd ${mx.q(cwd)} && GIT_OPTIONAL_LOCKS=0 GIT_TERMINAL_PROMPT=0 exec ${[mx.ensureProbed(machine).git || 'git', ...args].map(mx.q).join(' ')}`;
+    return mx.shAsync(machine, line, { timeout: 10000 }).then(r => r.code === 0 ? String(r.stdout) : null);
+  }
   return new Promise(resolve => execFile('git', args, { cwd, timeout: 8000, maxBuffer: 8e6, encoding: 'utf8', env: { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0' } },
     (err, out) => resolve(err ? null : out)));
 }
 async function gitMetrics(office, r, B) {
   let model = null;
   try { model = officeModel(office); } catch {}
-  const repos = new Map();
+  const repos = new Map(); // top (atau mesin\0top) -> { name, machine, top }
   for (const room of model?.plan?.rooms || []) {
+    const w = remoteRoomOf(model, room);
+    if (w) {
+      if (mx.isOffline(w.machine)) continue;
+      const top = (await git(['rev-parse', '--show-toplevel'], w.cwd, w.machine))?.trim();
+      if (top && !repos.has(`${w.machine}\0${top}`)) repos.set(`${w.machine}\0${top}`, { name: room.name || path.basename(top), machine: w.machine, top });
+      continue;
+    }
     if (typeof room.path !== 'string') continue;
     const abs = path.resolve(model.root, room.path);
     if (abs !== model.root && !abs.startsWith(model.root + path.sep)) continue;
     if (!fs.existsSync(abs)) continue;
     const top = (await git(['rev-parse', '--show-toplevel'], abs))?.trim();
-    if (top && !repos.has(top)) repos.set(top, room.name || path.basename(top));
+    if (top && !repos.has(top)) repos.set(top, { name: room.name || path.basename(top), machine: null, top });
   }
   const out = { total: 0, reverts: 0, kinds: {}, perRepo: [], perBucket: new Array(B.starts.length).fill(0) };
-  for (const [top, name] of repos) {
-    const txt = await git(['log', `--since=${iso(r.from)}`, `--until=${iso(r.to)}`, '--format=%cI\t%s'], top);
+  for (const { top, name, machine } of repos.values()) {
+    const txt = await git(['log', `--since=${iso(r.from)}`, `--until=${iso(r.to)}`, '--format=%cI\t%s'], top, machine);
     if (txt == null) continue;
     const per = new Array(B.starts.length).fill(0);
     let n = 0, reverts = 0;

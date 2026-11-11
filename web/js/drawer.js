@@ -9,6 +9,7 @@ import { mountDm } from './dm.js';
 import { isAntigravity } from './antigravity.js';
 import { isCodex, codexBadge, modeOptions, pickCodexSettings, codexSessSub } from './codex.js';
 import { startShiftDialog, openRoleEditor, roleState, PERMS } from './roles.js';
+import { sessBadge, sessOffline, offlineBanner, blockReason, roomBadge, roomBlockReason } from './lencana.js';
 
 const STATUS = { starting: 'Memulai', working: 'Bekerja', idle: 'Idle', waiting: 'Menunggu izin', ended: 'Selesai' };
 const TABS = { chat: 'Chat', term: 'Terminal', profil: 'Profil', pesan: 'Pesan', subs: 'Subagent', shell: 'Shell' };
@@ -18,6 +19,7 @@ let D = null;
 
 const roleOf = (ctx, id) => ctx.office.roles.find(r => r.id === id);
 const roomName = (ctx, id) => ctx.office.plan.rooms.find(r => r.id === id)?.name || id || '';
+const roomOf = (ctx, id) => ctx.office.plan.rooms.find(r => r.id === id) || null;
 const findSess = (ctx, sid) => ctx.office.sessions.find(s => s.sid === sid);
 const toolLabel = t => (t && typeof t === 'object' ? t.label || t.name : t) || '';
 
@@ -37,7 +39,7 @@ function sessSub(ctx, s) {
 }
 function sessChips(s) {
   const st = `<span class="st ${esc(s.status)}">${s.tunggu && s.status === 'idle' ? esc(s.tunggu.label) : STATUS[s.status] || esc(s.status)}</span>${s.anggaran ? `<span class="st wait">anggaran ${s.anggaran === 'habis' ? 'habis' : 'hampir habis'}</span>` : ''}`;
-  return st + codexBadge(s) + (s.kind === 'manual' ? `<span class="st manual">${s.host && s.host !== 'lain' ? HOSTS[s.host] : 'Manual'}</span>` : '') + (s.compacting ? '<span class="st starting">Meringkas</span>' : '') + (s.permMode && s.permMode !== 'default' ? `<span class="st mode-${esc(s.permMode)}">${esc(MODE_LABEL[s.permMode] || s.permMode)}</span>` : '');
+  return st + codexBadge(s) + sessBadge(s, 'dr-mx') + (s.kind === 'manual' ? `<span class="st manual">${s.host && s.host !== 'lain' ? HOSTS[s.host] : 'Manual'}</span>` : '') + (s.compacting ? '<span class="st starting">Meringkas</span>' : '') + (s.permMode && s.permMode !== 'default' ? `<span class="st mode-${esc(s.permMode)}">${esc(MODE_LABEL[s.permMode] || s.permMode)}</span>` : '');
 }
 
 function headHTML(look, name, sub, chips) {
@@ -53,7 +55,7 @@ function switcherHTML(ctx, curSid) {
   const st = x => x.waiting ? 'izin' : x.status === 'working' ? 'bekerja' : 'idle';
   return `<aside class="dr-switch" data-slot="switch"><button class="btn sm" data-act="dr-full">← Kembali ke kantor</button><button class="btn sm" data-act="agents-open">Semua kantor…</button>
     <p class="ctl-l">Agen · ${live.length} aktif</p>
-    ${live.map(x => `<button class="sw-row${x.sid === curSid ? ' cur' : ''}" data-act="dr-sess" data-sid="${esc(x.sid)}"><span class="sw-ava">${sprite(sessLook(ctx, x), 2)}</span><span class="sw-b"><b>${esc(sessName(ctx, x))}</b>${topicOf(x) ? topicHTML(x) : ''}${topicOf(x) ? subHTML(x, x.tool ? `${x.tool.name} ${x.tool.label || ''}` : roomName(ctx, x.room) || '', 50) : `<span>${esc(x.tool ? `${x.tool.name} ${x.tool.label || ''}` : roomName(ctx, x.room) || '')}</span>`}</span><i class="sw-st ${st(x)}" title="${st(x)}"></i></button>`).join('') || '<p class="empty-line">Belum ada sesi.</p>'}</aside>`;
+    ${live.map(x => `<button class="sw-row${x.sid === curSid ? ' cur' : ''}${sessOffline(x) ? ' mx-dim' : ''}" data-act="dr-sess" data-sid="${esc(x.sid)}"><span class="sw-ava">${sprite(sessLook(ctx, x), 2)}</span><span class="sw-b"><b>${esc(sessName(ctx, x))}${sessBadge(x)}</b>${topicOf(x) ? topicHTML(x) : ''}${topicOf(x) ? subHTML(x, x.tool ? `${x.tool.name} ${x.tool.label || ''}` : roomName(ctx, x.room) || '', 50) : `<span>${esc(x.tool ? `${x.tool.name} ${x.tool.label || ''}` : roomName(ctx, x.room) || '')}</span>`}</span><i class="sw-st ${st(x)}" title="${st(x)}"></i></button>`).join('') || '<p class="empty-line">Belum ada sesi.</p>'}</aside>`;
 }
 function toggleFull() {
   const d = drawerEl(), on = !d.classList.contains('full');
@@ -242,7 +244,7 @@ export function openSession(ctx, sid, tab = 'term', opts = {}) {
   const rest = s ? [...(roleOf(ctx, s.role) ? ['profil', 'pesan'] : []), 'subs', 'shell'] : [];
   // di HP percakapan lebih berguna daripada terminal mentah, jadi Chat jadi tab bawaan
   const tabs = s ? (mobile() ? ['chat', 'term', ...rest] : ['term', 'chat', ...rest]) : ['shell'];
-  if (s && tab === 'term' && mobile()) tab = 'chat';
+  if (s && tab === 'term' && (mobile() || sessOffline(s))) tab = 'chat'; // mesin offline: terminal tidak ada, chat tetap bisa
   if (!tabs.includes(tab)) tab = tabs[0];
   const head = s ? headHTML(sessLook(ctx, s), sessName(ctx, s), sessSub(ctx, s), sessChips(s))
     : headHTML(guestLook('shell:' + room), 'Shell ' + roomName(ctx, room), 'zsh biasa di folder ruangan, tanpa Claude', '<span class="st manual">Shell</span>');
@@ -291,6 +293,8 @@ function endedBanner() { return '<div class="note-ro" data-slot="ended">Sesi sel
 
 function termTab(body, ctx, s) {
   if (s.status === 'ended') { body.innerHTML = endedBanner(); return; }
+  D.off = sessOffline(s);
+  if (D.off) { body.innerHTML = `${offlineBanner(s)}<p class="hint mx-hint">Terminal tersambung lagi otomatis begitu mesinnya online. Sementara itu kamu tetap bisa mengirim pesan dari tab Chat.</p><div class="btn-row"><button class="btn sm" data-act="dr-tab" data-tab="chat">Buka chat</button></div>`; return; }
   if (!s.tmux) { body.innerHTML = readonlyHTML(ctx, s); loadTranscript(s.sid); trTimer = setInterval(() => loadTranscript(s.sid), 10000); return; } // cadangan; { t: 'transcript' } memicu muat ulang
   const cmd = `tmux attach -t ${s.tmux}`;
   // kontrol terminal duduk di baris atas panel (bukan baris sendiri), supaya terminal dapat tinggi penuh
@@ -478,6 +482,7 @@ export function stopFlow(s, send) {
 function doAction(a) {
   if (!D?.sid) return;
   const s = findSess(D.ctx, D.sid), sid = D.sid, def = ACTIONS[a]; if (!def) return;
+  if (sessOffline(s)) { toast(blockReason(s), 'warn'); return; }
   if (a === 'esc' && bgCount(s) > 0) { stopFlow(s, x => sendAction(sid, x).then(ok => ok && toast(x === 'stop-all' ? 'Semua dihentikan' : def.ok, 'ok'))); return; }
   const run = async () => { if (await sendAction(sid, a)) toast(def.ok, 'ok'); };
   if (!def.title) { run(); return; }
@@ -501,7 +506,7 @@ function roleHead(ctx, r) {
 function roleSessionsHTML(ctx, r) {
   const ss = ctx.office.sessions.filter(s => s.role === r.id && s.status !== 'ended');
   if (!ss.length) return '<p class="empty-line">Sedang libur. Belum ada sesi aktif.</p>';
-  return `<ul class="sess-list">${ss.map(s => `<li>${`<span class="mini">${sprite(r, 2)}</span>`}<div style="min-width:0"><button class="who" data-act="dr-sess" data-sid="${esc(s.sid)}">${esc(sessName(ctx, s))}</button>${topicOf(s) ? topicHTML(s) : ''}<div class="t">${topicOf(s) ? subHTML(s, toolLabel(s.tool) || s.title || '', 80) : esc(toolLabel(s.tool) || s.title || '')}</div></div><span class="st ${esc(s.status)}">${STATUS[s.status] || esc(s.status)}</span></li>`).join('')}</ul>`;
+  return `<ul class="sess-list">${ss.map(s => `<li>${`<span class="mini">${sprite(r, 2)}</span>`}<div style="min-width:0"><button class="who" data-act="dr-sess" data-sid="${esc(s.sid)}">${esc(sessName(ctx, s))}</button>${sessBadge(s)}${topicOf(s) ? topicHTML(s) : ''}<div class="t">${topicOf(s) ? subHTML(s, toolLabel(s.tool) || s.title || '', 80) : esc(toolLabel(s.tool) || s.title || '')}</div></div><span class="st ${esc(s.status)}">${STATUS[s.status] || esc(s.status)}</span></li>`).join('')}</ul>`;
 }
 async function paintRolePb() {
   const st = D, ctx = st.ctx, r = roleOf(ctx, st.roleId); if (!r) return;
@@ -513,10 +518,10 @@ function roleBodyHTML(ctx, id) {
   const r = roleOf(ctx, id); if (!r) return '<p class="empty-line">Role tidak ditemukan.</p>';
   return `<section class="dr-sec"><h3>Kepribadian</h3><p>${esc(r.persona || '-')}</p></section>
     ${r.skills?.length ? `<section class="dr-sec"><h3>Skills</h3><div class="chips">${r.skills.map(k => `<span class="chip">${esc(k)}</span>`).join('')}</div></section>` : ''}
-    <dl class="facts"><div><dt>Model</dt><dd>${esc(isCodex(r) ? 'Codex · ' + codexSessSub(r) : modelName(r.model))}</dd></div><div><dt>Ruangan</dt><dd>${esc(roomName(ctx, r.room))}</dd></div><div><dt>Budget bulanan</dt><dd>${r.budget ? '$' + esc(r.budget) : 'Tanpa batas'}</dd></div><div><dt>Peran</dt><dd>${r.isMgr ? 'Manager' : 'Anggota'}</dd></div></dl>
+    <dl class="facts"><div><dt>Model</dt><dd>${esc(isCodex(r) ? 'Codex · ' + codexSessSub(r) : modelName(r.model))}</dd></div><div><dt>Ruangan</dt><dd>${esc(roomName(ctx, r.room))}${roomBadge(roomOf(ctx, r.room))}</dd></div><div><dt>Budget bulanan</dt><dd>${r.budget ? '$' + esc(r.budget) : 'Tanpa batas'}</dd></div><div><dt>Peran</dt><dd>${r.isMgr ? 'Manager' : 'Anggota'}</dd></div></dl>
     <section class="dr-sec"><h3>📘 Playbook</h3><div data-slot="pbs"><p class="hint">Memuat…</p></div></section>
     <section class="dr-sec"><h3>Sesi aktif</h3><div data-slot="sess">${roleSessionsHTML(ctx, r)}</div></section>
-    <div class="btn-row"><button class="btn primary" data-act="dr-shift" data-role="${esc(r.id)}">Mulai shift</button><button class="btn" data-act="dr-edit" data-role="${esc(r.id)}">Ubah role</button></div>
+    <div class="btn-row"><button class="btn primary" data-act="dr-shift" data-role="${esc(r.id)}"${roomBlockReason(roomOf(ctx, r.room)) ? ` disabled title="${esc(roomBlockReason(roomOf(ctx, r.room)))}"` : ''}>Mulai shift</button><button class="btn" data-act="dr-edit" data-role="${esc(r.id)}">Ubah role</button></div>
     <section class="dr-sec"><h3>Buku catatan</h3><textarea rows="6" id="drNotes" aria-label="Buku catatan ${esc(r.name)}" placeholder="Catatan yang dibawa role ini dari shift ke shift. Role juga bisa menulisnya sendiri.">${esc(r.notes || '')}</textarea><p class="hint" id="drNotesHint">Tersimpan otomatis.</p></section>`;
 }
 const saveNotes = debounce(async (ctx, id, text) => {
@@ -563,7 +568,7 @@ function onClick(e) {
   else if (act === 'dr-action') doAction(b.dataset.a);
   else if (act === 'dr-copy') copyText(b.dataset.text);
   else if (act === 'dr-adopt') adoptDialog();
-  else if (act === 'dr-model') { const cs = findSess(ctx, D.sid); if (isAntigravity(cs)) { switchTab('term'); toast('Ketik /model atau /permissions di terminal Gemini'); } else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(D.sid); }
+  else if (act === 'dr-model') { const cs = findSess(ctx, D.sid); if (sessOffline(cs)) toast(blockReason(cs), 'warn'); else if (isAntigravity(cs)) { switchTab('term'); toast('Ketik /model atau /permissions di terminal Gemini'); } else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(D.sid); }
   else if (act === 'dr-full') toggleFull();
   else if (act === 'dr-sw') toggleSwitcher();
   else if (act === 'dr-fs') setTermFont(Number(b.dataset.d));
@@ -597,6 +602,7 @@ async function setMode(sel) {
 export function drawerOnLive(ctx, msg) {
   if (!D || !drawerState().open || D.key !== drawerState().key) return;
   D.ctx = ctx;
+  if (msg.t === 'machine') { machineLive(ctx); return; }
   if (msg.t === 'dm') D.dm?.refresh();
   if (msg.t === 'session' || msg.t === 'session-gone') { const sw = drawerEl().querySelector('[data-slot="switch"]'); if (sw) { const top = sw.scrollTop; sw.outerHTML = switcherHTML(ctx, D.sid); const nw = drawerEl().querySelector('[data-slot="switch"]'); if (nw) nw.scrollTop = top; } }
   if (D.kind === 'role') { liveRole(ctx, msg); return; }
@@ -616,7 +622,7 @@ export function drawerOnLive(ctx, msg) {
   if (s.status === 'ended') { markEnded(ctx); return; }
   { const slot = drawerEl().querySelector('[data-slot="mode"]'); if (slot && !slot.querySelector('select:disabled') && document.activeElement?.dataset?.act !== 'dr-mode') slot.innerHTML = modeSelect(s); }
   if (D.tab === 'subs') { const sec = drawerEl().querySelector('[data-slot="subs"]'); if (sec) sec.outerHTML = subsHTML(ctx, s).match(/<section class="dr-sec" data-slot="subs">[\s\S]*?<\/section>/)[0]; }
-  if (D.tab === 'term' && s.tmux && $('#trBox')) { renderBody(); return; }
+  if (D.tab === 'term' && s.tmux && ($('#trBox') || sessOffline(s) !== !!D.off)) { renderBody(); return; }
   if (D.tab === 'term' && !s.tmux) { const f = drawerEl().querySelector('[data-slot="facts"]'); if (f) f.innerHTML = factsHTML(ctx, s); }
 }
 function markEnded(ctx) {
@@ -627,6 +633,16 @@ function markEnded(ctx) {
   } else { const body = $('#drBody'); if (body && !body.querySelector('[data-slot="ended"]')) body.insertAdjacentHTML('afterbegin', endedBanner()); }
   const head = drawerEl().querySelector('.dr-head .btn-row');
   if (head) head.innerHTML = '<span class="st ended">Selesai</span>';
+}
+/** Status mesin berubah: lencana, kepala panel, dan terminal (offline ↔ online). */
+function machineLive(ctx) {
+  const sw = drawerEl().querySelector('[data-slot="switch"]'); if (sw) { const top = sw.scrollTop; sw.outerHTML = switcherHTML(ctx, D.sid); const nw = drawerEl().querySelector('[data-slot="switch"]'); if (nw) nw.scrollTop = top; }
+  if (D.kind === 'role') { const r = roleOf(ctx, D.roleId); const sec = drawerEl().querySelector('[data-slot="sess"]'); if (r && sec) sec.innerHTML = roleSessionsHTML(ctx, r); const btn = drawerEl().querySelector('[data-act="dr-shift"]'); const why = r && roomBlockReason(roomOf(ctx, r.room)); if (btn) { btn.disabled = !!why; if (why) btn.title = why; else btn.removeAttribute('title'); } return; }
+  const s = D.sid && findSess(ctx, D.sid); if (!s) return;
+  const head = drawerEl().querySelector('.dr-head');
+  if (head) head.outerHTML = headHTML(sessLook(ctx, s), sessName(ctx, s), sessSub(ctx, s), sessChips(s));
+  D.chat?.update();
+  if (D.tab === 'term' && s.status !== 'ended' && sessOffline(s) !== !!D.off) renderBody();
 }
 function liveRole(ctx, msg) {
   if (msg.t === 'changed' && msg.what === 'wiki') paintRolePb();
