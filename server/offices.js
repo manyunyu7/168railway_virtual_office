@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
-import { config, HOME } from './config.js';
+import { config, HOME, DATA_DIR } from './config.js';
 import { globalDb, officeDb, all, one, run, nowIso, newId, j, tx } from './db.js';
 import { autoLayout, railwayLayout, appendRow } from './layout.js';
 import { seedOffice } from './seed.js';
@@ -201,15 +201,19 @@ export function resetLayout(id) { run(officeDb(id), "DELETE FROM meta WHERE key 
 /** The floor plan a folder gets from its contents (before user-added rooms and overrides). */
 export function basePlan(root, scan, roles = []) {
   let plan;
+  // pindaian folder di mesin lain (scanRemoteRoot) membawa daftar folder dan stack root-nya sendiri: root di hub hanya placeholder
+  const hasDir = scan.dirs ? d => scan.dirs.includes(d) : d => fs.existsSync(path.join(root, d));
+  const rootStack = () => (scan.rootStack !== undefined ? scan.rootStack : detectStack(root));
+  const rootMd = () => (scan.rootMd !== undefined ? !!scan.rootMd : fs.existsSync(path.join(root, 'CLAUDE.md')));
   const repoDirs = new Set(scan.repos.map(r => r.dir));
   const railFit = repoDirs.has('mobile') && repoDirs.has('web') && repoDirs.has('android-live') &&
     [...repoDirs].every(d => Object.values(RAIL_MAP).includes(d));
   if (railFit) {
     const paths = {};
-    for (const [k, d] of Object.entries(RAIL_MAP)) if (fs.existsSync(path.join(root, d))) paths[k] = d;
+    for (const [k, d] of Object.entries(RAIL_MAP)) if (hasDir(d)) paths[k] = d;
     plan = railwayLayout(paths);
     for (const r of plan.rooms) {
-      if (RAIL_ALIASES[r.id]) r.aliases = RAIL_ALIASES[r.id].filter(d => fs.existsSync(path.join(root, d)));
+      if (RAIL_ALIASES[r.id]) r.aliases = RAIL_ALIASES[r.id].filter(hasDir);
       const rep = scan.repos.find(x => x.dir === r.path);
       if (rep) { r.stack = r.stack || rep.stack; r.md = rep.md; r.git = true; }
       if (r.id === 'lib' && r.path) r.stack = 'docs';
@@ -222,10 +226,10 @@ export function basePlan(root, scan, roles = []) {
     } else if (scan.rootIsGit) {
       const subs = scan.folders.filter(f => !['docs', 'deploy', 'scripts', 'test', 'tests', 'assets'].includes(f.dir)).slice(0, 6);
       if (subs.length) for (const f of subs) code.push({ id: slug(f.dir), name: pretty(f.dir), kind: 'kode', path: f.dir, stack: f.stack || 'folder', md: f.md });
-      else code.push({ id: 'kode', name: 'Kode', kind: 'kode', path: '', stack: detectStack(root), md: fs.existsSync(path.join(root, 'CLAUDE.md')) });
+      else code.push({ id: 'kode', name: 'Kode', kind: 'kode', path: '', stack: rootStack(), md: rootMd() });
     } else {
       for (const f of scan.folders.slice(0, 8)) code.push({ id: slug(f.dir), name: pretty(f.dir), kind: 'kode', path: f.dir, stack: f.stack || 'folder', md: f.md });
-      if (!code.length) code.push({ id: 'kode', name: 'Kode', kind: 'kode', path: '', stack: detectStack(root) });
+      if (!code.length) code.push({ id: 'kode', name: 'Kode', kind: 'kode', path: '', stack: rootStack() });
     }
     // a folder named like a facility (server/, qa/, lib/ …) must not take that room's id
     const taken = new Set(['lobby', 'manager', 'meeting', 'lib', 'qa', 'server', 'musik', 'pantry']);
@@ -251,8 +255,10 @@ export function officeModel(id, { preview = null } = {}) {
   if (!preview && cache.has(id)) return cache.get(id);
   const row = one(globalDb(), 'SELECT * FROM offices WHERE id = ?', id);
   if (!row) return null;
-  const scan = scanRoot(row.root);
   const db = officeDb(id);
+  // kantor yang seluruh foldernya di mesin lain (wizard): root di hub = placeholder, struktur folder dari pindaian tersimpan
+  const remote = remoteRootOf(db);
+  const scan = remote ? remote.scan : scanRoot(row.root);
   const roles = all(db, 'SELECT id, room FROM roles WHERE archived = 0');
   const overrides = j(one(db, "SELECT value FROM meta WHERE key = 'rooms'")?.value, {});
   const plan = basePlan(row.root, scan, roles);
@@ -265,13 +271,15 @@ export function officeModel(id, { preview = null } = {}) {
     const room = plan.rooms.find(r => r.path && r.path === wt.parent);
     if (room) (room.worktrees ||= []).push(wt.dir);
   }
+  if (remote) markRemoteRooms(plan, remote);
   for (const r of plan.rooms) Object.assign(r, overrides[r.id] || {});
   const custom = applyLayout(plan, j(one(db, "SELECT value FROM meta WHERE key = 'layout'")?.value, null));
   // ruangan di Mac lain: area per mesin (papan nama + redup saat offline di denah). Tanpa ruangan remote: tidak ada kunci baru.
   const areas = machineAreas(plan);
   if (areas.length) plan.machineAreas = areas;
   plan.furniture = j(one(db, "SELECT value FROM meta WHERE key = 'furniture'")?.value, []);
-  const model = { id: row.id, name: row.name, root: row.root, style: row.style || describe(scan), plan, scan, custom };
+  const model = { id: row.id, name: row.name, root: row.root, style: row.style || describe(scan) + (remote ? ` · ${machineLabel(remote.machine)}` : ''), plan, scan, custom };
+  if (remote) model.remote = { machine: remote.machine, root: remote.root };
   if (!preview) cache.set(id, model);
   return model;
 }
@@ -325,7 +333,7 @@ export function officeRootFor(cwd) {
   return null;
 }
 
-export function registerOffice(root, { team = null } = {}) {
+export function registerOffice(root, { team = null, remote = null } = {}) {
   const g = globalDb();
   const existing = one(g, 'SELECT id FROM offices WHERE root = ?', root);
   if (existing) return existing.id;
@@ -334,6 +342,8 @@ export function registerOffice(root, { team = null } = {}) {
   let n = 2; const base = id;
   while (one(g, 'SELECT 1 FROM offices WHERE id = ?', id)) id = `${base}-${n++}`;
   run(g, 'INSERT INTO offices (id, name, root, created_at) VALUES (?, ?, ?, ?)', id, path.basename(root), root, nowIso());
+  // remote = { machine, root, scan } (wizard, kantor di mesin lain): ditulis sebelum seed supaya tim duduk di ruangan yang benar
+  if (remote) run(officeDb(id), "INSERT INTO meta (key, value) VALUES ('remoteRoot', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify({ machine: remote.machine, root: remote.root, scan: remote.scan, at: nowIso() }));
   invalidate(id);
   const model = officeModel(id);
   tx(officeDb(id), () => seedOffice(id, model, team));
@@ -556,6 +566,8 @@ function checkRemoteRoom(m, machine, remotePath, selfId = null) {
 export function roomCwd(model, room) {
   const r = typeof room === 'string' ? model?.plan?.rooms.find(x => x.id === room) : room;
   if (r?.machine && r.machine !== mx.LOCAL && r.remotePath) return { machine: r.machine, cwd: r.remotePath };
+  // kantor di mesin lain: ruangan tanpa folder sendiri (manager, meeting, QA …) bekerja di root project di mesin itu
+  if (model?.remote && !r?.path && !r?.machine) return { machine: model.remote.machine, cwd: model.remote.root };
   return { machine: mx.LOCAL, cwd: r && r.path ? path.join(model.root, r.path) : model.root };
 }
 
@@ -580,4 +592,102 @@ export function roomForRemote(machine, cwd) {
   }
   const hit = (remoteIndex.get(machine) || []).find(x => dir === x.dir || dir.startsWith(x.dir === '/' ? '/' : x.dir + '/'));
   return hit ? { office: hit.office, room: hit.room } : null;
+}
+
+/* ---------------- kantor di mesin lain (wizard Tambah kantor) ---------------- */
+/** Folder placeholder di hub untuk kantor yang seluruh foldernya di mesin lain. Selalu kosong; scan lokalnya tidak menghasilkan ruangan berfolder. */
+export const REMOTE_ROOTS_DIR = path.join(DATA_DIR, 'remote-roots');
+function remoteRootOf(db) {
+  const v = j(one(db, "SELECT value FROM meta WHERE key = 'remoteRoot'")?.value, null);
+  return v && v.machine && v.root && v.scan ? v : null;
+}
+/** Ruangan hasil pindaian yang punya folder (path '' = root project) pindah ke mesin itu; ruangan tambahan tidak disentuh. */
+export function markRemoteRooms(plan, remote) {
+  for (const r of plan.rooms) {
+    if (r.extra || typeof r.path !== 'string') continue;
+    r.remotePath = r.path ? path.posix.join(remote.root, r.path) : remote.root;
+    r.machine = remote.machine;
+    r.path = null;
+  }
+  return plan;
+}
+/** Kantor yang root-nya di mesin lain: [{ id, machine, root }]. */
+export function remoteOffices() {
+  const out = [];
+  for (const o of all(globalDb(), 'SELECT id, root FROM offices')) {
+    if (!o.root.startsWith(REMOTE_ROOTS_DIR + path.sep)) continue;
+    let v = null; try { v = remoteRootOf(officeDb(o.id)); } catch {}
+    if (v) out.push({ id: o.id, machine: v.machine, root: v.root });
+  }
+  return out;
+}
+/** Buat folder placeholder baru di hub untuk kantor bernama `name`; id kantor nanti = nama foldernya. → path absolut. */
+export function makeRemotePlaceholder(name) {
+  fs.mkdirSync(REMOTE_ROOTS_DIR, { recursive: true });
+  let base = slug(name);
+  if (base.startsWith('_')) base = 'k' + base;
+  const g = globalDb();
+  for (let n = 1; ; n++) {
+    const id = n === 1 ? base : `${base}-${n}`;
+    const p = path.join(REMOTE_ROOTS_DIR, id);
+    if (fs.existsSync(p) || one(g, 'SELECT 1 FROM offices WHERE id = ? OR root = ?', id, p)) continue;
+    fs.mkdirSync(p);
+    return p;
+  }
+}
+export { cleanRemotePath, machineLabel };
+
+/**
+ * Struktur folder project di mesin lain, setara scanRoot() (bentuk sama, plus dirs, rootStack, rootMd), dalam SATU panggilan ssh.
+ * → { exists: false } bila folder tidak ada. Mesin offline atau tak terjangkau → Error dengan pesan jelas.
+ */
+export function scanRemoteRoot(machine, root) {
+  const dir = cleanRemotePath(root);
+  if (!dir.startsWith('/')) throw new Error('Folder di mesin lain harus path absolut, mis. /Users/kamu/Developer/project');
+  if (mx.isOffline(machine)) throw new Error(`Mesin ${machineLabel(machine)} sedang offline. Folder di sana belum bisa dibaca.`);
+  const marks = STACK_FILES.filter(f => f !== '.git').map(mx.q).join(' ');
+  const skip = [...SKIP].map(mx.q).join('|');
+  // baris: D <dir> (subfolder), F <dir> <file> (penanda stack), G <dir> (repo), W <dir> <gitdir> (worktree),
+  // P <dir> <package.json base64>, N <dir> (folder berisi). <dir> kosong = root project.
+  const script = [
+    `cd ${mx.q(dir)} 2>/dev/null || { echo NODIR; exit 0; }`,
+    'echo OK',
+    `p() { for f in ${marks}; do [ -e "$2/$f" ] && printf 'F\\t%s\\t%s\\n' "$1" "$f"; done`,
+    `  if [ -d "$2/.git" ]; then printf 'G\\t%s\\n' "$1"; elif [ -f "$2/.git" ]; then printf 'W\\t%s\\t%s\\n' "$1" "$(sed -n 's/^gitdir:[[:space:]]*//p' "$2/.git" | head -n 1)"; fi`,
+    `  [ -f "$2/package.json" ] && printf 'P\\t%s\\t%s\\n' "$1" "$(head -c 200000 "$2/package.json" | base64 | tr -d '\\n')"`,
+    `  [ -n "$(ls -A "$2" 2>/dev/null | head -n 1)" ] && printf 'N\\t%s\\n' "$1"; true; }`,
+    'p "" .',
+    `n=0; for d in *; do [ -d "$d" ] || continue; case "$d" in ${skip}) continue;; esac; n=$((n+1)); [ $n -gt 300 ] && break; printf 'D\\t%s\\n' "$d"; p "$d" "$d"; done; true`,
+  ].join('\n');
+  let out;
+  // /bin/sh: shell login di Mac lain biasanya zsh, yang menghentikan `for d in *` di folder kosong
+  try { out = mx.shSync(machine, `/bin/sh -c ${mx.q(script)}`, { timeout: 20000 }); }
+  catch (e) {
+    if (e.status === 255 || mx.isOffline(machine)) throw new Error(`Mesin ${machineLabel(machine)} tidak terjangkau: ${String(e.stderr || e.message || '').trim().slice(0, 160)}`);
+    throw new Error(`Gagal membaca folder di ${machineLabel(machine)}: ${String(e.stderr || e.message || '').trim().slice(0, 160)}`);
+  }
+  const lines = out.split('\n');
+  if (lines[0]?.trim() !== 'OK') return { exists: false };
+  const info = new Map(); // dir → { files:Set, git:bool, wt:string|null, pkg:string, full:bool }
+  const at = d => { if (!info.has(d)) info.set(d, { files: new Set(), git: false, wt: null, pkg: '', full: false }); return info.get(d); };
+  const dirs = [];
+  for (const l of lines.slice(1)) {
+    const [k, d = '', v = ''] = l.split('\t');
+    if (k === 'D') { if (d && !d.startsWith('.')) dirs.push(d); at(d); }
+    else if (k === 'F') at(d).files.add(v);
+    else if (k === 'G') at(d).git = true;
+    else if (k === 'W') at(d).wt = v;
+    else if (k === 'P') { try { at(d).pkg = Buffer.from(v, 'base64').toString('utf8'); } catch {} }
+    else if (k === 'N') at(d).full = true;
+  }
+  const stackAt = d => { const x = at(d); return stackOf(f => x.files.has(f), () => x.pkg); };
+  const top = at('');
+  const res = { rootIsGit: top.git || top.wt !== null, repos: [], worktrees: [], folders: [], dirs: [...dirs].sort(), rootStack: stackAt(''), rootMd: top.files.has('CLAUDE.md') };
+  for (const d of res.dirs) {
+    const x = at(d);
+    if (x.git) res.repos.push({ dir: d, stack: stackAt(d), md: x.files.has('CLAUDE.md') });
+    else if (x.wt !== null) res.worktrees.push({ dir: d, parent: x.wt ? path.posix.basename(x.wt.trim().split('/.git/')[0]) : null });
+    else if (x.full) res.folders.push({ dir: d, stack: stackAt(d), md: x.files.has('CLAUDE.md') });
+  }
+  return { exists: true, ...res };
 }

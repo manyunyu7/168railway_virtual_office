@@ -52,3 +52,40 @@ export const roomBlockReason = r => roomOffline(r) ? `Tidak bisa mulai shift: ${
 export const outboxWaitText = s => sessOffline(s) ? `Tersimpan · dikirim saat ${machineLabel(s.machine)} tersambung lagi` : '';
 /** Ada mesin remote yang dikenal? (untuk melewati pekerjaan ekstra bila tidak ada) */
 export const anyRemote = () => list().length > 0;
+
+/* ---- kantor: di mesin mana kantor bekerja (daftar kantor dan judul kantor) ---- */
+const LOCAL_NAME = 'Mac ini';
+/** Sama dengan machineSummary di server/kantor-mesin.js: [{ id, rooms }] ruangan berfolder per mesin, terbanyak dulu. */
+export function roomsMachines(rooms) {
+  const n = new Map();
+  for (const r of rooms || []) {
+    if (!r || r.preview) continue;
+    const id = roomMachine(r) || (r.path != null ? 'local' : null);
+    if (id) n.set(id, (n.get(id) || 0) + 1);
+  }
+  return [...n].map(([id, rooms]) => ({ id, rooms }))
+    .sort((a, b) => b.rooms - a.rooms || (isLocal(a.id) ? -1 : isLocal(b.id) ? 1 : a.id.localeCompare(b.id)));
+}
+/**
+ * Label penempatan kantor dari field `machines` (/api/state) atau roomsMachines(plan.rooms).
+ * null bila semuanya di Mac ini (atau data kosong): kantor satu-PC tidak berlencana.
+ * { text, title, off, solo, ids }: off = ada mesin remote yang offline; solo = semua ruangan di satu mesin remote.
+ */
+export function officePlacement(ms) {
+  const l = (Array.isArray(ms) ? ms : []).filter(m => m && m.rooms > 0);
+  const remote = l.filter(m => !isLocal(m.id));
+  if (!remote.length) return null;
+  const name = id => isLocal(id) ? LOCAL_NAME : machineLabel(id);
+  const text = l.length === 1 ? name(l[0].id)
+    : l.length === 2 ? `${name(l[0].id)} + ${name(l[1].id)}`
+    : `${name(remote[0].id)} + ${l.length - 1} lainnya`;
+  const off = remote.some(m => machineDown(m.id));
+  const title = 'Ruangan kantor ini: ' + l.map(m => `${name(m.id)} ${m.rooms} ruangan${machineDown(m.id) ? ' (offline)' : ''}`).join(', ');
+  return { text, title, off, solo: l.length === 1, ids: remote.map(m => m.id) };
+}
+/** Lencana .mx-badge penempatan kantor; '' untuk kantor yang semuanya di Mac ini. */
+export function officeBadge(ms, cls = '') {
+  const p = officePlacement(ms);
+  if (!p) return '';
+  return `<span class="mx-badge mx-office${p.off ? ' off' : ''}${cls ? ' ' + cls : ''}" title="${esc(p.title)}"><i class="mx-ic" aria-hidden="true"></i>${p.off && p.solo ? '<span class="mx-offl">offline ·&nbsp;</span>' : ''}${esc(p.text)}</span>`;
+}

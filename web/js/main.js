@@ -35,7 +35,7 @@ import { kunciCardHTML, paintKunciCard, kunciLive } from './kunci-ui.js';
 import { mountTabBar, refitTabBar } from './tab-bar.js';
 import { onMachineEvent, machines, machineName, loadMachines } from './mesin.js';
 import { mountMachineStrip } from './mesin-strip.js';
-import { setMachineSource, sessBadge, roomBadge, sessOffline, roomOffline, roomMachine, roomBlockReason, anyRemote } from './lencana.js';
+import { setMachineSource, sessBadge, roomBadge, sessOffline, roomOffline, roomMachine, roomBlockReason, anyRemote, officeBadge, roomsMachines } from './lencana.js';
 
 export const ctx = { st: null, office: null, stage: null, view: null, route: null };
 const view = $('#view');
@@ -171,7 +171,7 @@ function toggleSwitcher() {
   let m = $('#offSwitch');
   if (m) { m.remove(); return; }
   const list = [...(ctx.st?.offices || [])].sort((a, b) => (b.fav - a.fav) || (b.sessions.length - a.sessions.length) || String(b.lastSeen || '').localeCompare(String(a.lastSeen || '')));
-  $('.top').insertAdjacentHTML('beforeend', `<div class="off-switch" id="offSwitch" role="menu">${list.map(o => `<a href="#/o/${esc(o.id)}" role="menuitem" class="${ctx.office?.id === o.id ? 'cur' : ''}"><span class="fav-ic">${o.fav ? '★' : ''}</span><b>${esc(o.name)}</b><span class="hint">${o.sessions.length ? o.sessions.length + ' sesi' : ''}</span></a>`).join('')}<a href="#/" class="all">Semua kantor →</a></div>`);
+  $('.top').insertAdjacentHTML('beforeend', `<div class="off-switch" id="offSwitch" role="menu">${list.map(o => `<a href="#/o/${esc(o.id)}" role="menuitem" class="${ctx.office?.id === o.id ? 'cur' : ''}"><span class="fav-ic">${o.fav ? '★' : ''}</span><b>${esc(o.name)}</b><span class="hint">${officeBadge(o.machines, 'mx-lead')}${o.sessions.length ? o.sessions.length + ' sesi' : ''}</span></a>`).join('')}<a href="#/" class="all">Semua kantor →</a></div>`);
   const b = $('[data-act="office-switch"]'); if (b) { const r = b.getBoundingClientRect(); $('#offSwitch').style.left = Math.max(8, r.left) + 'px'; }
 }
 function renderSwitcher() { if ($('#offSwitch')) { $('#offSwitch').remove(); toggleSwitcher(); } }
@@ -279,14 +279,14 @@ function cardHTML(o) {
   const pend = ctx.st.inbox.filter(i => i.office === o.id).length;
   const status = pend ? `<span class="st wait">${pend} izin</span>` : ss.some(x => x.status === 'working') ? '<span class="st working">bekerja</span>' : ss.length ? '<span class="st idle">ada sesi</span>' : '<span class="st off">sepi</span>';
   return `<div class="hm-card"><a class="hm-card-link" href="#/o/${esc(o.id)}" aria-label="Buka ${esc(o.name)}"></a>
-    <div class="hm-card-top">${bldHTML(o, true)}<div class="hm-card-id"><h3>${esc(o.name)}</h3><p>${esc(o.style || '')}</p></div>${favBtn(o)}</div>
+    <div class="hm-card-top">${bldHTML(o, true)}<div class="hm-card-id"><h3>${esc(o.name)}</h3><p>${officeBadge(o.machines, 'mx-lead')}${esc(o.style || '')}</p></div>${favBtn(o)}</div>
     <div class="hm-card-agents">${ss.length ? ss.slice(0, 6).map(x => `<button class="hm-face" data-act="go-sess" data-office="${esc(o.id)}" data-sid="${esc(x.sid)}" title="${esc((x.look?.name || x.title || 'Sesi') + ' · ' + sessLabel(x))}">${mini(x.look || guestLook(x.sid))}${stDot(x)}</button>`).join('') + (ss.length > 6 ? `<span class="hm-more">+${ss.length - 6}</span>` : '') : '<span class="hint">Belum ada sesi</span>'}</div>
     <div class="hm-card-foot">${status}<span>${o.cards?.open || 0} kartu</span><span>${usd(o.monthCost, 0)} bln ini</span></div></div>`;
 }
 function rowHTML(o) {
   const ss = o.sessions.filter(x => x.status !== 'ended');
   return `<tr class="click" data-name="${esc(o.name.toLowerCase())}" data-act="go-office" data-id="${esc(o.id)}"><td>${favBtn(o)}</td>
-    <td><span class="hm-rowname">${bldHTML(o)}<span><b>${esc(o.name)}</b><span class="hint">${esc(o.style || '')}</span></span></span></td>
+    <td><span class="hm-rowname">${bldHTML(o)}<span><b>${esc(o.name)}</b><span class="hint">${officeBadge(o.machines, 'mx-lead')}${esc(o.style || '')}</span></span></span></td>
     <td class="num" data-l="sesi">${ss.length ? `<b>${ss.length}</b>` : '–'}</td><td class="num" data-l="kartu">${o.cards?.open || 0}</td><td class="num" data-l="bln">${usd(o.monthCost, 0)}</td><td class="hint">${o.lastSeen ? ago(o.lastSeen) : '–'}</td></tr>`;
 }
 function addOffice() { go('#/baru'); }
@@ -321,7 +321,7 @@ async function renderOffice(r, prev) {
     return;
   }
   if ((r.tab === 'chat' || r.tab === 'terminal') && r.id !== '_kompleks') { ctx.view = chatmode; await chatmode.render(view, ctx, r); return; }
-  view.innerHTML = `<div class="wrap"><div class="office-head"><div><p class="eyebrow">${esc(o.style || (r.id === '_kompleks' ? 'Bersama untuk semua kantor' : 'Kantor'))}</p><h1>${esc(o.name)}</h1><p class="sub" id="officeSub"></p></div></div>
+  view.innerHTML = `<div class="wrap"><div class="office-head"><div><p class="eyebrow">${esc(o.style || (r.id === '_kompleks' ? 'Bersama untuk semua kantor' : 'Kantor'))}</p><h1>${esc(o.name)}${officeMxHTML(o)}</h1><p class="sub" id="officeSub"></p></div></div>
     <div id="tabBody"></div></div>`;
   updateSub();
   const body = $('#tabBody');
@@ -345,6 +345,14 @@ function updateSub() {
   el.textContent = `${mgr ? `Manager: ${mgr.name} · ` : ''}${ss.length} sesi (${ss.filter(s => s.status === 'working').length} bekerja) · ${o.plan.rooms.filter(r => !['openplan', 'toilet', 'booth'].includes(r.kind)).length} ruangan · ${o.roles.length} role`;
 }
 
+/** Lencana "di mesin mana" kantor yang sedang dibuka, dihitung dari denahnya (selalu segar setelah ruangan dipindah). */
+const officeMxHTML = o => o && o.id !== '_kompleks' ? `<span class="js-office-mx">${officeBadge(roomsMachines(o.plan?.rooms))}</span>` : '';
+function paintOfficeMx() {
+  const o = ctx.office; if (!o) return;
+  const h = officeBadge(roomsMachines(o.plan?.rooms));
+  for (const el of $$('.js-office-mx')) if (el.innerHTML !== h) el.innerHTML = h;
+}
+
 /* ---------------- kantor tab ---------------- */
 const kantorView = {
   sel: null,
@@ -355,7 +363,7 @@ const kantorView = {
       <section class="kf-office"><div class="kf-frame">
         <div class="stage kf-stage" id="stage"></div>
         <div class="kf-top"><div class="roombar kf-rooms" id="roombar"></div></div>
-        <div class="kf-chip"><b>${esc(o.name)}</b> <span id="officeSub"></span></div>
+        <div class="kf-chip"><b>${esc(o.name)}</b>${officeMxHTML(o)} <span id="officeSub"></span></div>
         <div class="stage-tools kf-tools"><button class="zbtn" data-act="zin" aria-label="Perbesar">+</button><button class="zbtn" data-act="zout" aria-label="Perkecil">−</button><button class="zbtn" data-act="zfit">Semua</button><button class="zbtn" data-act="kf-fullscreen" title="Layar penuh (sembunyikan toolbar browser)">⛶</button><button class="zbtn" data-act="layout-edit" title="Pindah, ubah ukuran, dan atur pintu ruangan">Atur denah</button></div>
       </div></section>
       <div class="kf-alist" id="kfAgents" aria-label="Daftar agen"></div>
@@ -624,12 +632,13 @@ onLive(async m => {
     // only the order changed (someone rearranged the strip, maybe in another tab): no need to rebuild the floor
     if (m.what === 'roles-order' && Array.isArray(m.order)) { const pos = new Map(m.order.map((id, i) => [id, i])); o.roles.sort((a, b) => (pos.get(a.id) ?? 999) - (pos.get(b.id) ?? 999)); kantorView.strip?.(); }
     if (m.what === 'furniture' && !kantorView.le) { const fresh = await api(`/api/offices/${o.id}`).catch(() => null); if (fresh) { o.plan = fresh.plan; ctx.stage?.setFurniture?.(fresh.plan.furniture || []); } }
-    if ((m.what === 'plan' || m.what === 'roles') && !kantorView.le) { const fresh = await api(`/api/offices/${o.id}`).catch(() => null); if (fresh) { Object.assign(o, fresh); ctx.stage?.rebuild(o.plan, o.roles); kantorView.roombar?.(); } }
+    if ((m.what === 'plan' || m.what === 'roles') && !kantorView.le) { const fresh = await api(`/api/offices/${o.id}`).catch(() => null); if (fresh) { Object.assign(o, fresh); ctx.stage?.rebuild(o.plan, o.roles); kantorView.roombar?.(); paintOfficeMx(); } }
     if (m.what === 'board') { const b = await api(`/api/offices/${o.id}/board?board=all`).catch(() => null); if (b) { const prev = o.cards; o.cards = b.cards.map(c => ({ id: c.id, title: c.title, col: c.col, stage: c.stage, done: c.done, board: c.board, who: c.who, repo: c.repo, blocked: c.blocked })); ctx.stage?.setCards(o.cards); ctx.stage?.minions?.cards(prev, o.cards); } }
     if (m.what === 'news') { o.news = await api(`/api/offices/${o.id}`).then(x => x.news).catch(() => o.news); kantorView.news?.(); }
     if (m.what === 'notes') { o.wall = await api(`/api/offices/${o.id}`).then(x => x.wall).catch(() => o.wall); if (ctx.view === kantorView) kantorView.wall(); }
   }
-  if (ctx.route?.name === 'map' && (m.t === 'session' || m.t === 'session-gone' || m.t === 'machine')) debounceMap();
+  if (ctx.route?.name === 'map' && (m.t === 'session' || m.t === 'session-gone' || m.t === 'machine' || (m.t === 'changed' && m.what === 'plan'))) debounceMap();
+  if (m.t === 'machine') paintOfficeMx();
   ctx.view?.live?.(m, ctx);
   drawerOnLive(ctx, m);
 });
@@ -704,7 +713,7 @@ function machinesRepaint() {
   if (machineSig() === mxSig) return;
   mxSig = machineSig();
   const m = { t: 'machine' };
-  try { agentsLive(m); ctx.view?.live?.(m, ctx); drawerOnLive(ctx, m); } catch (e) { console.error(e); }
+  try { agentsLive(m); ctx.view?.live?.(m, ctx); drawerOnLive(ctx, m); paintOfficeMx(); } catch (e) { console.error(e); }
   if (ctx.route?.name === 'map') debounceMap();
 }
 document.addEventListener('kantor:machines', machinesRepaint);

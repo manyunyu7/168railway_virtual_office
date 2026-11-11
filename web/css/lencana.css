@@ -53,3 +53,9 @@
 }
 @media (max-width:480px){.mxs{display:none}}
 #stMesin{scroll-margin-top:12px}
+
+/* lencana kantor "di mesin mana" (officeBadge): daftar kantor, menu pindah kantor, judul kantor */
+.mx-badge.mx-lead{margin:0 6px 1px 0}
+.off-switch a .hint .mx-badge{font-size:9px}
+.office-head h1 .mx-badge{margin-left:12px;padding:2px 8px;font-size:11px;vertical-align:.45em}
+.kf-chip .mx-badge{vertical-align:1px}

@@ -4,6 +4,7 @@ import { createStage } from './office-canvas.js';
 import { PERMS } from './roles.js';
 import { randomLook, applyLook } from './chars.js';
 import { loadTemplates, galleryHTML } from './template-gallery.js';
+import { loadMachines, machines, machineOptions, crumbsOf, machineName } from './mesin.js';
 
 const STEPS = ['Project', 'Ruangan', 'Tim', 'Suasana', 'Mulai'];
 const MANAGERS = ['Bu Ratna', 'Pak Hendra', 'Bu Sari', 'Pak Bima', 'Bu Laras', 'Pak Danu'];
@@ -25,7 +26,10 @@ const fresh = () => ({
   step: 0, mode: 'new', name: '', folder: '', folderEdited: false, base: '', layout: 'single', subs: [], gitInit: true, description: '',
   root: '', q: '', team: [mgrMember()], claudeMd: true, firstCard: true, startManager: false, brief: '', permissionMode: '',
   roots: [], folders: [], preview: null, error: '', busy: false, template: 'zen-garden', seed: 1, tpls: null,
+  // project di mesin lain: machine '' = Mac ini. mx = penjelajah folder di mesin itu { data, err, seq }; mxNote = kabar mesin offline
+  machine: '', mx: null, mxNote: '', pvError: '',
 });
+const remote = () => !!W.machine;
 function mgrMember() {
   const i = Math.floor(Math.random() * MANAGERS.length), fem = MANAGERS[i].startsWith('Bu'), l = randomLook(undefined, { fem });
   return { key: 'manager', isMgr: true, fem, name: MANAGERS[i], title: 'Manager', model: 'opus', ...l, color: SWATCHES[6], outfit: fem && l.outfit !== 'rok' && l.outfit !== 'dress' ? 'jas' : l.outfit === 'hoodie' ? 'jas' : l.outfit, tie: !fem && ['jas', 'kemeja'].includes(l.outfit),
@@ -46,9 +50,12 @@ export async function render(el) {
   root.addEventListener('input', onInput);
   root.addEventListener('change', onInput);
   root.addEventListener('keydown', e => { if (e.target.id === 'wzSub' && e.key === 'Enter') { e.preventDefault(); addSub(e.target.value); } });
+  document.addEventListener('kantor:machines', onMachines);
+  // pilihan "Di mesin" hanya muncul kalau ada mesin terdaftar; tanpa mesin (atau tanpa izin melihatnya) tampilan tetap seperti biasa
+  loadMachines().then(() => { if (W && W.step === 0) draw(); }).catch(() => {});
   draw();
 }
-export function unmount() { clearTimeout(pvTimer); stage = null; root = null; }
+export function unmount() { clearTimeout(pvTimer); document.removeEventListener('kantor:machines', onMachines); stage = null; root = null; }
 
 function draw() {
   $('#wzSteps').innerHTML = STEPS.map((s, i) => `<li class="${i === W.step ? 'cur' : i < W.step ? 'done' : ''}"><button type="button" data-wz="goto" data-i="${i}"${i > W.step ? ' disabled' : ''}><span>${i + 1}</span>${s}</button></li>`).join('');
@@ -62,9 +69,82 @@ const navHTML = () => `<div class="wz-nav">${W.step ? '<button type="button" cla
 /* ---------- step 1: project ---------- */
 function stepProject() {
   const choice = (v, t, d) => `<button type="button" class="wz-choice" data-wz="mode" data-v="${v}" aria-pressed="${W.mode === v}"><b>${t}</b><span>${d}</span></button>`;
-  return `<h2>Project apa?</h2>
+  return `<h2>Project apa?</h2>${machineHTML()}
     <div class="wz-choices">${choice('new', 'Project baru', 'Kantor membuatkan foldernya, bisa sekalian git init dan CLAUDE.md.')}${choice('existing', 'Folder yang sudah ada', 'Pilih project yang sudah ada di folder kerjamu.')}</div>
-    ${W.mode === 'new' ? newHTML() : existingHTML()}`;
+    ${remote() ? (W.mode === 'new' ? remoteNewHTML() : remoteExistingHTML()) : W.mode === 'new' ? newHTML() : existingHTML()}`;
+}
+
+/* ---------- step 1 di mesin lain ---------- */
+function machineHTML() {
+  const opts = machineOptions(machines());
+  if (opts.length < 2) return '';
+  const off = opts.filter(o => o.disabled);
+  return `<div class="field wz-mx"><label for="wzMachine">Di mesin</label>
+    <select id="wzMachine">${opts.map(o => `<option value="${esc(o.id)}"${o.disabled ? ' disabled' : ''}${o.id === W.machine ? ' selected' : ''}>${esc(o.label)}${o.note ? ` (${esc(o.note)})` : ''}</option>`).join('')}</select>
+    ${off.length ? `<p class="hint">${off.map(o => esc(o.label)).join(', ')} tidak bisa dipilih karena ${off.every(o => o.note === 'nonaktif') ? 'nonaktif' : off.every(o => o.note === 'offline') ? 'sedang offline' : 'offline atau nonaktif'}. Cek di Pengaturan → Mesin.</p>` : ''}
+    ${W.mxNote ? `<p class="warn-t">${esc(W.mxNote)}</p>` : ''}
+    ${remote() ? `<p class="hint">Folder project dan shift tim berjalan di ${esc(machineName(W.machine))}. Board, wiki, dan pesan tetap di Mac ini.</p>` : ''}</div>`;
+}
+// penjelajah folder di mesin itu; pilih = folder yang sedang dibuka
+function mxBrowserHTML(label, picked) {
+  const x = W.mx || {}, d = x.data;
+  const crumbs = d ? crumbsOf(d.dir).map((c, i) => `${i > 1 ? '<span>/</span>' : ''}<button type="button" data-wz="mx-go" data-dir="${esc(c.dir)}">${esc(c.name)}</button>`).join('') : '';
+  const rows = x.err ? `<li class="fb-empty warn-t">${esc(x.err)}</li>`
+    : !d ? '<li class="fb-empty">Memuat folder…</li>'
+    : (d.parent ? `<li><button type="button" class="fb-row up" data-wz="mx-go" data-dir="${esc(d.parent)}"><span class="fb-ic">↑</span><span class="fb-nm">..</span></button></li>` : '')
+      + (d.entries?.length ? d.entries.map(e => `<li><button type="button" class="fb-row" data-wz="mx-go" data-dir="${esc(e.path)}" title="Buka folder ini"><span class="fb-ic">${e.git ? '◆' : '▸'}</span><span class="fb-nm">${esc(e.name)}</span><span class="fb-bs">${e.git ? '<i class="fb-b git">git</i>' : ''}</span><span class="fb-go">›</span></button></li>`).join('')
+        : '<li class="fb-empty">Tidak ada subfolder.</li>');
+  return `<div class="field"><label>${esc(label)}</label>
+    <div class="fb"><div class="fb-crumbs">${crumbs || '&nbsp;'}</div><ul class="fb-list">${rows}</ul></div>
+    <p class="hint">${picked}</p></div>`;
+}
+function remoteExistingHTML() {
+  const d = W.mx?.data;
+  const picked = W.root ? `Folder project: <code>${esc(tilde(W.root))}/</code>${d && d.dir === W.root && d.git ? ' · repo git' : ''}` : 'Buka folder project-nya. Folder yang sedang dibuka menjadi kantor.';
+  return `<div class="wz-fields">${mxBrowserHTML(`Folder di ${machineName(W.machine)}`, picked)}
+    <div class="field"><label for="wzDesc">Catatan tentang project (opsional)</label><textarea id="wzDesc" rows="2" placeholder="Masuk ke halaman Beranda wiki.">${esc(W.description)}</textarea></div></div>`;
+}
+function remoteNewHTML() {
+  const where = W.base ? `${tilde(W.base)}/${W.folder || '…'}` : '…';
+  const lay = (v, t, d) => `<button type="button" class="wz-choice sm" data-wz="layout" data-v="${v}" aria-pressed="${W.layout === v}"><b>${t}</b><span>${d}</span></button>`;
+  return `<div class="wz-fields">
+    <div class="rf-row"><div class="field"><label for="wzName">Nama project</label><input id="wzName" value="${esc(W.name)}" placeholder="mis. Toko Kopi" autocomplete="off"></div>
+      <div class="field"><label for="wzFolder">Nama folder</label><input id="wzFolder" value="${esc(W.folder)}" placeholder="toko-kopi" autocomplete="off"></div></div>
+    ${mxBrowserHTML(`Lokasi di ${machineName(W.machine)}`, `Folder: <code class="wz-where">${esc(where)}</code>`)}
+    <div class="field"><label for="wzDesc">Mau bikin apa?</label><textarea id="wzDesc" rows="3" placeholder="Satu-dua kalimat. Ditulis ke CLAUDE.md dan halaman Beranda wiki, jadi semua role tahu tujuannya.">${esc(W.description)}</textarea></div>
+    <div class="field"><label>Struktur</label><div class="wz-choices two">${lay('single', 'Satu repo', 'Satu git di folder project. Subfolder jadi ruangan.')}${lay('multi', 'Beberapa repo', 'Folder induk; tiap subfolder repo sendiri.')}</div></div>
+    <div class="field"><label for="wzSub">${W.layout === 'multi' ? 'Repo di dalamnya' : 'Subfolder (opsional)'}</label>
+      <div class="skill-box"><div class="chips">${W.subs.map(s => `<span class="chip">${esc(s)}<button type="button" data-wz="rm-sub" data-v="${esc(s)}" aria-label="Hapus ${esc(s)}">×</button></span>`).join('')}</div><input id="wzSub" placeholder="ketik lalu Enter" autocomplete="off"></div>
+      <div class="wz-sugs">${SUB_SUGS.filter(s => !W.subs.includes(s)).map(s => `<button type="button" class="chip add" data-wz="add-sub" data-v="${s}">+ ${s}</button>`).join('')}</div></div>
+    <label class="check"><input type="checkbox" id="wzGit"${W.gitInit ? ' checked' : ''}> ${W.layout === 'multi' ? 'git init di tiap repo' : 'git init di folder project'}</label></div>`;
+}
+async function mxBrowse(dir, pick) {
+  const id = W.machine, x = W.mx || (W.mx = {});
+  const seq = x.seq = (x.seq || 0) + 1;
+  x.err = ''; x.data = null; draw();
+  try {
+    const r = await api(`/api/machines/${encodeURIComponent(id)}/browse?dir=${encodeURIComponent(dir || '')}`);
+    if (!W || W.mx !== x || seq !== x.seq || id !== W.machine) return;
+    x.data = r;
+    // proyek yang sudah ada: folder yang dibuka = pilihan (kecuali tampilan awal). Proyek baru: folder yang dibuka = lokasi.
+    if (W.mode === 'new') W.base = r.dir;
+    else if (pick) W.root = r.dir;
+  } catch (e) { if (!W || W.mx !== x || seq !== x.seq) return; x.err = e.message; }
+  if (W.step === 0) draw();
+}
+function selectMachine(id) {
+  W.machine = id; W.mxNote = ''; W.preview = null; W.pvError = ''; W.root = ''; W.mx = null;
+  W.base = id ? '' : W.roots[0] || '';
+  if (id) mxBrowse('', false);
+}
+function onMachines() {
+  if (!W || !root) return;
+  if (W.machine) {
+    const o = machineOptions(machines()).find(x => x.id === W.machine);
+    // sama seperti Tambah ruangan: selama masih di langkah pertama, pilihan kembali ke Mac ini
+    if ((!o || o.disabled) && W.step === 0) { const name = o?.label || W.machine; selectMachine(''); W.mxNote = `${name} ${o ? (o.note === 'nonaktif' ? 'dinonaktifkan' : 'baru saja offline') : 'dihapus'}; pilihan kembali ke Mac ini.`; }
+  }
+  if (W.step === 0) draw();
 }
 function newHTML() {
   const path = `${tilde(W.base)}/${W.folder || '…'}`;
@@ -96,9 +176,12 @@ function stepRooms() {
   const pv = W.preview;
   const rooms = pv?.plan.rooms.filter(r => !['lobby', 'openplan', 'toilet', 'booth', 'zone'].includes(r.kind)) || [];
   return `<h2>Ruangan</h2><p class="sub">Disusun dari ${W.mode === 'new' ? 'struktur yang kamu pilih' : 'isi folder'}. Ruangan kode terhubung ke foldernya; sesi Claude yang dibuka di folder itu otomatis duduk di sana.</p>
-    <ul class="wz-rooms">${rooms.map(r => `<li><b>${esc(r.name)}</b><span>${r.path ? `<code>${esc(r.path)}/</code>` : r.path === '' ? '<code>./</code>' : 'ruang fungsi'}${r.stack ? ' · ' + esc(r.stack) : ''}</span></li>`).join('') || '<li class="empty-line">Memuat…</li>'}</ul>
+    <ul class="wz-rooms">${rooms.map(r => `<li><b>${esc(r.name)}</b><span>${r.remotePath ? `<code>${esc(relOf(r.remotePath))}</code> di ${esc(machineName(r.machine))}` : r.path ? `<code>${esc(r.path)}/</code>` : r.path === '' ? '<code>./</code>' : 'ruang fungsi'}${r.stack ? ' · ' + esc(r.stack) : ''}</span></li>`).join('') || '<li class="empty-line">Memuat…</li>'}</ul>
     <p class="hint">Ruangan bisa ditambah, diganti nama, atau dibekukan nanti dari tab Role.</p>`;
 }
+
+// path ruangan di mesin lain relatif terhadap folder project, seperti ruangan lokal
+const relOf = p => { const base = W.preview?.root || ''; return p === base ? './' : base && p.startsWith(base + '/') ? p.slice(base.length + 1) + '/' : tilde(p) + '/'; };
 
 /* ---------- step 3: team ---------- */
 function stepTeam() {
@@ -118,7 +201,7 @@ function addPreset(key) {
   if (i >= 0) { W.team.splice(i, 1); return; }
   const p = PRESETS.find(x => x.key === key), n = W.team.length;
   const rooms = W.preview?.rooms || [];
-  const room = (rooms.find(r => p.like.test(`${r.path || ''} ${r.name}`.toLowerCase())) || rooms[0])?.id || '';
+  const room = (rooms.find(r => p.like.test(`${r.path || r.remotePath?.split('/').pop() || ''} ${r.name}`.toLowerCase())) || rooms[0])?.id || '';
   W.team.push({ key, name: p.name, title: p.title, model: p.model, persona: p.persona, skills: p.skills, room, ...randomLook(undefined, { fem: !!p.fem }) });
 }
 
@@ -133,7 +216,7 @@ function stepMood() {
 /* ---------- step 5: start ---------- */
 function stepStart() {
   const mgr = W.team.find(t => t.isMgr);
-  const where = W.mode === 'new' ? `${tilde(W.base)}/${W.folder}` : tilde(W.root);
+  const where = (W.mode === 'new' ? `${tilde(W.base)}/${W.folder}` : tilde(W.root)) + (remote() ? ` di ${machineName(W.machine)}` : '');
   const made = W.mode === 'new' ? [`folder <code>${esc(where)}</code>`, ...W.subs.map(s => `<code>${esc(s)}/</code>${W.layout === 'multi' && W.gitInit ? ' + git init' : ''}`), W.layout !== 'multi' && W.gitInit ? 'git init' : ''].filter(Boolean) : [];
   return `<h2>Mulai</h2>
     <div class="wz-sum"><p><b>${esc(W.mode === 'new' ? W.name || W.folder : W.root.split('/').pop())}</b> · <code>${esc(where)}</code></p>
@@ -153,7 +236,8 @@ function onClick(e) {
   const t = e.target.closest('[data-wz]'); if (!t) return;
   const a = t.dataset.wz, v = t.dataset.v;
   W.error = '';
-  if (a === 'mode') { W.mode = v; W.preview = null; }
+  if (a === 'mode') { const was = W.mode; W.mode = v; W.preview = null; W.pvError = ''; if (remote() && was !== v) { W.root = ''; W.base = W.mode === 'new' ? W.mx?.data?.dir || '' : ''; } }
+  else if (a === 'mx-go') return mxBrowse(t.dataset.dir, true);
   else if (a === 'layout') W.layout = v;
   else if (a === 'add-sub') return addSub(v);
   else if (a === 'rm-sub') W.subs = W.subs.filter(s => s !== v);
@@ -174,6 +258,7 @@ function addSub(raw) {
 }
 function onInput(e) {
   const t = e.target, id = t.id;
+  if (id === 'wzMachine') { selectMachine(t.value); draw(); return; }
   if (id === 'wzName') { W.name = t.value; if (!W.folderEdited) { W.folder = slugDir(t.value); const f = $('#wzFolder'); if (f) f.value = W.folder; } refreshPath(); schedulePreview(); }
   else if (id === 'wzFolder') { W.folder = slugDir(t.value) || ''; W.folderEdited = !!t.value; refreshPath(); schedulePreview(); }
   else if (id === 'wzBase') { W.base = t.value; refreshPath(); schedulePreview(); }
@@ -187,12 +272,14 @@ function onInput(e) {
   else if (id === 'wzPerm') W.permissionMode = t.value;
   else if (t.dataset.wzF) { const m = W.team[Number(t.dataset.i)]; m[t.dataset.wzF] = t.value; if (e.type === 'change') { if (t.dataset.wzF === 'name' || t.dataset.wzF === 'title') return; schedulePreview(); } }
 }
-function refreshPath() { const h = $('#wzMain .hint code'); if (h) h.textContent = `${tilde(W.base)}/${W.folder || '…'}`; }
+function refreshPath() { const h = $(remote() ? '#wzMain .wz-where' : '#wzMain .hint code'); if (h) h.textContent = `${tilde(W.base)}/${W.folder || '…'}`; }
 function check() {
   if (W.step === 0) {
     if (W.mode === 'new' && !W.folder) return 'Isi nama project dulu.';
     if (W.mode === 'new' && W.layout === 'multi' && !W.subs.length) return 'Tambahkan minimal satu repo.';
-    if (W.mode === 'existing' && !W.root) return 'Pilih foldernya dulu.';
+    if (W.mode === 'existing' && !W.root) return remote() ? 'Buka folder project-nya dulu.' : 'Pilih foldernya dulu.';
+    if (remote() && W.mode === 'new' && !W.base) return 'Tunggu daftar folder di mesin itu, lalu pilih lokasinya.';
+    if (remote() && W.pvError) return W.pvError;
     if (W.preview?.warnings?.length) return W.preview.warnings[0];
   }
   if (W.step === 2 && !W.team.some(t => t.isMgr && t.name.trim())) return 'Manager perlu nama.';
@@ -200,16 +287,17 @@ function check() {
 }
 const spec = () => ({ mode: W.mode, name: W.mode === 'new' ? W.name || W.folder : undefined, base: W.base, folder: W.folder, layout: W.layout, subs: W.subs, gitInit: W.gitInit,
   root: W.root, description: W.description, team: W.team, claudeMd: W.claudeMd, firstCard: W.firstCard, startManager: W.startManager, brief: W.brief, permissionMode: W.permissionMode,
-  template: W.template || null, seed: W.seed });
+  template: W.template || null, seed: W.seed, ...(remote() ? { machine: W.machine } : {}) });
 
 /* ---------- preview ---------- */
 function schedulePreview() {
   clearTimeout(pvTimer);
   pvTimer = setTimeout(async () => {
     if (!root) return;
-    if (W.mode === 'new' ? !W.folder : !W.root) { showPreview(null); return; }
-    try { W.preview = await post('/api/wizard/preview', spec()); }
-    catch (e) { W.preview = null; $('#wzPvInfo').innerHTML = `<p class="warn-t">${esc(e.message)}</p>`; return; }
+    if (W.mode === 'new' ? !W.folder || (remote() && !W.base) : !W.root) { showPreview(null); return; }
+    try { W.preview = await post('/api/wizard/preview', spec()); W.pvError = ''; }
+    catch (e) { if (!root) return; W.preview = null; W.pvError = e.message; if (remote()) showPreview(null); $('#wzPvInfo').innerHTML = `<p class="warn-t">${esc(e.message)}</p>`; return; }
+    if (!root) return;
     // rooms may have changed under the team: keep each member's room valid
     const ids = new Set(W.preview.rooms.map(r => r.id));
     W.preview.team.forEach((t, i) => { if (!W.team[i].isMgr && !ids.has(W.team[i].room)) W.team[i].room = t.room; });
@@ -227,7 +315,7 @@ function showPreview(pv) {
   stage = createStage(host, { plan: pv.plan, roles, sessions, cards: [], fill: true, animateArrivals: false, insets: { left: 8, top: 8, right: 8, bottom: 8 }, onPick: () => {}, onRoom: () => {} });
   stage.fitAll();
   const code = pv.rooms.length;
-  $('#wzPvInfo').innerHTML = `<p><b>${esc(pv.name)}</b> <span class="hint">${esc(tilde(pv.root))}</span></p>
+  $('#wzPvInfo').innerHTML = `<p><b>${esc(pv.name)}</b> <span class="hint">${esc(tilde(pv.root))}${pv.machine ? ` di ${esc(pv.machineName || machineName(pv.machine))}` : ''}</span></p>
     <p class="hint">${pv.plan.rooms.length} ruangan · ${code} ruangan kode · ${pv.team.length} orang</p>
     ${pv.warnings.map(w => `<p class="warn-t">${esc(w)}</p>`).join('')}`;
 }

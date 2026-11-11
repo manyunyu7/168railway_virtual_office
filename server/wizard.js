@@ -4,7 +4,8 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { config } from './config.js';
 import { globalDb, officeDb, all, one, run, nowIso } from './db.js';
-import { scanRoot, basePlan, registerOffice, officeModel, invalidate } from './offices.js';
+import { scanRoot, basePlan, registerOffice, officeModel, invalidate, scanRemoteRoot, remoteOffices, makeRemotePlaceholder, markRemoteRooms, cleanRemotePath, machineLabel } from './offices.js';
+import * as mx from './machines.js';
 import { roomFor } from './seed.js';
 import { createCard, saveWiki } from './store.js';
 import { startShift } from './tmux.js';
@@ -35,13 +36,92 @@ export function wizardFolders() {
 function detect(dir) { const plan = basePlan(dir, { rootIsGit: true, repos: [], folders: [], worktrees: [] }); return plan.rooms.find(r => r.kind === 'kode')?.stack || ''; }
 
 // the folder layout of a project that does not exist yet, shaped like scanRoot() output
-function virtualScan(spec) {
+function virtualScan(spec, remote = false) {
   const subs = (spec.subs || []).map(slugDir).filter(Boolean);
-  if (spec.layout === 'multi') return { rootIsGit: false, repos: subs.map(dir => ({ dir, stack: '', md: false })), worktrees: [], folders: [] };
-  return { rootIsGit: !!spec.gitInit, repos: [], worktrees: [], folders: subs.map(dir => ({ dir, stack: '', md: false })) };
+  // folder di mesin lain: jangan biarkan basePlan melihat ke disk Mac ini (path yang sama bisa kebetulan ada di sini)
+  const far = remote ? { dirs: subs, rootStack: '', rootMd: false } : {};
+  if (spec.layout === 'multi') return { rootIsGit: false, repos: subs.map(dir => ({ dir, stack: '', md: false })), worktrees: [], folders: [], ...far };
+  return { rootIsGit: !!spec.gitInit, repos: [], worktrees: [], folders: subs.map(dir => ({ dir, stack: '', md: false })), ...far };
 }
 
-function resolveSpec(spec) {
+/* ---------------- project di mesin lain (docs/MULTI-PC.md) ---------------- */
+const isRemoteSpec = spec => !!spec.machine && spec.machine !== mx.LOCAL;
+/** Mesin tujuan harus terdaftar, aktif, dan tidak sedang offline. */
+function onlineMachine(id) {
+  const m = mx.getMachine(id);
+  if (!m) throw new Error('Mesin tidak ditemukan. Tambahkan dulu di Pengaturan → Mesin.');
+  if (m.disabled) throw new Error(`Mesin ${m.name} sedang dinonaktifkan. Aktifkan dulu di Pengaturan → Mesin.`);
+  if (mx.isOffline(id)) throw new Error(`Mesin ${m.name} sedang offline. Pastikan Mac itu menyala dan terhubung (Tailscale), lalu coba lagi.`);
+  return m;
+}
+function absRemote(p, what) {
+  const raw = String(p || '').trim();
+  if (/[\0\n\r\t]/.test(raw)) throw new Error(`${what} berisi karakter yang tidak valid`);
+  const v = cleanRemotePath(raw);
+  if (!v) throw new Error(`Pilih ${what.toLowerCase()} dulu`);
+  if (!v.startsWith('/')) throw new Error(`${what} harus path absolut, mis. /Users/kamu/Developer/project`);
+  if (v === '/') throw new Error('Folder akar (/) tidak bisa jadi kantor');
+  return v;
+}
+// pindaian remote untuk pratinjau disimpan sebentar: pratinjau dipanggil ulang setiap kali tim atau template berubah
+const scanCache = new Map();
+function remoteScan(machine, root, fresh = false) {
+  const k = `${machine}\0${root}`, hit = scanCache.get(k);
+  if (!fresh && hit && Date.now() - hit.at < 20000) return hit.scan;
+  const scan = scanRemoteRoot(machine, root);
+  scanCache.set(k, { at: Date.now(), scan });
+  if (scanCache.size > 50) scanCache.delete(scanCache.keys().next().value);
+  return scan;
+}
+function resolveRemote(spec, { fresh = false } = {}) {
+  const machine = String(spec.machine);
+  onlineMachine(machine);
+  const label = machineLabel(machine);
+  if (spec.mode === 'existing') {
+    const root = absRemote(spec.root, 'Folder project');
+    const home = mx.machineHome(machine);
+    if (home && cleanRemotePath(home) === root) throw new Error('Folder home tidak bisa jadi kantor. Pilih folder project di dalamnya.');
+    if (remoteOffices().some(o => o.machine === machine && o.root === root)) throw new Error('Folder ini sudah jadi kantor');
+    const scan = remoteScan(machine, root, fresh);
+    if (!scan.exists) throw new Error(`Folder ${root} tidak ada di mesin ${label}`);
+    const { exists, ...rest } = scan;
+    return { machine, root, name: path.posix.basename(root), scan: rest, exists: true };
+  }
+  const base = absRemote(spec.base, 'Lokasi');
+  const dir = slugDir(spec.folder || spec.name);
+  if (!dir) throw new Error('Nama project wajib diisi');
+  const root = path.posix.join(base, dir);
+  let out;
+  try { out = mx.shSync(machine, `if test -d ${mx.q(base)}; then echo B; fi; if test -e ${mx.q(root)}; then echo E; fi; true`, { timeout: 10000 }); }
+  catch (e) { throw new Error(`Mesin ${label} tidak terjangkau: ${String(e.stderr || e.message || '').trim().slice(0, 160)}`); }
+  if (!/\bB\b/.test(out)) throw new Error(`Lokasi ${base} tidak ada di mesin ${label}`);
+  return { machine, root, name: String(spec.name || dir).trim() || dir, scan: virtualScan(spec, true), exists: /\bE\b/.test(out), dir };
+}
+/** Buat folder project baru di mesin itu: satu panggilan ssh (mkdir, git init, .gitkeep), lalu CLAUDE.md. */
+function createRemoteFolders(v, spec, subs) {
+  const label = machineLabel(v.machine);
+  const git = spec.gitInit ? (mx.ensureProbed(v.machine).git || 'git') : null;
+  const gi = d => `${mx.q(git)} -C ${mx.q(d)} init -q`;
+  const lines = [`if test -e ${mx.q(v.root)}; then echo EXISTS; exit 0; fi`, `mkdir -p ${mx.q(v.root)}`];
+  for (const s of subs) {
+    const d = path.posix.join(v.root, s);
+    lines.push(`mkdir -p ${mx.q(d)}`, spec.layout === 'multi' && git ? gi(d) : `: > ${mx.q(path.posix.join(d, '.gitkeep'))}`);
+  }
+  if (spec.layout !== 'multi' && git) lines.push(gi(v.root));
+  lines.push('echo DONE');
+  let out;
+  try { out = mx.shSync(v.machine, `/bin/sh -ec ${mx.q(lines.join('\n'))}`, { timeout: 30000 }); }
+  catch (e) {
+    if (e.status === 255 || mx.isOffline(v.machine)) throw new Error(`Mesin ${label} tidak terjangkau: ${String(e.stderr || e.message || '').trim().slice(0, 160)}`);
+    throw new Error(`Gagal membuat folder di ${label}: ${String(e.stderr || e.message || '').trim().slice(0, 200)}`);
+  }
+  if (/EXISTS/.test(out)) throw new Error(`Folder ${v.root} sudah ada di mesin ${label}`);
+  if (!/DONE/.test(out)) throw new Error(`Gagal membuat folder di ${label}`);
+  if (spec.layout === 'multi' && spec.claudeMd) for (const s of subs) mx.writeFile(v.machine, path.posix.join(v.root, s, 'CLAUDE.md'), claudeMd(`${v.name} · ${s}`, '', []), 0o644);
+}
+
+function resolveSpec(spec, opts) {
+  if (isRemoteSpec(spec)) return resolveRemote(spec, opts);
   if (spec.mode === 'existing') {
     const root = path.resolve(String(spec.root || ''));
     if (!config().roots.some(b => root.startsWith(path.resolve(b) + path.sep))) throw new Error('Folder harus berada di salah satu folder induk di Pengaturan');
@@ -69,18 +149,46 @@ export function wizardPreview(spec) {
     try { const g = generateFrom({ rooms: withDesks.rooms, roles: team.map(t => ({ id: t.id, room: t.room })), extra: [], hidden: [] }, spec.template, spec.seed || 1); withDesks = { ...g.plan, furniture: g.furniture }; }
     catch (e) { warnings.push(`Template tidak bisa dipakai: ${e.message}`); }
   }
-  if (spec.mode !== 'existing' && v.exists) warnings.push(`Folder ${v.root} sudah ada. Pilih "Folder yang sudah ada" atau ganti nama.`);
-  return { root: v.root, name: v.name, plan: withDesks, team,
-    rooms: withDesks.rooms.filter(r => ['kode', 'zone', 'game'].includes(r.kind)).map(r => ({ id: r.id, name: r.name, path: r.path, stack: r.stack || '' })), warnings };
+  if (spec.mode !== 'existing' && v.exists) warnings.push(`Folder ${v.root} sudah ada${v.machine ? ` di mesin ${machineLabel(v.machine)}` : ''}. Pilih "Folder yang sudah ada" atau ganti nama.`);
+  if (v.machine) markRemoteRooms(withDesks, v);
+  return { root: v.root, name: v.name, plan: withDesks, team, ...(v.machine ? { machine: v.machine, machineName: machineLabel(v.machine) } : {}),
+    rooms: withDesks.rooms.filter(r => ['kode', 'zone', 'game'].includes(r.kind)).map(r => ({ id: r.id, name: r.name, path: r.path, stack: r.stack || '', ...(r.machine ? { machine: r.machine, remotePath: r.remotePath } : {}) })), warnings };
 }
 
 const claudeMd = (name, desc, subs) => `# ${name}\n\n${desc ? desc.trim() + '\n\n' : ''}## Struktur\n${subs.length ? subs.map(s => `- \`${s}/\``).join('\n') : '- (satu folder)'}\n\n## Aturan kerja\n- Tulis temuan dan keputusan di kartu board kantor.\n- Tanyakan dulu sebelum menghapus file atau menjalankan perintah yang mengubah data.\n`;
 
 /** Create everything the wizard collected. Returns the new office id. */
 export function wizardCreate(spec) {
-  const v = resolveSpec(spec);
+  const v = resolveSpec(spec, { fresh: true });
   const subs = (spec.subs || []).map(slugDir).filter(Boolean);
   const created = [];
+  const team = (spec.team || []).filter(r => r?.name?.trim());
+  let id;
+  if (v.machine) {
+    // project di mesin lain: folder dibuat atau dibaca di sana; hub hanya memegang placeholder kosong (jangan pernah registerOffice(path remote))
+    if (spec.mode !== 'existing') {
+      if (v.exists) throw new Error(`Folder ${v.root} sudah ada di mesin ${machineLabel(v.machine)}`);
+      createRemoteFolders(v, spec, subs);
+      created.push(v.root);
+    }
+    let scan = v.scan;
+    if (spec.mode !== 'existing') { const s = remoteScan(v.machine, v.root, true); if (s.exists) { const { exists, ...rest } = s; scan = rest; } }
+    if (spec.claudeMd && !scan.rootMd) { mx.writeFile(v.machine, path.posix.join(v.root, 'CLAUDE.md'), claudeMd(v.name, spec.description, subs), 0o644); scan = { ...scan, rootMd: true }; }
+    const holder = makeRemotePlaceholder(path.posix.basename(v.root));
+    try { id = registerOffice(holder, { team: team.length ? team : null, remote: { machine: v.machine, root: v.root, scan } }); }
+    catch (e) { try { fs.rmdirSync(holder); } catch {} throw e; }
+    const name = (spec.mode === 'existing' ? '' : String(spec.name || '').trim()) || path.posix.basename(v.root);
+    run(globalDb(), 'UPDATE offices SET name = ? WHERE id = ?', name, id);
+    // ruangan berfolder juga dicatat sebagai override meta 'rooms' (path null, machine, remotePath), bentuk yang sama dengan
+    // ruangan hasil scan yang dipindah ke mesin lain, supaya pembaca meta (mis. lencana mesin di kantor-mesin.js) mengenalinya
+    const ov = {};
+    for (const r of officeModel(id).plan.rooms) if (r.machine === v.machine && r.remotePath) ov[r.id] = { path: null, machine: r.machine, remotePath: r.remotePath, stack: r.stack || '' };
+    if (Object.keys(ov).length) run(officeDb(id), "INSERT INTO meta (key, value) VALUES ('rooms', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify(ov));
+  } else id = createLocal(v, spec, subs, created, team);
+  return finishCreate(id, v, spec, created);
+}
+
+function createLocal(v, spec, subs, created, team) {
   if (spec.mode !== 'existing') {
     if (v.exists) throw new Error(`Folder ${v.root} sudah ada`);
     fs.mkdirSync(v.root, { recursive: true });
@@ -96,9 +204,12 @@ export function wizardCreate(spec) {
   }
   if (spec.claudeMd && !fs.existsSync(path.join(v.root, 'CLAUDE.md'))) fs.writeFileSync(path.join(v.root, 'CLAUDE.md'), claudeMd(v.name, spec.description, subs));
 
-  const team = (spec.team || []).filter(r => r?.name?.trim());
   const id = registerOffice(v.root, { team: team.length ? team : null });
   if (spec.name && spec.name.trim() !== path.basename(v.root)) run(globalDb(), 'UPDATE offices SET name = ? WHERE id = ?', spec.name.trim(), id);
+  return id;
+}
+
+function finishCreate(id, v, spec, created) {
   invalidate(id);
 
   const db = officeDb(id), t = nowIso();

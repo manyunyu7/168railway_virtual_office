@@ -24,6 +24,7 @@ import { readTranscript } from './transcript.js';
 import { sessionKonteks } from './konteks.js';
 import { scanProcesses } from './procscan.js';
 import { wizardFolders, wizardPreview, wizardCreate } from './wizard.js';
+import { officeMachines } from './kantor-mesin.js';
 import { templateList, templateState, previewTemplate, applyTemplate, restoreTemplate } from './templates.js';
 import { listMusic, sendMusic, uploadMusic, listPlaylists, createPlaylist, updatePlaylist, deletePlaylist } from './music.js';
 import { listDir, findFiles, readText, sendRaw, upload, makeDir } from './files.js';
@@ -210,6 +211,7 @@ route('GET', '/api/state', () => {
     const look = s => { const r = roleRows.find(x => x.id === s.role); return r ? { name: r.name + (s.slot ? ` #${s.slot + 1}` : ''), color: r.color, hair: r.hair, skin: r.skin, hairStyle: r.hairStyle, outfit: r.outfit, acc: r.acc, hijab: r.hijab, tie: r.tie, title: r.title } : null; };
     return { id: o.id, name: o.name, root: o.root, fav: !!o.fav, style: o.style || officeModel(o.id)?.style,
       sessions: sessions.map(s => ({ sid: s.sid, role: s.role, status: s.status, title: s.title, kind: s.kind, room: s.room, tool: s.tool, waiting: s.waiting, look: look(s), lastSeen: s.lastSeen, permMode: s.permMode || null, boss: s.boss || null, host: s.host || null, machine: s.machine || null, machineOffline: authMx.isOffline(s.machine), tty: s.tty || null, model: s.model || null, engine: s.engine || null, bgAgents: s.bgAgents || 0, slot: s.slot || 0, konteks: s.konteks })),
+      machines: officeMachines(o.id), // ruangan di Mac lain: [{ id, rooms }]; tidak ada = semuanya di Mac ini
       roles, cards, monthCost: monthCost(o.id), lastSeen: one(globalDb(), 'SELECT MAX(last_seen) t FROM sessions WHERE office = ?', o.id)?.t || o.created_at };
   });
   // sessions outside every office (e.g. claude started in ~/Developer itself)

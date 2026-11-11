@@ -144,7 +144,8 @@ export function browseMachine(id, dir = '') {
   // baris 1: folder sekarang; baris 2: git atau tidak; sisanya: <git>\t<nama>
   const script = `${go}; pwd; [ -e .git ] && echo 1 || echo 0; for d in *; do [ -d "$d" ] || continue; [ -e "$d/.git" ] && g=1 || g=0; printf '%s\\t%s\\n' "$g" "$d"; done`;
   let out;
-  try { out = mx.shSync(id, script, { timeout: 12000 }); } catch (e) {
+  // /bin/sh: shell login di Mac lain biasanya zsh, yang menghentikan `for d in *` di folder kosong
+  try { out = mx.shSync(id, `/bin/sh -c ${mx.q(script)}`, { timeout: 12000 }); } catch (e) {
     if (e.status === 3) throw new Error('Folder tidak ditemukan');
     throw new Error(`Tidak bisa membuka folder di mesin itu: ${errText(e)}`);
   }

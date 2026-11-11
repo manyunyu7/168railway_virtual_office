@@ -63,6 +63,11 @@ Mac 1 (hub: daemon kantor)                        Mac 2 (mesin "mac-studio")
   (folder terdalam yang cocok menang).
 - `POST /api/offices/:id/rooms` menerima tambahan `{ machine, remotePath }`. Foldernya dicek lewat `test -d` di mesin itu.
 
+### Ringkasan per kantor
+- `GET /api/state` → `offices[].machines?: [{ id: 'local'|<mesin>, rooms }]` (ruangan berfolder per mesin, terbanyak dulu). Tidak ada = semuanya di Mac ini; UI memberi lencana hanya bila ada mesin lain.
+- Kantor baru dari wizard di mesin lain: root di hub = placeholder `DATA_DIR/remote-roots/<id>`, hasil scan folder di mesin itu disimpan di meta `remoteRoot` `{machine, root, scan}` dan dipakai officeModel (tidak di-scan ulang otomatis; repo baru → Tambah ruangan).
+- Ruangan hasil scan bisa dipindah ke mesin lain (atau kembali) lewat `PATCH /api/offices/:id/rooms/:rid {machine, remotePath}` / `{machine: null}`; shift Claude yang ruangannya pindah bisa di-resume di sana (transkrip dibawa).
+
 ### Cermin transkrip (agen 4, `server/mirror.js`)
 - `mirrorTranscript(machine, remoteFile)` → path lokal (sinkron). Mendaftarkan file untuk ditarik dan langsung menarik sekali.
 - `startMirror()` / `stopMirror()`: poller async (≈1 s untuk sesi aktif, mundur saat idle). `syncNow(localPath)`.
