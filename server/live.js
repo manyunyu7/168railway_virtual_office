@@ -272,8 +272,8 @@ export async function handleHook(p) {
       }
       // only the tool that asked releases the hold: Codex keeps running other tools while an approval waits
       if (s.waiting && finishedWaitingTool(s.waiting, p)) clearWaiting(s, 'terminal');
-      // file_path dan cwd sesi di mesin lain adalah path di sana; git ruangan remote belum dibaca dari hub
-      if (s.office && !s.machine) gitinfo.touch(s.office, gitinfo.roomOfToolUse(s.office, p, s.room));
+      // sesi di mesin lain: roomOfToolUse mencocokkan path lewat kantor_machine, touch menjalankan git di mesin itu
+      if (s.office) gitinfo.touch(s.office, gitinfo.roomOfToolUse(s.office, p, s.room));
       break;
     case 'SubagentStart': addSub(s, p.agent_id, p.agent_type); logOffice(s.office, who, `memanggil subagent ${p.agent_type || ''}`.trim(), 'sub'); break;
     case 'SubagentStop': { const x = s.subs.get(p.agent_id); if (x) { if (/\/sessions\/.+\/rollout-[\w.:-]+\.jsonl$/.test(p.agent_transcript_path || '')) x.transcript = transcriptOf(s, p.agent_transcript_path); x.result = shortStr(p.last_assistant_message, 120); finishSub(s, x); } break; }
