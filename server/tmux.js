@@ -306,13 +306,36 @@ function remoteReady(id, { cwd, need = [], scripts = true } = {}) {
   return { mc, bins, root, runDir: mx.machineRunDir(id), ownStatusLine: /OWNSTATUS/.test(out) };
 }
 
+/**
+ * Salin transkrip Claude sesi `sid` ke mesin `toMachine` (null = Mac hub) di ~/.claude/projects/<folder cwd>/<sid>.jsonl.
+ * Sumbernya file asli di mesin asal (atau lokal); salinan cermin di hub tidak dipakai karena bisa tertinggal.
+ */
+export function carryClaudeTranscript(prev, sid, toMachine, cwd) {
+  const mirror = prev.transcript && mx.remoteOfMirror(prev.transcript);
+  const srcMachine = mirror ? mirror.machine : (isRemoteId(prev.machine) ? prev.machine : null);
+  const srcFile = mirror ? mirror.file : prev.transcript;
+  const fail = why => new Error(`Percakapan sesi ini tidak bisa dibawa ke ${toMachine ? `Mac ${machineName(toMachine)}` : 'Mac kantor'}: ${why}. Mulai shift baru saja; buku catatan role tetap terbawa.`);
+  if (!srcFile) throw fail('transkripnya tidak diketahui');
+  if (srcMachine && mx.isOffline(srcMachine)) throw fail(`Mac ${machineName(srcMachine)} sedang offline`);
+  const parts = [], step = 8 << 20;
+  for (let off = 0; ; ) { const b = mx.readFrom(srcMachine, srcFile, off, step); if (!b.length) break; parts.push(b); off += b.length; if (b.length < step) break; }
+  const data = Buffer.concat(parts);
+  if (!data.length) throw fail('transkripnya kosong atau tidak terbaca');
+  const home = toMachine ? mx.machineHome(toMachine) : process.env.HOME;
+  if (!home) throw fail('folder home di mesin tujuan tidak diketahui');
+  const dest = path.join(home, '.claude', 'projects', String(cwd).replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
+  if ((mx.statFile(toMachine, dest)?.size || 0) >= data.length) return dest;
+  mx.writeFile(toMachine, dest, data, 0o600);
+  return dest;
+}
+
 /** Start (or resume) a shift for a role in tmux. Returns the session id. */
 export function startShift(officeId, roleId, { task = '', cardId = null, resumeSid = null, worktree = false, permissionMode = null, engine = null, model = null, effort = null } = {}) {
   const db = officeDb(officeId);
   const role = one(db, 'SELECT * FROM roles WHERE id = ? AND archived = 0', roleId);
   if (!role) throw new Error('Role tidak ditemukan');
   // engine of this shift: the one asked for at start, else the role's own
-  const previous = resumeSid ? one(globalDb(), 'SELECT engine, office, machine FROM sessions WHERE sid = ?', resumeSid) : null;
+  const previous = resumeSid ? one(globalDb(), 'SELECT engine, office, machine, transcript FROM sessions WHERE sid = ?', resumeSid) : null;
   if (previous && previous.office !== officeId) throw new Error('Sesi resume berasal dari kantor lain');
   if (previous && engine && engineOf(engine) !== engineOf(previous.engine)) throw new Error('Resume harus memakai mesin sesi asal');
   const eng = engineOf(engine || (previous ? engineOf(previous.engine) : role.engine));
@@ -320,7 +343,10 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
   const room = m.plan.rooms.find(r => r.id === role.room);
   let { machine, cwd } = roomPlace(m, room);
   let claude = null, rm = null;
-  if (previous && (isRemoteId(previous.machine) ? previous.machine : null) !== machine) {
+  if (previous && (isRemoteId(previous.machine) ? previous.machine : null) !== machine && eng === 'claude') {
+    // ruangannya pindah mesin: bawa transkrip ke mesin tujuan (path folder sama), supaya --resume menemukan percakapannya
+    carryClaudeTranscript(previous, resumeSid, machine, cwd);
+  } else if (previous && (isRemoteId(previous.machine) ? previous.machine : null) !== machine) {
     throw new Error(`Sesi ini dulu jalan di ${isRemoteId(previous.machine) ? `Mac ${machineName(previous.machine)}` : 'Mac kantor'}, sedangkan ruangannya sekarang di ${machine ? `Mac ${machineName(machine)}` : 'Mac kantor'}. Percakapannya hanya bisa dilanjutkan di mesin asalnya; mulai shift baru saja.`);
   }
   if (machine) {

@@ -222,3 +222,16 @@ test('mesin offline: hasTmux, sessionAction, dan ensureShell langsung menolak ta
   try { assert.throws(() => T.ensureShell(oid, rid), /Mac Mac Dua sedang offline/); }
   finally { mx.updateMachine(mac.id, { disabled: false }); }
 });
+
+test('resume lintas mesin (Claude): transkrip dibawa ke ~/.claude/projects mesin tujuan dengan folder cwd yang sama', async () => {
+  const tm = await import('../server/tmux.js');
+  const src = path.join(home, 'asal', 'abc.jsonl');
+  fs.mkdirSync(path.dirname(src), { recursive: true });
+  fs.writeFileSync(src, '{"type":"user"}\n{"type":"assistant"}\n');
+  const id = mx.addMachine({ name: 'Mac Tujuan', ssh: 'local:', hubUrl: 'http://hub.test:4317' }).id;
+  const cwd = '/Users/x/Developer/168Railway/web';
+  const dest = tm.carryClaudeTranscript({ transcript: src, machine: null }, 'abc', id, cwd);
+  assert.equal(dest, path.join(mx.machineHome(id), '.claude', 'projects', '-Users-x-Developer-168Railway-web', 'abc.jsonl'));
+  assert.equal(fs.readFileSync(dest, 'utf8'), fs.readFileSync(src, 'utf8'));
+  fs.rmSync(dest);
+});

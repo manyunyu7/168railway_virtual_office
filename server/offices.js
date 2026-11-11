@@ -483,6 +483,18 @@ export function updateRoom(id, roomId, patch) {
     if (patch.name) ov[roomId].name = patch.name.trim();
     if (patch.note !== undefined) ov[roomId].note = patch.note;
     if (patch.frozen !== undefined) { if (patch.frozen) { ov[roomId].kind = 'beku'; ov[roomId].floor = 'frozen'; } else { delete ov[roomId].kind; delete ov[roomId].floor; } }
+    // ruangan hasil scan pindah ke mesin lain (repo yang sama ada di sana) atau kembali ke folder repo-nya di Mac ini
+    if (patch.machine !== undefined || patch.remotePath !== undefined) {
+      const cur = officeModel(id).plan.rooms.find(r => r.id === roomId);
+      if (!cur) throw new Error('Ruangan tidak ditemukan');
+      const machine = patch.machine !== undefined ? patch.machine : ov[roomId].machine;
+      if (isRemoteRoomInput(machine)) {
+        const want = patch.remotePath !== undefined ? patch.remotePath : ov[roomId].remotePath || (cur.path != null ? path.join(officeModel(id).root, cur.path) : null);
+        const { dir, stack } = checkRemoteRoom(officeModel(id), machine, want, roomId);
+        Object.assign(ov[roomId], { path: null, machine, remotePath: dir, stack });
+      } else { delete ov[roomId].path; delete ov[roomId].machine; delete ov[roomId].remotePath; delete ov[roomId].stack; }
+    }
+    if (!Object.keys(ov[roomId]).length) delete ov[roomId];
     run(db, "INSERT INTO meta (key, value) VALUES ('rooms', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", JSON.stringify(ov));
   }
   invalidate(id);

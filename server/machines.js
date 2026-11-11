@@ -294,6 +294,8 @@ export function probeSync(id) {
     return { ok: false, error: String(e.stderr || e.message || e).trim().slice(0, 400), latencyMs: Date.now() - t0 };
   }
 }
+/** HOME di mesin itu (dicari sekali). null bila tak terjangkau. */
+export function machineHome(id) { if (!getMachine(id)) return process.env.HOME; ensureProbed(id); return st(id).home || null; }
 /** Pastikan bin remote sudah dicari (dipanggil sebelum perintah pertama ke mesin itu). */
 export function ensureProbed(id) { if (getMachine(id) && !st(id).bins) probeSync(id); return st(id).bins || {}; }
 

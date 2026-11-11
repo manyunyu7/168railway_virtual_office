@@ -159,3 +159,19 @@ test('sesi lokal tidak berubah: tanpa kantor_machine tetap lewat officeForCwd/ro
   assert.equal(s.room, 'api');
   assert.equal(s.transcript, '/tmp/l1.jsonl');
 });
+
+test('updateRoom: ruangan hasil scan pindah ke mesin lain lalu kembali', () => {
+  const scanned = offices.officeModel(office).plan.rooms.find(r => r.path && !r.extra && !r.machine);
+  assert.ok(scanned, 'ada ruangan hasil scan');
+  fs.mkdirSync(path.join(remote, 'salinan'), { recursive: true });
+  offices.updateRoom(office, scanned.id, { machine: 'mac-dua', remotePath: path.join(remote, 'salinan') });
+  let r = room(office, scanned.id);
+  assert.equal(r.machine, 'mac-dua');
+  assert.equal(r.remotePath, path.join(remote, 'salinan'));
+  assert.equal(r.path, null);
+  assert.deepEqual(offices.roomCwd(offices.officeModel(office), r), { machine: 'mac-dua', cwd: path.join(remote, 'salinan') });
+  offices.updateRoom(office, scanned.id, { machine: null });
+  r = room(office, scanned.id);
+  assert.equal(r.machine ?? null, null);
+  assert.equal(r.path, scanned.path);
+});
