@@ -859,7 +859,7 @@ function adoptRemoteNow(machineId) {
       run(globalDb(), "UPDATE sessions SET status = 'idle' WHERE sid = ?", r.sid);
       s.transcript = r.transcript || null; // path cermin lokal (mirror/<mesin>/...), jadi pembaca transkrip jalan seperti biasa
       const src = s.transcript && mx.remoteOfMirror(s.transcript);
-      if (src) import('./mirror.js').then(mm => mm.mirrorTranscript?.(src.machine, src.file)).catch(() => {});
+      if (src) import('./mirror.js').then(mm => (mm.mirrorLater || mm.mirrorTranscript)?.(src.machine, src.file)).catch(() => {}); // tanpa ssh sinkron: poller yang menarik
       if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
       bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
       adopted++;
