@@ -79,8 +79,63 @@ function applyLayout(plan, L) {
   plan.w = L.w || plan.w; plan.h = L.h || plan.h;
   for (const k of ['decor', 'runners', 'wings']) if (Array.isArray(L[k])) plan[k] = L[k];
   // zones live inside their open-plan room and follow it
-  if (fresh.length) appendRow(plan, fresh.filter(r => r.kind !== 'zone'));
+  if (fresh.length) placeRows(plan, fresh.filter(r => r.kind !== 'zone'));
   return true;
+}
+
+/* ---------------- ruangan per mesin (docs/MULTI-PC.md) ---------------- */
+const remoteOf = r => r && r.machine && r.machine !== mx.LOCAL ? r.machine : null;
+/**
+ * Penempatan bawaan ruangan tambahan: ruangan lokal dulu, persis seperti sebelum ada multi-PC (satu baris appendRow),
+ * lalu satu baris (sayap) per mesin remote, urut seperti daftar mesin di config. Tanpa ruangan remote = appendRow biasa.
+ */
+function placeRows(plan, rooms) {
+  if (!rooms.some(remoteOf)) return appendRow(plan, rooms);
+  const local = rooms.filter(r => !remoteOf(r)), groups = new Map();
+  for (const r of rooms) if (remoteOf(r)) { if (!groups.has(r.machine)) groups.set(r.machine, []); groups.get(r.machine).push(r); }
+  const order = mx.listMachines().map(m => m.id);
+  const rank = id => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
+  if (local.length) appendRow(plan, local);
+  for (const id of [...groups.keys()].sort((a, b) => rank(a) - rank(b))) appendRow(plan, groups.get(id));
+  return plan;
+}
+const overlaps = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 1 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 1;
+const boxOf = rs => { const x = Math.min(...rs.map(r => r.x)), y = Math.min(...rs.map(r => r.y)); return { x, y, w: Math.max(...rs.map(r => r.x + r.w)) - x, h: Math.max(...rs.map(r => r.y + r.h)) - y }; };
+/**
+ * Area denah per mesin remote, dari posisi akhir ruangannya (bawaan atau tersimpan):
+ * [{ machine, name, x, y, w, h, label: {x, y} | null }] dalam tile. Ruangan satu mesin yang berdekatan (celah sampai satu
+ * koridor) jadi satu area; area yang menimpa ruangan lain dilewati (pelat mesin di tiap ruangan tetap ada).
+ * Area melebar ke atas sampai satu koridor kosong; papan nama di koridor itu. [] bila tidak ada ruangan remote.
+ */
+export function machineAreas(plan) {
+  const rooms = (plan.rooms || []).filter(r => r.kind !== 'zone' && [r.x, r.y, r.w, r.h].every(Number.isFinite));
+  const byMachine = new Map();
+  for (const r of rooms) if (remoteOf(r)) { if (!byMachine.has(r.machine)) byMachine.set(r.machine, []); byMachine.get(r.machine).push(r); }
+  const out = [], GAP = 8;
+  for (const [machine, list] of byMachine) {
+    const foreign = rooms.filter(r => r.machine !== machine);
+    const clean = b => !foreign.some(f => overlaps(b, f));
+    // satu area kalau kotaknya bersih; kalau tidak, pecah menurut kedekatan
+    let clusters = [list];
+    if (!clean(boxOf(list))) {
+      const near = (a, b) => a.x - GAP < b.x + b.w && b.x - GAP < a.x + a.w && a.y - GAP < b.y + b.h && b.y - GAP < a.y + a.h;
+      clusters = [];
+      for (const r of list) {
+        const hit = clusters.filter(c => c.some(q => near(q, r)));
+        const merged = [r, ...hit.flat()];
+        clusters = clusters.filter(c => !hit.includes(c)); clusters.push(merged);
+      }
+    }
+    const name = mx.getMachine(machine)?.name || machine;
+    for (const c of clusters) {
+      const b = boxOf(c);
+      if (!clean(b)) continue;
+      let pad = 0; // koridor kosong di atas area (penempatan bawaan: 7 tile)
+      while (pad < 7 && b.y - pad - 1 >= 0 && !rooms.some(r => r.y <= b.y - pad - 1 && r.y + r.h > b.y - pad - 1 && r.x < b.x + b.w - 1 && r.x + r.w > b.x + 1)) pad++; // dinding bersama (lobi) tidak dihitung
+      out.push({ machine, name, x: b.x, y: b.y - pad, w: b.w, h: b.h + pad, label: pad >= 3 ? { x: b.x + 2, y: b.y - Math.ceil(pad / 2) } : null });
+    }
+  }
+  return out;
 }
 /** Problems with a layout: overlaps (other than shared walls), out of bounds, doors off the wall, too small. */
 export function layoutProblems(plan) {
@@ -107,7 +162,7 @@ export function saveLayout(id, L) {
   if (!m) throw new Error('Kantor tidak ditemukan');
   const w = Math.max(20, Math.min(400, Math.round(L.w || m.plan.w))), h = Math.max(20, Math.min(400, Math.round(L.h || m.plan.h)));
   // the rooms a layout may place: everything the office has before any layout is applied
-  const base = () => { const t = structuredClone(basePlan(m.root, m.scan, [])); const ex = j(one(officeDb(id), "SELECT value FROM meta WHERE key = 'extraRooms'")?.value, []).filter(x => !t.rooms.some(r => r.id === x.id)); if (ex.length) appendRow(t, ex.map(x => ({ ...x, extra: true }))); return t; };
+  const base = () => { const t = structuredClone(basePlan(m.root, m.scan, [])); const ex = j(one(officeDb(id), "SELECT value FROM meta WHERE key = 'extraRooms'")?.value, []).filter(x => !t.rooms.some(r => r.id === x.id)); if (ex.length) placeRows(t, ex.map(x => ({ ...x, extra: true }))); return t; };
   const ids = new Set(base().rooms.map(r => r.id));
   const rooms = {};
   for (const r of L.rooms || []) {
@@ -205,13 +260,16 @@ export function officeModel(id, { preview = null } = {}) {
   const extra = j(one(db, "SELECT value FROM meta WHERE key = 'extraRooms'")?.value, []).filter(x => !plan.rooms.some(r => r.id === x.id));
   // a room that is only being considered: laid out exactly as it would be after saving
   if (preview) extra.push(preview);
-  if (extra.length) appendRow(plan, extra.map(x => ({ ...x, extra: true })));
+  if (extra.length) placeRows(plan, extra.map(x => ({ ...x, extra: true })));
   for (const wt of scan.worktrees) {
     const room = plan.rooms.find(r => r.path && r.path === wt.parent);
     if (room) (room.worktrees ||= []).push(wt.dir);
   }
   for (const r of plan.rooms) Object.assign(r, overrides[r.id] || {});
   const custom = applyLayout(plan, j(one(db, "SELECT value FROM meta WHERE key = 'layout'")?.value, null));
+  // ruangan di Mac lain: area per mesin (papan nama + redup saat offline di denah). Tanpa ruangan remote: tidak ada kunci baru.
+  const areas = machineAreas(plan);
+  if (areas.length) plan.machineAreas = areas;
   plan.furniture = j(one(db, "SELECT value FROM meta WHERE key = 'furniture'")?.value, []);
   const model = { id: row.id, name: row.name, root: row.root, style: row.style || describe(scan), plan, scan, custom };
   if (!preview) cache.set(id, model);

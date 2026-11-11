@@ -3,7 +3,7 @@ import { short, hashStr, guestLook } from './util.js';
 import { loadCatalog, getCatalog, createEngine, prayPhase } from './furniture.js';
 import { attachOwner } from './owner.js';
 import { createMinions } from './minions.js';
-import { roomMachine, roomOffline, machineLabel, sessOffline } from './lencana.js';
+import { roomMachine, roomOffline, machineLabel, machineDown, sessOffline } from './lencana.js';
 
 const T = 8, WH = 4;
 const darkMQ = matchMedia('(prefers-color-scheme: dark)');
@@ -1176,13 +1176,24 @@ export function createStage(host, opts) {
   function drawLabels(c, time) {
     const z = cam.z, Sx = (wx, wy) => [(wx - cam.x) * z, (wy - cam.y) * z];
     c.textBaseline = 'middle';
+    // Multi-PC: sayap per mesin remote (plan.machineAreas dari server). Bingkai tipis di sekeliling area; mesin offline = seluruh
+    // area (koridor + ruangan) diredupkan sekali, jadi ruangan di dalamnya tidak diredupkan lagi di bawah.
+    const areas = editing ? [] : plan.machineAreas || [], inDim = r => areas.some(a => a.down && r.x >= a.x && r.y >= a.y && r.x + r.w <= a.x + a.w && r.y + r.h <= a.y + a.h);
+    for (const a of areas) {
+      a.down = machineDown(a.machine);
+      const [ax, ay] = Sx(a.x * T, a.y * T), aw = a.w * T * z, ah = a.h * T * z;
+      if (ax > canvas._w || ay > canvas._h || ax + aw < 0 || ay + ah < 0) continue;
+      c.fillStyle = a.down ? 'rgba(48,52,60,.42)' : 'rgba(90,170,230,.07)'; c.fillRect(ax, ay, aw, ah); // seperti tint zona; offline = abu
+      c.strokeStyle = a.down ? 'rgba(170,176,186,.7)' : 'rgba(120,195,245,.7)'; c.lineWidth = Math.max(1, Math.round(z)); c.setLineDash([6, 4]);
+      rr(c, ax + 1, ay + 1, aw - 2, ah - 2, 6); c.stroke(); c.setLineDash([]);
+    }
     // the layout editor draws its own room plates
     if (!editing) for (const r of plan.rooms) {
       if (r.kind === 'openplan') continue;
       let wx, wy;
       if (r.kind === 'zone') { const op = plan.rooms.find(q => q.id === r.zoneOf); wx = (r.x + 1) * T; wy = (op.y + WH) * T + 2; } else { wx = r.x * T + 10; wy = r.y * T + 8; }
       const mx = r.kind !== 'zone' && roomMachine(r), down = mx && roomOffline(r);
-      if (down && r.w && r.h) { const [ox, oy] = Sx(r.x * T, r.y * T); c.fillStyle = 'rgba(48,52,60,.42)'; c.fillRect(ox, oy, r.w * T * z, r.h * T * z); } // ruangan di mesin offline: abu
+      if (down && r.w && r.h && !inDim(r)) { const [ox, oy] = Sx(r.x * T, r.y * T); c.fillStyle = 'rgba(48,52,60,.42)'; c.fillRect(ox, oy, r.w * T * z, r.h * T * z); } // ruangan di mesin offline: abu
       const [sx, sy] = Sx(wx, wy); if (sx > canvas._w || sy > canvas._h || sx < -220 || sy < -40) continue;
       const fs = z < 1.2 ? 8 : 10;
       c.font = `700 ${fs}px ${PIX}`;
@@ -1214,6 +1225,25 @@ export function createStage(host, opts) {
       }
     }
     if (z >= .7) for (const wg of plan.wings || []) { const [sx, sy] = Sx(wg.x * T, wg.y * T); c.font = `700 ${z < 1.4 ? 8 : 10}px ${PIX}`; c.fillStyle = 'rgba(251,244,234,.7)'; c.fillText(wg.t.toUpperCase(), sx, sy); }
+    // papan nama sayap mesin di koridornya; nama hidup dari daftar mesin klien (mesin.js), cadangan nama dari server
+    for (const a of areas) { // tanpa batas zoom, seperti pelat ruangan (label sayap biasa baru muncul di .7)
+      if (!a.label) continue;
+      const [sx, sy] = Sx(a.label.x * T, a.label.y * T), fs = z < 1.4 ? 8 : 10;
+      if (sx > canvas._w || sy > canvas._h + 20 || sy < -20) continue;
+      const live = machineLabel(a.machine), nm = live && live !== a.machine ? live : a.name || live;
+      let t = (nm + (a.down ? ' · offline' : '')).toUpperCase();
+      c.font = `700 ${fs}px ${PIX}`;
+      const maxW = (a.w - 4) * T * z - 30;
+      while (t.length > 4 && c.measureText(t).width > maxW) t = t.slice(0, -2).trimEnd() + '…';
+      // papan nama: pelat gelap seperti pelat ruangan, strip kiri biru mesin (abu saat offline)
+      const tw = c.measureText(t).width, ph = fs + 8, py = Math.round(sy - ph / 2);
+      c.fillStyle = 'rgba(31,22,40,.82)'; rr(c, sx, py, tw + 30, ph, 4); c.fill();
+      c.fillStyle = a.down ? 'rgba(140,145,153,.95)' : 'rgba(27,120,175,.95)'; c.fillRect(sx, py + 3, 3, ph - 6);
+      const ix = sx + 8, iy = Math.round(py + ph / 2 - 4); c.fillStyle = a.down ? '#B9BDC4' : '#9FD4F5';
+      c.fillRect(ix, iy, 9, 6); c.fillRect(ix + 3, iy + 6, 3, 1); c.fillRect(ix + 2, iy + 7, 5, 1); // ikon layar
+      c.fillStyle = 'rgba(31,22,40,1)'; c.fillRect(ix + 1, iy + 1, 7, 4);
+      c.fillStyle = a.down ? '#C9CDD3' : '#FBF4EA'; c.fillText(t, sx + 22, py + ph / 2 + .5);
+    }
     for (const e of ents.values()) {
       if (e.alpha <= 0 || editing) continue;
       const sit = e.mode === 'sit' && e.desk;

@@ -21,3 +21,35 @@
 .cm-empty .mx-banner{max-width:460px;text-align:left}
 .mx-hint{margin:6px 0 10px}
 .cm-head.mx-off .cm-tools .btn.halt:disabled{--bf:var(--surface-2);--be:var(--line);--bb:var(--line);--bc:var(--muted-2);background:var(--surface-2);border-color:var(--line);color:var(--muted-2)}
+
+/* strip status mesin di header (web/js/mesin-strip.js). Hanya ada bila ada mesin terdaftar. */
+.mxs{display:flex;align-items:center;gap:4px;min-width:0;flex:0 1 auto;overflow:hidden}
+.mxs[hidden]{display:none}
+.mxs-chip{display:inline-flex;align-items:center;gap:6px;flex:0 1 auto;min-width:0;height:26px;padding:0 8px;border:1.5px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:700 11px var(--f-label);line-height:1;white-space:nowrap;cursor:pointer}
+.mxs-chip:hover{border-color:var(--muted-2);background:var(--surface-2)}
+.mxs-chip:focus-visible{outline:2px solid var(--blue-text,var(--ink));outline-offset:1px}
+.mxs-chip.dis{color:var(--muted-2)}
+.mxs-chip.dis .mxs-nm{text-decoration:line-through;text-decoration-color:var(--line)}
+.mxs-chip.off{color:var(--muted)}
+.mxs-nm{min-width:0;max-width:14ch;overflow:hidden;text-overflow:ellipsis}
+.mxs-sum .mxs-nm{max-width:none}
+.mxs-lat{color:var(--muted);font-weight:600;font-variant-numeric:tabular-nums}
+.mxs-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--muted-2);box-sizing:border-box}
+.mxs-dot.on{background:var(--ok);box-shadow:0 0 0 2.5px color-mix(in srgb,var(--ok) 22%,transparent)}
+.mxs-dot.off{background:var(--muted-2)}
+.mxs-dot.unk{background:var(--warn);box-shadow:0 0 0 2.5px color-mix(in srgb,var(--warn) 22%,transparent)}
+.mxs-dot.dis{background:transparent;border:1.5px solid var(--muted-2);opacity:.55}
+.mxs-sum{gap:4px}
+.mxs-sum .mxs-nm{margin-left:2px}
+/* header mulai sempit: latensi dulu yang hilang, lalu nama (titik saja), lalu strip disembunyikan di HP kecil */
+@media (max-width:1180px){.mxs-lat{display:none}}
+/* di dalam kantor header berbagi tempat dengan bar tab: titik saja, nama tetap ada di tooltip */
+@media (max-width:1440px){body.in-office .mxs-chip{gap:0;padding:0 6px}body.in-office .mxs-chip .mxs-nm,body.in-office .mxs-lat{display:none}}
+@media (max-width:900px){
+  .mxs{gap:2px;padding-right:4px;margin-right:2px;border-right:1px solid var(--line)}
+  .mxs-chip{height:36px;padding:0 7px;border-color:transparent;background:none;gap:4px}
+  .mxs-chip .mxs-nm{display:none}
+  .mxs-chip:hover{background:var(--surface-2)}
+}
+@media (max-width:480px){.mxs{display:none}}
+#stMesin{scroll-margin-top:12px}

@@ -34,6 +34,7 @@ import { minionCardHTML, paintMinionCard, showMinionMenu, closeMinionMenu } from
 import { kunciCardHTML, paintKunciCard, kunciLive } from './kunci-ui.js';
 import { mountTabBar, refitTabBar } from './tab-bar.js';
 import { onMachineEvent, machines, machineName, loadMachines } from './mesin.js';
+import { mountMachineStrip } from './mesin-strip.js';
 import { setMachineSource, sessBadge, roomBadge, sessOffline, roomOffline, roomMachine, roomBlockReason, anyRemote } from './lencana.js';
 
 export const ctx = { st: null, office: null, stage: null, view: null, route: null };
@@ -707,6 +708,7 @@ function machinesRepaint() {
   if (ctx.route?.name === 'map') debounceMap();
 }
 document.addEventListener('kantor:machines', machinesRepaint);
+mountMachineStrip($('#mxStrip'), { onChange: refitTabBar });
 loadMachines().then(machinesRepaint).catch(() => {});
 
 /* boot */
