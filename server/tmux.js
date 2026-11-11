@@ -325,7 +325,8 @@ export function carryClaudeTranscript(prev, sid, toMachine, cwd) {
   if (!home) throw fail('folder home di mesin tujuan tidak diketahui');
   const dest = path.join(home, '.claude', 'projects', String(cwd).replace(/[^A-Za-z0-9]/g, '-'), `${sid}.jsonl`);
   if ((mx.statFile(toMachine, dest)?.size || 0) >= data.length) return dest;
-  mx.writeFile(toMachine, dest, data, 0o600);
+  // ~1 MB/s lewat WiFi pun cukup: transkrip shift lama bisa puluhan MB
+  mx.writeFile(toMachine, dest, data, 0o600, { timeout: 30000 + Math.ceil(data.length / 1024) });
   return dest;
 }
 

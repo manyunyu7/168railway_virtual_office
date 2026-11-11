@@ -223,9 +223,9 @@ export function spawnArgs(id, cmd, args = []) {
 
 /* ---------------- file ---------------- */
 /** Tulis file di mesin itu (folder dibuat). Konten string atau Buffer. */
-export function writeFile(id, file, content, mode = 0o600) {
+export function writeFile(id, file, content, mode = 0o600, { timeout = 15000 } = {}) {
   if (!getMachine(id)) { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content, { mode }); return; }
-  shSync(id, `umask 077 && mkdir -p ${q(path.dirname(file))} && cat > ${q(file)} && chmod ${(mode & 0o777).toString(8)} ${q(file)}`, { input: content });
+  shSync(id, `umask 077 && mkdir -p ${q(path.dirname(file))} && cat > ${q(file)} && chmod ${(mode & 0o777).toString(8)} ${q(file)}`, { input: content, timeout });
 }
 /** Ukuran dan mtime file di mesin itu, atau null bila tidak ada. */
 export function statFile(id, file) {
