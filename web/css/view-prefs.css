@@ -25,3 +25,25 @@
 .vp-face{display:grid;gap:3px;padding:7px 9px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font:700 11.5px var(--f-body);cursor:pointer;text-align:left}
 .vp-face span{font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden}
 .vp-face[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.vp-sub{font:800 11px var(--f-label);color:var(--muted);margin-top:4px}
+.vp-walls{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+.vp-wall{display:grid;gap:4px;padding:4px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:700 11.5px var(--f-body);cursor:pointer;text-align:center}
+.vp-wall.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.vp-wall-sw{display:grid;place-items:center;height:44px;border-radius:7px;background:var(--bg);color:var(--muted);font-size:18px}
+.vp-bubs{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+.vp-bub{display:grid;gap:4px;padding:6px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:700 11.5px var(--f-body);cursor:pointer}
+.vp-bub[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.vp-bub-ai,.vp-bub-me{display:block;height:12px;width:70%;background:var(--surface-2);border:2px solid var(--line);border-radius:8px}
+.vp-bub-me{justify-self:end;background:var(--ch-me,var(--accent));border-color:transparent}
+.vp-bub[data-b="bulat"] span{border-radius:99px}
+.vp-bub[data-b="ekor"] .vp-bub-me{border-top-right-radius:0}.vp-bub[data-b="ekor"] .vp-bub-ai{border-top-left-radius:0}
+.vp-bub[data-b="kotak"] span{border-radius:2px}
+.vp-bub[data-b="pixel"] span{border-radius:0;border-style:dashed}
+.vp-bub[data-b="awan"] span{border:0;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.vp-mes,.vp-peeks{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+.vp-mes button{width:26px;height:26px;border-radius:50%;border:2px solid var(--surface);outline:2px solid transparent;cursor:pointer}
+.vp-mes button[aria-pressed="true"]{outline-color:var(--ink)}
+.vp-peeks button{display:grid;place-items:center;gap:1px;width:52px;padding:4px 2px;border:2px solid var(--line);border-radius:9px;background:var(--surface);color:var(--muted);cursor:pointer;font-size:13px}
+.vp-peeks button[aria-pressed="true"]{border-color:var(--accent)}
+.vp-peeks i{width:27px;height:21px;background:center/contain no-repeat;image-rendering:pixelated}
+.vp-peeks small{font:700 10px var(--f-body)}

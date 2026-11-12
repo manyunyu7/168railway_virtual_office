@@ -176,3 +176,35 @@
 .md pre .hl-c{color:var(--muted);font-style:italic}
 .md pre .hl-add{color:var(--ok);background:var(--ok-soft);display:inline-block;min-width:100%}
 .md pre .hl-del{color:var(--bad);background:var(--bad-soft);display:inline-block;min-width:100%}
+
+/* ---------- tampilan Chat pilihan pemilik (view-prefs.js): wallpaper, gelembung, warna, maskot ---------- */
+:root[data-ch-wall="titik"] .ch-list,.vp-wall[data-w="titik"] .vp-wall-sw{background:radial-gradient(color-mix(in srgb,var(--ink) 16%,transparent) 1.2px,transparent 1.6px) 0 0/18px 18px,var(--bg)}
+:root[data-ch-wall="kertas"] .ch-list,.vp-wall[data-w="kertas"] .vp-wall-sw{background:repeating-linear-gradient(transparent 0 27px,color-mix(in srgb,var(--blue,#2F6FEB) 16%,transparent) 27px 28px),color-mix(in srgb,var(--warn-soft) 55%,var(--bg))}
+:root[data-ch-wall="doodle"] .ch-list,.vp-wall[data-w="doodle"] .vp-wall-sw{background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22120%22%20height%3D%22120%22%20fill%3D%22none%22%20stroke%3D%22%238a8f98%22%20stroke-opacity%3D%22.28%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Crect%20x%3D%2212%22%20y%3D%2214%22%20width%3D%2226%22%20height%3D%2216%22%20rx%3D%224%22/%3E%3Cpath%20d%3D%22M16%2030v4M34%2030v4M12%2022h26%22/%3E%3Cpath%20d%3D%22M80%2018l3%206%206%201-4.5%204%201%206-5.5-3-5.5%203%201-6-4.5-4%206-1z%22/%3E%3Cpath%20d%3D%22M20%2078h18v14a6%206%200%200%201-6%206h-6a6%206%200%200%201-6-6z%20M38%2082h4a3%203%200%200%201%200%206h-4%22/%3E%3Cpath%20d%3D%22M76%2074h22v16H76z%20M76%2080h22%20M84%2090v6%20M80%2096h14%22/%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2256%22%20r%3D%223%22/%3E%3Cpath%20d%3D%22M98%2052q6%206%200%2012%22/%3E%3C/svg%3E") 0 0/120px 120px,color-mix(in srgb,var(--surface-2) 70%,var(--bg))}
+:root[data-ch-wall="rel"] .ch-list,.vp-wall[data-w="rel"] .vp-wall-sw{background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2260%22%20height%3D%2260%22%20stroke%3D%22%238a8f98%22%20stroke-opacity%3D%22.26%22%3E%3Cpath%20d%3D%22M0%2022h60M0%2038h60%22%20stroke-width%3D%222.5%22/%3E%3Cpath%20d%3D%22M8%2016v28M26%2016v28M44%2016v28%22%20stroke-width%3D%225%22%20stroke-opacity%3D%22.16%22/%3E%3C/svg%3E") 0 0/60px 60px,color-mix(in srgb,var(--surface-2) 60%,var(--bg))}
+:root[data-ch-wall="laut"] .ch-list,.vp-wall[data-w="laut"] .vp-wall-sw{background:linear-gradient(180deg,color-mix(in srgb,#7FB8FF 45%,var(--bg)),color-mix(in srgb,#B6F0E4 40%,var(--bg)))}
+:root[data-ch-wall="senja"] .ch-list,.vp-wall[data-w="senja"] .vp-wall-sw{background:linear-gradient(165deg,color-mix(in srgb,#FFC38A 50%,var(--bg)),color-mix(in srgb,#F27A9B 42%,var(--bg)) 60%,color-mix(in srgb,#7A5BB0 40%,var(--bg)))}
+:root[data-ch-wall="malam"] .ch-list,.vp-wall[data-w="malam"] .vp-wall-sw{background:radial-gradient(1.5px 1.5px at 20px 30px,#fff,transparent),radial-gradient(1px 1px at 90px 80px,#fff,transparent),radial-gradient(1.5px 1.5px at 150px 20px,#fde68a,transparent),radial-gradient(1px 1px at 60px 140px,#fff,transparent),radial-gradient(1px 1px at 170px 120px,#c7d2fe,transparent) 0 0/200px 180px,linear-gradient(180deg,#0B1530,#1B1440)}
+:root[data-ch-wall="foto"] .ch-list,.vp-wall[data-w="foto"] .vp-wall-sw{background:linear-gradient(color-mix(in srgb,var(--bg) 30%,transparent),color-mix(in srgb,var(--bg) 30%,transparent)),var(--ch-wall-img,var(--surface-2)) center/cover no-repeat}
+/* teks yang langsung di atas wallpaper (jam, baris tool, kosong) diberi alas tipis supaya tetap terbaca */
+:root[data-ch-wall]:not([data-ch-wall="polos"]) .ch-row time{background:color-mix(in srgb,var(--bg) 78%,transparent);border-radius:6px;padding:1px 6px}
+:root[data-ch-wall]:not([data-ch-wall="polos"]) .ch-list>:not(.ch-row),:root[data-ch-wall]:not([data-ch-wall="polos"]) .ch-tool{background:color-mix(in srgb,var(--bg) 82%,transparent);border-radius:10px}
+.ch-b.me{background:var(--ch-me,var(--accent));color:var(--ch-me-ink,var(--accent-ink))}
+/* bentuk gelembung */
+:root[data-ch-bub="bulat"] .ch-b{border-radius:22px}
+:root[data-ch-bub="ekor"] .ch-b{border-radius:10px;position:relative}
+:root[data-ch-bub="ekor"] .ch-b.me{border-top-right-radius:0}
+:root[data-ch-bub="ekor"] .ch-b.ai{border:0;border-top-left-radius:0;box-shadow:0 1px 1.5px rgba(0,0,0,.16)}
+:root[data-ch-bub="ekor"] .ch-b.me::after,:root[data-ch-bub="ekor"] .ch-b.ai::after{content:'';position:absolute;top:0;width:10px;height:12px}
+:root[data-ch-bub="ekor"] .ch-b.me::after{right:-9px;background:var(--ch-me,var(--accent));clip-path:polygon(0 0,100% 0,0 100%)}
+:root[data-ch-bub="ekor"] .ch-b.ai::after{left:-9px;background:var(--surface);clip-path:polygon(0 0,100% 0,100% 100%)}
+:root[data-ch-bub="kotak"] .ch-b{border-radius:4px}
+:root[data-ch-bub="kotak"] .ch-b.ai{border-left:4px solid var(--accent)}
+:root[data-ch-bub="pixel"] .ch-b{border-radius:0;border:0;margin:3px}
+:root[data-ch-bub="pixel"] .ch-b.ai{box-shadow:0 -3px 0 0 var(--line),0 3px 0 0 var(--line),-3px 0 0 0 var(--line),3px 0 0 0 var(--line),0 6px 0 0 rgba(0,0,0,.12)}
+:root[data-ch-bub="pixel"] .ch-b.me{box-shadow:0 -3px 0 0 color-mix(in srgb,var(--ink) 35%,transparent),0 3px 0 0 color-mix(in srgb,var(--ink) 35%,transparent),-3px 0 0 0 color-mix(in srgb,var(--ink) 35%,transparent),3px 0 0 0 color-mix(in srgb,var(--ink) 35%,transparent)}
+:root[data-ch-bub="awan"] .ch-b{border-radius:18px;border:0;box-shadow:0 4px 14px rgba(0,0,0,.10)}
+/* maskot pixel duduk di atas pesanmu */
+:root[data-ch-peek]:not([data-ch-peek="none"]) .ch-row.me{padding-top:16px}
+:root[data-ch-peek]:not([data-ch-peek="none"]) .ch-row.me .ch-b{position:relative}
+:root[data-ch-peek]:not([data-ch-peek="none"]) .ch-row.me .ch-b::before{content:'';position:absolute;right:12px;top:-19px;width:27px;height:21px;background:var(--ch-peek) bottom/contain no-repeat;image-rendering:pixelated;pointer-events:none}

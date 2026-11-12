@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanPrefs, chatVars, stepPref, TERM_THEMES, TERM_FACES } from '../web/js/view-prefs.js';
+import { cleanPrefs, chatVars, stepPref, TERM_THEMES, TERM_FACES, CHAT_WALLS, spriteUri } from '../web/js/view-prefs.js';
 
 test('nilai rusak kembali ke bawaan, nilai sah dipakai', () => {
   const p = cleanPrefs({ chatFs: 99, chatCode: '13', chatLh: 3, chatW: 'x', termFs: 16, termLh: 1.3 });
-  assert.deepEqual(p, { chatFs: 0, chatCode: 13, chatLh: 1.5, chatW: 'normal', termFs: 16, termLh: 1.3, termTheme: 'kantor', termFace: 'jetbrains' });
+  assert.deepEqual(p, { chatFs: 0, chatCode: 13, chatLh: 1.5, chatW: 'normal', termFs: 16, termLh: 1.3, termTheme: 'kantor', termFace: 'jetbrains', chatWall: 'polos', chatBub: 'kantor', chatMe: 'hijau', chatPeek: 'none' });
 });
 
 test('bawaan tidak mengisi variabel CSS supaya ukuran HP dan desktop tetap', () => {
@@ -32,4 +32,15 @@ test('font terminal: pilihan sah dipakai, sisanya kembali ke JetBrains Mono', ()
   assert.equal(cleanPrefs({ termFace: 'ubuntu' }).termFace, 'ubuntu');
   assert.equal(cleanPrefs({ termFace: 'comic' }).termFace, 'jetbrains');
   for (const [k, f] of Object.entries(TERM_FACES)) if (k !== 'jetbrains') assert.match(f.gf, /^[A-Za-z+]+:wght@[\d;]+$/, k);
+});
+
+test('tampilan chat: pilihan sah dipakai, maskot jadi SVG pixel', () => {
+  const p = cleanPrefs({ chatWall: 'malam', chatBub: 'pixel', chatMe: 'gradasi', chatPeek: 'kodok' });
+  assert.deepEqual([p.chatWall, p.chatBub, p.chatMe, p.chatPeek], ['malam', 'pixel', 'gradasi', 'kodok']);
+  const q = cleanPrefs({ chatWall: 'hutan', chatBub: 'x', chatMe: 'merah', chatPeek: 'naga' });
+  assert.deepEqual([q.chatWall, q.chatBub, q.chatMe, q.chatPeek], ['polos', 'kantor', 'hijau', 'none']);
+  assert.ok(Object.keys(CHAT_WALLS).includes('foto'));
+  assert.match(spriteUri('kucing'), /^url\("data:image\/svg\+xml,/);
+  assert.equal(spriteUri('none'), '');
+  assert.ok(Object.keys(TERM_THEMES).length >= 15);
 });
