@@ -33,6 +33,8 @@ function claudeItems(d) {
   const at = d.timestamp;
   const c = d.message?.content;
   if (d.type === 'user') {
+    // ringkasan kompaksi: kartu sendiri di chat, isinya utuh (bisa panjang)
+    if (d.isCompactSummary) { const t = typeof c === 'string' ? c : (c || []).filter(b => b.type === 'text').map(b => b.text).join('\n'); items.push({ k: 'compact', s: clip(t, 40000), at }); return items; }
     if (typeof c === 'string') { const u = unpaste(c); if (!/^\s*</.test(u)) items.push({ k: 'user', s: clip(u, 2000), at }); return items; }
     for (const b of c || []) {
       if (b.type === 'text') { const u = unpaste(b.text); if (!/^\s*</.test(u)) items.push({ k: 'user', s: clip(u, 2000), at }); }

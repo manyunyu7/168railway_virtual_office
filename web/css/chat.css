@@ -244,3 +244,12 @@
 .ch-ti small{font-size:10.5px;color:var(--muted);max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ch-ti-x{position:absolute;top:-6px;right:-2px;width:22px;height:22px;border-radius:50%;border:2px solid var(--surface);background:var(--ink);color:var(--bg);font-size:11px;line-height:1;cursor:pointer}
 .ch-ti-n{font:700 12px var(--f-label);color:var(--muted)}
+/* ringkasan kompaksi: kartu lebar di tengah, bukan gelembung */
+.ch-cmp-row{align-items:stretch}
+.ch-cmp{display:grid;gap:6px;border:2px dashed var(--line);border-radius:14px;padding:10px 14px;background:color-mix(in srgb,var(--surface) 88%,transparent)}
+.ch-cmp-h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.ch-cmp-h span{color:var(--accent);font-weight:900}
+.ch-cmp-h b{font-weight:800;font-size:13.5px}
+.ch-cmp-h small{font:700 10.5px var(--f-label);text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.ch-cmp-p{margin:0;font-size:13px;color:var(--muted);line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ch-cmp-row time{align-self:center}

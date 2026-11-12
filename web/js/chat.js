@@ -5,6 +5,10 @@ import { subRows, fmtTokens, fmtElapsed } from './subagents.js';
 import { chatBubble, chatClick } from './pratinjau.js';
 import { chatTimeline } from './chat-timeline.js';
 import { teammateMsgs, teammateRest } from './teammate.js';
+import { compactSummary } from './compact.js';
+
+/** Kartu "percakapan dilanjutkan": ringkasan kompaksi, pratinjau terlihat, isi lengkap dilipat. */
+const compactHTML = (c, at, pasted) => `<div class="ch-row ch-cmp-row"><div class="ch-cmp"><div class="ch-cmp-h"><span aria-hidden="true">↻</span><b>Percakapan dilanjutkan</b><small>${pasted ? 'ringkasan yang kamu tempel' : 'konteks diringkas otomatis'}</small></div>${c.preview ? `<p class="ch-cmp-p">${esc(c.preview)}</p>` : ''}${c.body ? `<details class="ch-tm-d"><summary>Lihat ringkasan</summary><div class="md">${md(c.body)}</div></details>` : ''}</div><time>${esc(hhmm(at))}</time></div>`;
 
 const TM_COLORS = { blue: '#2F6FEB', green: '#2F9E44', purple: '#7C4DFF', red: '#E03131', orange: '#F08C00', yellow: '#E0A800', pink: '#D6336C', cyan: '#0C9DB5' };
 /** Kartu pesan dari sesi Claude lain: di kiri seperti agen, ringkasan terlihat, isi lengkap dilipat. */
@@ -77,7 +81,9 @@ const imgUrl = (i, thumb) => `/api/sessions/${encodeURIComponent(i.sid)}/image?p
 // thumbnail kecil (sm) dimuat langsung, bukan lazy: chat dirender ulang tiap pembaruan dan img lazy di dalamnya bisa tak pernah termuat (pil kosong)
 const imgBtn = (i, cls = '') => `<button type="button" class="ch-media ${cls}" data-act="img-open" data-url="${esc(imgUrl(i))}" data-name="${esc(i.name || '')}" aria-label="Buka ${esc(i.name || 'gambar')}"><img src="${esc(imgUrl(i, true))}" alt="${esc(i.name || '')}"${cls === 'sm' ? '' : ' loading="lazy"'} onerror="this.closest('button').classList.add('gone')"><span class="ch-img-na">gambar tidak tersedia</span></button>`;
 function itemHTML(g, last, running) {
+  if (g.k === 'compact') { const c = compactSummary(g.s) || { preview: '', body: g.s }; return compactHTML(c, g.at, false); }
   if (g.k === 'user') {
+    const cs = compactSummary(g.s); if (cs) return (cs.rest ? `<div class="ch-row me"><div class="ch-b me">${esc(cs.rest)}</div><time>${esc(hhmm(g.at))}</time></div>` : '') + compactHTML(cs, g.at, true);
     const tm = teammateMsgs(g.s);
     if (tm) { const rest = teammateRest(g.s); return tm.map(m => teammateHTML(m, g.at)).join('') + (rest ? `<div class="ch-row me"><div class="ch-b me">${esc(rest)}</div><time>${esc(hhmm(g.at))}</time></div>` : ''); }
   }
