@@ -31,3 +31,17 @@ test('pertanyaan milik sesi yang sudah tidak hidup tidak nyangkut di "Menunggu k
   assert.deepEqual(updates.sort(), ['ib-hilang', 'ib-selesai']);
   assert.equal(sweepInbox(), 0);
 });
+
+test('sesi hidup: kartu kembaran dan kartu dari sebelum restart pindah ke terminal, kartu yang ditunggu tetap', () => {
+  const old = new Date(Date.now() - 60000).toISOString();
+  const putAt = (id, sid, at) => run(globalDb(), "INSERT INTO inbox (id, office, sid, role, tool, input, summary, created_at, status, source) VALUES (?, 'o', ?, 'r', 'AskUserQuestion', '{}', '{}', ?, 'open', 'kantor')", id, sid, at);
+  live.set('jalan', { sid: 'jalan', status: 'waiting', waiting: { id: 'ib-ditunggu', tool: 'AskUserQuestion' }, subs: new Map() });
+  putAt('ib-ditunggu', 'jalan', old); putAt('ib-kembar', 'jalan', old);
+  live.set('restart', { sid: 'restart', status: 'idle', waiting: null, subs: new Map() });
+  putAt('ib-yatim', 'restart', old); putAt('ib-baru', 'restart', new Date().toISOString());
+  sweepInbox();
+  assert.equal(status('ib-ditunggu'), 'open');
+  assert.equal(status('ib-kembar'), 'terminal');
+  assert.equal(status('ib-yatim'), 'terminal');
+  assert.equal(status('ib-baru'), 'open', 'kartu yang baru dibuat diberi jeda');
+});

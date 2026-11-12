@@ -361,9 +361,13 @@ function summarizeInput(tool, input) {
 }
 
 async function permission(s, p, who) {
-  const id = newId('ib');
   const summary = summarizeInput(p.tool_name, p.tool_input);
-  const item = { id, office: s.office, sid: s.sid, role: s.role, tool: p.tool_name, input: JSON.stringify(p.tool_input || {}).slice(0, 4000), summary, created_at: nowIso(), status: 'open', source: s.kind };
+  const input = JSON.stringify(p.tool_input || {}).slice(0, 4000);
+  // hook izin yang sama terpanggil dua kali (hook global + hook sesi): jangan buat kartu kembar yang nanti nyangkut
+  const twin = one(globalDb(), "SELECT id FROM inbox WHERE sid = ? AND tool = ? AND input = ? AND status = 'open' AND created_at > ?", s.sid, p.tool_name, input, new Date(Date.now() - 5000).toISOString());
+  if (twin) return null;
+  const id = newId('ib');
+  const item = { id, office: s.office, sid: s.sid, role: s.role, tool: p.tool_name, input, summary, created_at: nowIso(), status: 'open', source: s.kind };
   run(globalDb(), 'INSERT INTO inbox (id, office, sid, role, tool, input, summary, created_at, status, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     id, item.office, item.sid, item.role, item.tool, item.input, item.summary, item.created_at, item.status, item.source);
   s.status = 'waiting';
@@ -453,6 +457,7 @@ function clearWaiting(s, status) {
   if (fn) fn(null); // answered in the terminal; release the waiting hook
   const r = run(globalDb(), "UPDATE inbox SET status = ?, decided_at = ? WHERE id = ? AND status = 'open'", status, nowIso(), id);
   if (r.changes) bus.emit('msg', { t: 'inbox-update', id, status });
+  sweepInbox(s.sid); // kartu lain sesi ini yang tertinggal (kembaran, dari sebelum server restart)
 }
 
 /** Decide an inbox item from the UI. */
@@ -500,14 +505,22 @@ function expireInbox(sid, status = 'expired') {
 
 /** Kartu yatim: masih open, tidak ditahan hook (tak bisa dijawab dari kantor), dan sesinya tidak hidup lagi
  *  (berakhir, mati tanpa SessionEnd, atau server restart). Dulu kartu seperti ini nyangkut di "Menunggu kamu" selamanya. */
-export function sweepInbox() {
+export function sweepInbox(onlySid = null) {
   let n = 0;
-  for (const r of all(globalDb(), "SELECT id, sid FROM inbox WHERE status = 'open'")) {
+  const rows = onlySid ? all(globalDb(), "SELECT id, sid, created_at FROM inbox WHERE status = 'open' AND sid = ?", onlySid) : all(globalDb(), "SELECT id, sid, created_at FROM inbox WHERE status = 'open'");
+  for (const r of rows) {
     if (held.has(r.id)) continue;
     const s = live.get(r.sid);
-    if (s && s.status !== 'ended') continue;
-    const u = run(globalDb(), "UPDATE inbox SET status = 'expired', decided_at = ? WHERE id = ? AND status = 'open'", nowIso(), r.id);
-    if (u.changes) { n++; bus.emit('msg', { t: 'inbox-update', id: r.id, status: 'expired' }); }
+    let status = 'expired';
+    if (s && s.status !== 'ended') {
+      // sesi masih hidup tapi tidak sedang menunggu kartu ini: kembaran, sudah dijawab di terminal, atau penandanya
+      // hilang karena server restart. Beri jeda supaya kartu yang baru dibuat tidak ikut tersapu.
+      if (s.waiting?.id === r.id || Date.now() - Date.parse(r.created_at) < 5000) continue;
+      if (s.waiting && s.status === 'waiting' && !s.waiting.id) continue;
+      status = 'terminal';
+    }
+    const u = run(globalDb(), "UPDATE inbox SET status = ?, decided_at = ? WHERE id = ? AND status = 'open'", status, nowIso(), r.id);
+    if (u.changes) { n++; bus.emit('msg', { t: 'inbox-update', id: r.id, status }); }
   }
   return n;
 }
