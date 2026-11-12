@@ -52,7 +52,7 @@
 .term-bar .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--ok);margin-right:4px}
 .term-bar .fs{display:inline-flex;align-items:center;gap:4px}
 .term-bar .fs button{width:24px;height:22px;border:1px solid var(--line);background:var(--surface);border-radius:6px;font:600 13px var(--f-mono);line-height:1;color:var(--ink)}
-.drawer .termbox{padding:6px;border-radius:10px}
+.drawer .termbox{padding:6px;border-radius:10px;background:var(--term-bg,#0E1218)}
 .msgbox{flex:none;display:grid;gap:6px}
 .msgbox textarea{resize:none;min-height:54px;max-height:30vh;border-radius:10px;font-size:14px}
 .msg-actions{display:flex;justify-content:flex-end}

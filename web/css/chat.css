@@ -167,3 +167,10 @@
 .ch-sub-meta{white-space:nowrap;font-variant-numeric:tabular-nums}
 .ch-sub.done{opacity:.5}
 @media (max-width:520px){.ch-sub{grid-template-columns:auto 1fr auto}.ch-sub-act{display:none}}
+/* warna kode (hl.js): ikut token tema, kontras di terang dan gelap */
+.md pre .hl-k{color:var(--blue-text,#1F5FBF);font-weight:700}
+.md pre .hl-s{color:var(--ok)}
+.md pre .hl-n{color:var(--warn)}
+.md pre .hl-c{color:var(--muted);font-style:italic}
+.md pre .hl-add{color:var(--ok);background:var(--ok-soft);display:inline-block;min-width:100%}
+.md pre .hl-del{color:var(--bad);background:var(--bad-soft);display:inline-block;min-width:100%}

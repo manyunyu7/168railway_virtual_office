@@ -1,3 +1,4 @@
+import { hl } from './hl.js';
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -159,9 +160,10 @@ const pdfHtml = (u, name) => `<figure class="md-pdf" data-src="${u}" data-name="
 const docHtml = (u, name) => `<figure class="md-doc" data-src="${u}" data-name="${name}"><button type="button" class="doc-open" data-doc="${u}" aria-label="Buka dokumen ${name}"><span class="doc-info"><b>${name}</b><small>Dokumen</small></span><span class="doc-snip"></span></button></figure>`;
 const YT = /^\s*(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/watch\?(?:[^\s&]*&)*v=|youtu\.be\/|youtube\.com\/shorts\/)([\w-]{11})(?:[&?#][^\s]*)?\s*$/;
 // Small, safe renderer: escapes everything first, then adds markup.
+const codeBlock = (code, lang) => `<pre${lang ? ` data-lang="${esc(lang)}"` : ''}><code>${hl(code, lang)}</code></pre>`;
 export function md(src, { wiki = () => null, roles = [], cardIds = new Set(), taskIndex = true } = {}) {
   const lines = String(src || '').replace(/\r/g, '').split('\n');
-  let out = '', inList = null, inCode = false, code = [], para = [], task = 0;
+  let out = '', inList = null, inCode = false, code = [], para = [], task = 0; let lang = '';
   const flushPara = () => { if (para.length) { out += `<p>${inline(para.join(' '))}</p>`; para = []; } };
   const closeList = () => { if (inList) { out += `</${inList}>`; inList = null; } };
   const inline = s => {
@@ -181,7 +183,7 @@ export function md(src, { wiki = () => null, roles = [], cardIds = new Set(), ta
   };
   for (const raw of lines) {
     const line = raw;
-    if (/^```/.test(line)) { if (inCode) { out += `<pre><code>${esc(code.join('\n'))}</code></pre>`; code = []; inCode = false; } else { flushPara(); closeList(); inCode = true; } continue; }
+    if (/^```/.test(line)) { if (inCode) { out += codeBlock(code.join('\n'), lang); code = []; inCode = false; } else { flushPara(); closeList(); inCode = true; lang = (/^```\s*([\w+#.-]*)/.exec(line)?.[1] || ''); } continue; }
     if (inCode) { code.push(line); continue; }
     let m;
     if (!line.trim()) { flushPara(); closeList(); continue; }
@@ -207,7 +209,7 @@ export function md(src, { wiki = () => null, roles = [], cardIds = new Set(), ta
     closeList();
     para.push(line.trim());
   }
-  if (inCode) out += `<pre><code>${esc(code.join('\n'))}</code></pre>`;
+  if (inCode) out += codeBlock(code.join('\n'), lang);
   flushPara(); closeList();
   if (out.endsWith('</tr>')) out += '</table>';
   return `<div class="md">${out}</div>`;

@@ -82,7 +82,7 @@ body.dk-drag .dock iframe,body.dk-drag .dock .xterm{pointer-events:none}
 .pr-port a:hover,.pr-port-l:hover{text-decoration:underline}
 .pr-act{display:flex;gap:5px;flex:none;flex-wrap:wrap}
 
-.dk-log{display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid var(--line);background:#0E1218}
+.dk-log{display:flex;flex-direction:column;min-width:0;min-height:0;border-left:1px solid var(--line);background:var(--term-bg,#0E1218)}
 .dk-log[hidden]{display:none}
 .dk-log-h{display:flex;align-items:center;gap:8px;flex:none;padding:5px 8px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:12.5px;min-width:0}
 .dk-log-h .pr-cmd{flex:0 1 auto;min-width:0}
@@ -90,7 +90,7 @@ body.dk-drag .dock iframe,body.dk-drag .dock .xterm{pointer-events:none}
 .dk-log-t{flex:1 1 0;min-height:0;padding:4px 0 0 8px;overflow:hidden}
 .dk-log-t .xterm-viewport{background:transparent!important}
 
-.dk-terms{flex:1;min-width:0;min-height:0;position:relative;background:#0E1218}
+.dk-terms{flex:1;min-width:0;min-height:0;position:relative;background:var(--term-bg,#0E1218)}
 .dk-terms[hidden]{display:none}
 .dk-term{position:absolute;inset:0;padding:6px 0 0 10px;display:none}
 .dk-term.cur{display:block}

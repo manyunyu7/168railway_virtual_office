@@ -148,7 +148,7 @@ function setTermFont(delta) {
 const POOL = new Map(), POOL_MAX = 4;
 // ukuran dan jarak baris berlaku untuk semua terminal yang masih tersambung
 onTermPrefs(p => {
-  for (const t of POOL.values()) { try { t.term.options.fontSize = p.fs; t.term.options.lineHeight = p.lh; if (t.el.isConnected) t.fit.fit(); } catch {} }
+  for (const t of POOL.values()) { try { t.term.options.fontSize = p.fs; t.term.options.lineHeight = p.lh; t.term.options.theme = p.theme; if (t.el.isConnected) t.fit.fit(); } catch {} }
   const l = drawerEl()?.querySelector('[data-slot="fs"]'); if (l) l.textContent = String(p.fs);
 });
 function killTerm(t) {
@@ -195,7 +195,7 @@ function mountTerm(host, query, holder = D) {
 }
 function newTerm(query) {
   const el = document.createElement('div'); el.className = 'xt-in';
-  const term = new window.Terminal({ cursorBlink: true, fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace', fontSize: termFont(), lineHeight: termPrefs().lh, scrollback: 5000, theme: { background: '#0E1218', foreground: '#D4DAE3', cursor: '#E4A445' } });
+  const term = new window.Terminal({ cursorBlink: true, fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace', fontSize: termFont(), lineHeight: termPrefs().lh, scrollback: 5000, theme: termPrefs().theme });
   const fit = new window.FitAddon.FitAddon();
   term.loadAddon(fit);
   const t = { query, el, term, fit, ws: null, ro: null, used: Date.now() };
