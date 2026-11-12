@@ -279,7 +279,7 @@ async function onClick(e) {
   else if (act === 'cm-pick') { M.focusNext = false; go(b.dataset.sid); }
   else if (act === 'cm-back') go(null);
   else if (act === 'cm-action' || act === 'dr-action') doAction(b.dataset.a);
-  else if (act === 'cm-view') openViewPrefs();
+  else if (act === 'cm-view') openViewPrefs(M.tab === 'terminal' ? 'terminal' : 'chat');
   else if (act === 'cm-term') { if (M.sid) location.hash = hashFor(M.sid, 'terminal'); }
   else if (act === 'cm-shift') {
     M.shiftSids = { before: new Set(M.ctx.office.sessions.map(s => s.sid)), role: b.dataset.role, at: Date.now() };

@@ -18,7 +18,7 @@ const maxH = () => Math.max(160, innerHeight - 90);
 const clampH = h => Math.max(150, Math.min(maxH(), h));
 const termFont = () => Math.min(20, Math.max(9, Number(LS('kc.term.fs')) || 13));
 const THEME = () => termPrefs().theme; // ikut preset tema terminal (dialog Aa)
-const FONT = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+const FONT = () => termPrefs().face;
 const preview = url => { const v = window.kantorViewer; if (v?.openUrl) v.openUrl(url); else window.open(url, '_blank', 'noopener'); };
 
 /* ---------------- pasang ---------------- */
@@ -185,7 +185,7 @@ function renderLogHead() {
 }
 function ensureLogTerm() {
   if (logTerm || !window.Terminal) return;
-  logTerm = new window.Terminal({ disableStdin: true, cursorBlink: false, cursorStyle: 'bar', cursorInactiveStyle: 'none', fontFamily: FONT, fontSize: Math.max(11, termFont() - 1), scrollback: 8000, theme: { ...THEME(), cursor: THEME().background } });
+  logTerm = new window.Terminal({ disableStdin: true, cursorBlink: false, cursorStyle: 'bar', cursorInactiveStyle: 'none', fontFamily: FONT(), fontSize: Math.max(11, termFont() - 1), scrollback: 8000, theme: { ...THEME(), cursor: THEME().background } });
   logFit = new window.FitAddon.FitAddon(); logTerm.loadAddon(logFit);
   logTerm.open($('#dkLogT'));
   new ResizeObserver(() => { try { if ($('#dkLogT').clientHeight > 20) logFit.fit(); } catch {} }).observe($('#dkLogT'));
@@ -221,7 +221,7 @@ function showTerm(name) {
 }
 function makeTerm(name) {
   const e = document.createElement('div'); e.className = 'dk-term';
-  const term = new window.Terminal({ cursorBlink: true, fontFamily: FONT, fontSize: termFont(), scrollback: 5000, theme: THEME() });
+  const term = new window.Terminal({ cursorBlink: true, fontFamily: FONT(), fontSize: termFont(), scrollback: 5000, theme: THEME() });
   const fit = new window.FitAddon.FitAddon(); term.loadAddon(fit);
   const t = { el: e, term, fit, ws: null };
   TERMS.set(name, t);

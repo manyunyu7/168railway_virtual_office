@@ -110,10 +110,13 @@ function fromItems(file) {
   return c;
 }
 
+const CARD_FRESH_MS = 3 * 864e5;
 function activeCard(s) {
   if (!s.office || !s.role) return null;
   try {
-    const c = one(officeDb(s.office), "SELECT id, title FROM cards WHERE who = ? AND kind = 'dikerjakan' AND archived = 0 ORDER BY updated_at DESC LIMIT 1", s.role);
+    // kartu yang lama tak tersentuh (tertinggal di kolom Dikerjakan) jangan jadi judul sesi baru
+    const since = new Date(Date.now() - CARD_FRESH_MS).toISOString();
+    const c = one(officeDb(s.office), "SELECT id, title FROM cards WHERE who = ? AND kind = 'dikerjakan' AND archived = 0 AND updated_at > ? ORDER BY updated_at DESC LIMIT 1", s.role, since);
     return c ? { id: c.id, title: clip(c.title, 120) } : null;
   } catch { return null; }
 }

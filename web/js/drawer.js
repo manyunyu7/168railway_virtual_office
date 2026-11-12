@@ -148,7 +148,7 @@ function setTermFont(delta) {
 const POOL = new Map(), POOL_MAX = 4;
 // ukuran dan jarak baris berlaku untuk semua terminal yang masih tersambung
 onTermPrefs(p => {
-  for (const t of POOL.values()) { try { t.term.options.fontSize = p.fs; t.term.options.lineHeight = p.lh; t.term.options.theme = p.theme; if (t.el.isConnected) t.fit.fit(); } catch {} }
+  for (const t of POOL.values()) { try { t.term.options.fontSize = p.fs; t.term.options.lineHeight = p.lh; t.term.options.theme = p.theme; t.term.options.fontFamily = p.face; if (t.el.isConnected) t.fit.fit(); } catch {} }
   const l = drawerEl()?.querySelector('[data-slot="fs"]'); if (l) l.textContent = String(p.fs);
 });
 function killTerm(t) {
@@ -195,7 +195,7 @@ function mountTerm(host, query, holder = D) {
 }
 function newTerm(query) {
   const el = document.createElement('div'); el.className = 'xt-in';
-  const term = new window.Terminal({ cursorBlink: true, fontFamily: '"JetBrains Mono", ui-monospace, Menlo, monospace', fontSize: termFont(), lineHeight: termPrefs().lh, scrollback: 5000, theme: termPrefs().theme });
+  const term = new window.Terminal({ cursorBlink: true, fontFamily: termPrefs().face, fontSize: termFont(), lineHeight: termPrefs().lh, scrollback: 5000, theme: termPrefs().theme });
   const fit = new window.FitAddon.FitAddon();
   term.loadAddon(fit);
   const t = { query, el, term, fit, ws: null, ro: null, used: Date.now() };
@@ -572,7 +572,7 @@ function onClick(e) {
   else if (act === 'dr-full') toggleFull();
   else if (act === 'dr-sw') toggleSwitcher();
   else if (act === 'dr-fs') setTermFont(Number(b.dataset.d));
-  else if (act === 'dr-view') openViewPrefs();
+  else if (act === 'dr-view') openViewPrefs(D?.tab === 'term' || D?.tab === 'shell' ? 'terminal' : D?.tab === 'chat' ? 'chat' : '');
   else if (act === 'dr-sess') openSession(ctx, b.dataset.sid, 'term');
   else if (act === 'dr-role') openRole(ctx, b.dataset.role);
   else if (act === 'dr-shift') startShiftDialog(ctx, b.dataset.role);

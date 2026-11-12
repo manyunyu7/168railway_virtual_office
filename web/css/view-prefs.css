@@ -21,3 +21,7 @@
 .vp-th-sw code{margin-left:auto;font:600 11px var(--f-mono)}
 .vp-note{margin:0;font-size:12.5px;color:var(--muted)}
 .vp-note code{font:12px var(--f-mono);background:var(--surface-2);padding:1px 4px;border-radius:5px}
+.vp-faces{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.vp-face{display:grid;gap:3px;padding:7px 9px;border:2px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);font:700 11.5px var(--f-body);cursor:pointer;text-align:left}
+.vp-face span{font-size:15px;color:var(--ink);white-space:nowrap;overflow:hidden}
+.vp-face[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}

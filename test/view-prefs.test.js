@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanPrefs, chatVars, stepPref, TERM_THEMES } from '../web/js/view-prefs.js';
+import { cleanPrefs, chatVars, stepPref, TERM_THEMES, TERM_FACES } from '../web/js/view-prefs.js';
 
 test('nilai rusak kembali ke bawaan, nilai sah dipakai', () => {
   const p = cleanPrefs({ chatFs: 99, chatCode: '13', chatLh: 3, chatW: 'x', termFs: 16, termLh: 1.3 });
-  assert.deepEqual(p, { chatFs: 0, chatCode: 13, chatLh: 1.5, chatW: 'normal', termFs: 16, termLh: 1.3, termTheme: 'kantor' });
+  assert.deepEqual(p, { chatFs: 0, chatCode: 13, chatLh: 1.5, chatW: 'normal', termFs: 16, termLh: 1.3, termTheme: 'kantor', termFace: 'jetbrains' });
 });
 
 test('bawaan tidak mengisi variabel CSS supaya ukuran HP dan desktop tetap', () => {
@@ -26,4 +26,10 @@ test('preset tema terminal: nama tak dikenal kembali ke Kantor, tiap preset leng
   for (const [k, t] of Object.entries(TERM_THEMES)) {
     for (const c of ['background', 'foreground', 'cursor', 'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'brightBlack', 'brightWhite']) assert.match(t.theme[c], /^#[0-9A-F]{6}$/i, `${k}.${c}`);
   }
+});
+
+test('font terminal: pilihan sah dipakai, sisanya kembali ke JetBrains Mono', () => {
+  assert.equal(cleanPrefs({ termFace: 'ubuntu' }).termFace, 'ubuntu');
+  assert.equal(cleanPrefs({ termFace: 'comic' }).termFace, 'jetbrains');
+  for (const [k, f] of Object.entries(TERM_FACES)) if (k !== 'jetbrains') assert.match(f.gf, /^[A-Za-z+]+:wght@[\d;]+$/, k);
 });
