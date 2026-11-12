@@ -389,7 +389,8 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
   // kantor's own MCP tools never need a prompt; hooks only when not installed globally
   // (di Mac lain hook selalu ikut: hook global di sana menunjuk ke daemon yang tidak ada)
   const settings = rm
-    ? { permissions: { allow: ['mcp__kantor'] }, ...hookSettings(machine), ...(rm.ownStatusLine ? {} : statusLineSettings({ node: rm.bins.node, root: rm.root })) }
+    // mesin 'local:' = Mac ini: hook global di ~/.claude sudah mengirim ke daemon ini; hook sesi bikin tiap kejadian terkirim dua kali
+    ? { permissions: { allow: ['mcp__kantor'] }, ...(mx.isLoopMachine(machine) && globalHooksInstalled() ? {} : hookSettings(machine)), ...(rm.ownStatusLine ? {} : statusLineSettings({ node: rm.bins.node, root: rm.root })) }
     : { permissions: { allow: ['mcp__kantor'] }, ...(globalHooksInstalled() ? {} : hookSettings()), ...statusLineSettings() };
   const setFile = path.join(dir, `${sid}.settings.json`);
   put(setFile, JSON.stringify(settings));

@@ -9,7 +9,7 @@ import { globalDb, officeDb, all, one, run, closeAll } from './db.js';
 import { listOffices, officeModel, registerOffice, candidateFolders, invalidate, addRoom, updateRoom, scanRoot, browseFolder, previewRoom, roomForCwd, saveLayout, resetLayout, layoutProblems, getFurniture, saveFurniture } from './offices.js';
 import { catalog as furnitureCatalog } from './furniture.js';
 import { prayerTimes } from './prayer.js';
-import { bus, handleHook, decide, answerAsk, openInbox, liveFor, live, serialize, whoOf, emitSessionNow } from './live.js';
+import { bus, handleHook, decide, answerAsk, dismissInbox, openInbox, liveFor, live, serialize, whoOf, emitSessionNow } from './live.js';
 import * as st from './store.js';
 import * as bd from './boards.js';
 import { startShift, sessionAction, adoptSession, setSessionBoss, setPermMode, paneMode, paneModeAsync, adoptRunning, adoptManual, reapGoneTmux, ensureShell, tmux, bins, hasTmux, capture, globalHooksInstalled, hookSettings } from './tmux.js';
@@ -476,6 +476,7 @@ route('GET', '/api/offices/:id/archive', (req, res, p) => {
 
 /* inbox */
 route('GET', '/api/inbox', () => openInbox());
+route('POST', '/api/inbox/:iid/dismiss', (req, res, p) => dismissInbox(p.iid));
 route('POST', '/api/inbox/:iid/answer', async (req, res, p) => { const b = await body(req); answerAsk(p.iid, b.answers); return { ok: true }; });
 route('POST', '/api/inbox/:iid', async (req, res, p) => { const b = await body(req); decide(p.iid, b.behavior === 'allow' ? 'allow' : 'deny', b.message); return { ok: true }; });
 
@@ -785,6 +786,7 @@ const memberName = mid => akun.getMember(mid)?.name || mid;
 // readable lines for the actions people look for; everything else is logged as "METHOD path"
 const DESCRIBE = {
   'POST /api/inbox/:iid': (p, b) => { const it = inboxRow(p.iid); return `${b.behavior === 'allow' ? 'mengizinkan' : 'menolak'} ${it?.tool || 'izin'}${it?.summary ? ` (${short(it.summary, 100)})` : ''} untuk ${it?.sid ? sessName(it.sid) : 'sesi'}`; },
+  'POST /api/inbox/:iid/dismiss': p => { const it = inboxRow(p.iid); return `menutup kartu ${it?.tool || 'izin'} ${it?.sid ? sessName(it.sid) : ''}`.trim(); },
   'POST /api/inbox/:iid/answer': p => { const it = inboxRow(p.iid); return `menjawab pertanyaan ${it?.sid ? sessName(it.sid) : 'agen'}`; },
   'POST /api/sessions/:sid/action': (p, b) => b.action === 'text' ? `mengirim perintah ke ${sessName(p.sid)}: ${short(b.text, 200)}` : `aksi "${b.action}" pada ${sessName(p.sid)}`,
   'POST /api/sessions/:sid/mode': (p, b) => `mengganti mode izin ${sessName(p.sid)} → ${b.mode}`,

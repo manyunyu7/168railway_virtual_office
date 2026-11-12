@@ -1040,3 +1040,8 @@ body.in-office .top-in{max-width:none}
 @keyframes ibIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.ib-toast{animation:none}.ib-toast.out{transition:none}}
 @media (max-width:700px){.ib-toasts{top:auto;bottom:86px;right:8px;left:8px;width:auto}}
+/* ✕ di kartu izin/pertanyaan: tutup tanpa menjawab */
+.ib,.ch-perm{position:relative}
+.ib-x{position:absolute;top:6px;right:6px;width:26px;height:26px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:13px;cursor:pointer;z-index:1}
+.ib-x:hover{background:var(--surface-2);color:var(--ink)}
+.ch-ph{padding-right:30px}

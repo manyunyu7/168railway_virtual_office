@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { config } from './config.js';
@@ -224,8 +225,21 @@ export function addToolObserver(fn) { toolObservers.push(fn); }
  * Handle one hook payload. Returns the JSON the hook script should print (or null).
  * PermissionRequest may wait for a decision from the inbox.
  */
+// Kejadian hook yang persis sama dalam 3 detik (dua hook terpasang untuk satu sesi): yang kedua diabaikan,
+// supaya log, kartu izin, dan konteks tambahan tidak dobel.
+const recentHooks = new Map();
+export function duplicateHook(p, now = Date.now()) {
+  const key = crypto.createHash('sha1').update(JSON.stringify(p)).digest('hex');
+  for (const [k, t] of recentHooks) if (now - t > 3000) recentHooks.delete(k);
+  if (recentHooks.has(key)) return true;
+  recentHooks.set(key, now);
+  return false;
+}
+
 export async function handleHook(p) {
   if (!p || !p.session_id || !p.hook_event_name) return null;
+  // SessionStart/SessionEnd tidak disaring: boleh berulang cepat (berakhir, resume, berakhir lagi) dan aman bila dobel
+  if (p.hook_event_name !== 'SessionStart' && p.hook_event_name !== 'SessionEnd' && duplicateHook(p)) return null;
   if (p.kantor_engine === 'codex') p = normalizeHook(p);
   const ev = p.hook_event_name;
   const s = sessionFor(p);
@@ -458,6 +472,19 @@ function clearWaiting(s, status) {
   const r = run(globalDb(), "UPDATE inbox SET status = ?, decided_at = ? WHERE id = ? AND status = 'open'", status, nowIso(), id);
   if (r.changes) bus.emit('msg', { t: 'inbox-update', id, status });
   sweepInbox(s.sid); // kartu lain sesi ini yang tertinggal (kembaran, dari sebelum server restart)
+}
+
+/** Pemilik menutup kartu sendiri (✕): tidak dijawab dari kantor; kalau hook masih menahan, prompt-nya tampil di terminal. */
+export function dismissInbox(id) {
+  const row = one(globalDb(), 'SELECT * FROM inbox WHERE id = ?', id);
+  if (!row) throw new Error('Kartu tidak ditemukan');
+  const fn = held.get(id);
+  if (fn) fn(null);
+  const s = live.get(row.sid);
+  if (s?.waiting?.id === id) { s.waiting = null; if (s.status === 'waiting') s.status = 'working'; emitSession(s); }
+  const u = run(globalDb(), "UPDATE inbox SET status = 'dismissed', decided_at = ? WHERE id = ? AND status = 'open'", nowIso(), id);
+  if (u.changes) bus.emit('msg', { t: 'inbox-update', id, status: 'dismissed' });
+  return { ok: true, closed: !!u.changes };
 }
 
 /** Decide an inbox item from the UI. */

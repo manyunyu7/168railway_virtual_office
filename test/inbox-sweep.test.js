@@ -45,3 +45,12 @@ test('sesi hidup: kartu kembaran dan kartu dari sebelum restart pindah ke termin
   assert.equal(status('ib-yatim'), 'terminal');
   assert.equal(status('ib-baru'), 'open', 'kartu yang baru dibuat diberi jeda');
 });
+
+test('kejadian hook yang persis sama dalam 3 detik dianggap kembar', async () => {
+  const { duplicateHook } = await import('../server/live.js');
+  const p = { session_id: 's-kembar', hook_event_name: 'PreToolUse', tool_name: 'Bash', tool_use_id: 't1' };
+  assert.equal(duplicateHook(p, 1000), false);
+  assert.equal(duplicateHook({ ...p }, 1500), true);
+  assert.equal(duplicateHook({ ...p, tool_use_id: 't2' }, 1600), false, 'tool lain bukan kembar');
+  assert.equal(duplicateHook({ ...p }, 5000), false, 'lewat 3 detik dihitung kejadian baru');
+});

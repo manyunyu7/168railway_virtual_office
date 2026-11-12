@@ -198,7 +198,7 @@ function inboxHTML(items, showOffice) {
   if (!items.length) return '<p class="empty-line">Tidak ada yang menunggu izin.</p>';
   return `<ul class="inbox">${items.map(it => {
     const o = ctx.st.offices.find(x => x.id === it.office);
-    return `<li class="ib"><div class="ib-who"><b>${esc(it.who || 'Sesi')}</b>${showOffice && o ? ` <span class="sub">·</span> <a href="#/o/${o.id}">${esc(o.name)}</a>` : ''}<span class="sub"> · ${esc(it.tool)} · ${ago(it.created_at)}</span></div>
+    return `<li class="ib"><button type="button" class="ib-x" data-act="ib-dismiss" data-id="${esc(it.id)}" title="Tutup kartu ini (tidak menjawab)" aria-label="Tutup kartu">✕</button><div class="ib-who"><b>${esc(it.who || 'Sesi')}</b>${showOffice && o ? ` <span class="sub">·</span> <a href="#/o/${o.id}">${esc(o.name)}</a>` : ''}<span class="sub"> · ${esc(it.tool)} · ${ago(it.created_at)}</span></div>
       <code class="ib-cmd">${esc(it.summary)}</code>
       ${it.held ? `<div class="btn-row"><button class="btn sm primary" data-act="allow" data-id="${it.id}">Izinkan</button><button class="btn sm" data-act="deny" data-id="${it.id}">Tolak</button></div>`
         : '<p class="hint">Sudah pindah ke terminal sesinya. Jawab dari sana.</p>'}</li>`;
@@ -658,6 +658,7 @@ document.addEventListener('click', async e => {
   try {
     switch (a) {
       case 'allow': case 'deny': e.preventDefault(); await post(`/api/inbox/${t.dataset.id}`, { behavior: a }); toast(a === 'allow' ? 'Diizinkan' : 'Ditolak', a === 'allow' ? 'ok' : 'bad'); break;
+      case 'ib-dismiss': e.preventDefault(); await post(`/api/inbox/${encodeURIComponent(t.dataset.id)}/dismiss`); if (ctx.st) ctx.st.inbox = ctx.st.inbox.filter(x => x.id !== t.dataset.id); topCounts(); toast('Kartu ditutup', 'ok'); break;
       case 'add-office': addOffice(); break;
       case 'fav': e.preventDefault(); e.stopPropagation(); await post(`/api/offices/${t.dataset.id}/fav`, { fav: t.dataset.v === '1' }); toast(t.dataset.v === '1' ? 'Ditambahkan ke favorit' : 'Dihapus dari favorit', 'ok'); await refreshState(); if (ctx.route?.name === 'map') renderMap(); else renderSwitcher(); break;
       case 'go-office': go(`#/o/${t.dataset.id}`); break;

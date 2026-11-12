@@ -27,6 +27,8 @@ export function getMachine(id) {
 /** true kalau id menunjuk mesin terdaftar selain Mac ini. */
 export const isRemote = id => !!getMachine(id);
 const isLoopTransport = m => String(m.ssh || '').startsWith('local:');
+/** Mesin "remote" yang sebenarnya Mac ini sendiri (ssh 'local:'): ~/.claude miliknya sama dengan milik daemon. */
+export const isLoopMachine = id => { const m = getMachine(id); return !!m && isLoopTransport(m); };
 
 /* ---------------- status ---------------- */
 const state = new Map(); // id → { online, lastSeen, lastError, latencyMs, home, bins }

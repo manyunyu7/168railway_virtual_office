@@ -243,7 +243,7 @@ export function mountChat(host, o) {
     const items = (o.ctx.st?.inbox || []).filter(i => i.sid === o.sid);
     return items.map(it => {
       if (it.tool === 'AskUserQuestion') return askHTML(it);
-      return `<div class="ch-perm"><div class="ch-ph">Minta izin <b>${esc(it.tool)}</b></div><code>${esc(short(it.summary, 600))}</code>${it.held
+      return `<div class="ch-perm"><div class="ch-ph"><button type="button" class="ib-x" data-act="ib-dismiss" data-id="${esc(it.id)}" title="Tutup kartu ini (tidak menjawab)" aria-label="Tutup kartu">✕</button>Minta izin <b>${esc(it.tool)}</b></div><code>${esc(short(it.summary, 600))}</code>${it.held
         ? `<div class="btn-row"><button class="btn primary" data-act="allow" data-id="${esc(it.id)}">Izinkan</button><button class="btn" data-act="deny" data-id="${esc(it.id)}">Tolak</button></div>`
         : '<p class="hint">Sudah pindah ke terminal sesinya. Jawab dari tab Terminal.</p>'}</div>`;
     }).join('');
@@ -255,7 +255,7 @@ export function mountChat(host, o) {
     const a = parseAsk(it.summary || '');
     if (!it.held || a.partial) return legacyAskHTML(it, a);
     const id = esc(it.id);
-    return `<div class="ch-perm ask" data-ask="${id}"><div class="ch-ph">${esc(o.name())} bertanya</div>${a.qs.map((q, i) => {
+    return `<div class="ch-perm ask" data-ask="${id}"><div class="ch-ph"><button type="button" class="ib-x" data-act="ib-dismiss" data-id="${esc(id)}" title="Tutup kartu ini (tidak menjawab)" aria-label="Tutup kartu">✕</button>${esc(o.name())} bertanya</div>${a.qs.map((q, i) => {
       const d = dq(it.id, i);
       return `<div class="ch-aq" data-qi="${i}"><p class="ch-q">${esc(q.q)}${q.multi ? ' <small>(boleh pilih lebih dari satu)</small>' : ''}</p>
         ${q.opts.length ? `<ol class="ch-opts">${q.opts.map((p, k) => `<li><button type="button" class="btn ch-opt${d.sel.includes(k) ? ' on' : ''}" data-act="ch-pick" data-id="${id}" data-qi="${i}" data-k="${k}" aria-pressed="${d.sel.includes(k)}"><b>${k + 1}</b><span><span class="ch-ol">${esc(p.label)}</span>${p.desc ? `<small>${esc(p.desc)}</small>` : ''}</span></button></li>`).join('')}</ol>` : ''}
@@ -266,7 +266,7 @@ export function mountChat(host, o) {
   // Pertanyaan yang sudah pindah ke terminal: hanya bisa mengetik nomor opsi.
   function legacyAskHTML(it, a) {
     const one = a.qs.length === 1 && !a.qs[0].multi && !a.many && a.qs[0].opts.length;
-    return `<div class="ch-perm ask"><div class="ch-ph">${esc(o.name())} bertanya</div>${a.qs.map(q => `<p class="ch-q">${esc(q.q)}</p>${q.opts.length ? `<ol class="ch-opts">${q.opts.map((p, i) => `<li>${one ? `<button class="btn" data-act="ch-ask" data-n="${i + 1}" data-id="${esc(it.id)}" data-held="0"><b>${i + 1}</b><span><span class="ch-ol">${esc(p.label)}</span>${p.desc ? `<small>${esc(p.desc)}</small>` : ''}</span></button>` : `<span class="ch-optx"><b>${i + 1}</b><span><span class="ch-ol">${esc(p.label)}</span>${p.desc ? `<small>${esc(p.desc)}</small>` : ''}</span></span>`}</li>`).join('')}</ol>` : ''}`).join('')}
+    return `<div class="ch-perm ask"><div class="ch-ph"><button type="button" class="ib-x" data-act="ib-dismiss" data-id="${esc(it.id)}" title="Tutup kartu ini (tidak menjawab)" aria-label="Tutup kartu">✕</button>${esc(o.name())} bertanya</div>${a.qs.map(q => `<p class="ch-q">${esc(q.q)}</p>${q.opts.length ? `<ol class="ch-opts">${q.opts.map((p, i) => `<li>${one ? `<button class="btn" data-act="ch-ask" data-n="${i + 1}" data-id="${esc(it.id)}" data-held="0"><b>${i + 1}</b><span><span class="ch-ol">${esc(p.label)}</span>${p.desc ? `<small>${esc(p.desc)}</small>` : ''}</span></button>` : `<span class="ch-optx"><b>${i + 1}</b><span><span class="ch-ol">${esc(p.label)}</span>${p.desc ? `<small>${esc(p.desc)}</small>` : ''}</span></span>`}</li>`).join('')}</ol>` : ''}`).join('')}
       ${one ? '<p class="hint">Sudah pindah ke terminal; tombol mengetik nomor opsi.</p>' : '<p class="hint">Pertanyaan ini sudah pindah ke terminal. Jawab di tab Terminal.</p>'}</div>`;
   }
   function paintPerm() {
