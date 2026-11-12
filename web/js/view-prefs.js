@@ -10,7 +10,7 @@ export const CHAT_ME = {
   oranye: { label: 'Oranye', bg: '#F28C28', ink: '#1D1200' },
   pink: { label: 'Pink', bg: '#E84393', ink: '#FFFFFF' },
   gelap: { label: 'Gelap', bg: '#2B2F36', ink: '#FFFFFF' },
-  gradasi: { label: 'Gradasi', bg: 'linear-gradient(135deg,#7C4DFF,#E84393)', ink: '#FFFFFF' },
+  gradasi: { label: 'Gradasi', bg: 'linear-gradient(135deg,#7C4DFF,#E84393)', solid: '#A347E0', ink: '#FFFFFF' },
 };
 // maskot pixel buatan sendiri: tiap huruf satu piksel, '.' kosong
 const SPRITES = {
@@ -119,6 +119,7 @@ function applyChat() {
   const root = document.documentElement.dataset, me = CHAT_ME[P.chatMe] || CHAT_ME.hijau;
   root.chWall = P.chatWall; root.chBub = P.chatBub; root.chPeek = P.chatPeek;
   st.setProperty('--ch-me', me.bg); st.setProperty('--ch-me-ink', me.ink);
+  st.setProperty('--ch-me-solid', me.solid || me.bg); // warna tunggal untuk bingkai fokus (gradasi tidak bisa jadi warna)
   if (P.chatPeek !== 'none') st.setProperty('--ch-peek', spriteUri(P.chatPeek)); else st.removeProperty('--ch-peek');
   let img = null; try { img = localStorage.getItem(WALL_KEY); } catch {}
   if (img) st.setProperty('--ch-wall-img', `url("${img}")`); else st.removeProperty('--ch-wall-img');
