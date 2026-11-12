@@ -37,6 +37,11 @@ body.chat-full main{padding:0;overflow:hidden}
 .cm-tools{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .cm-mode select{background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:5px 8px;color:var(--ink);font:600 12.5px var(--f-body)}
 .cm-mode.danger select{border-color:var(--bad);color:var(--bad)}
+/* pilihan izin + Ganti model satu baris dengan tombol lain; select tidak ikut lebar 100% bawaan form */
+.cm-tools [data-slot="mode"]{display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.cm-tools [data-slot="mode"]:empty{display:none}
+.cm-mode{display:inline-flex}
+.cm-mode select{width:auto;max-width:180px;height:32px}
 .cm-back{display:none}
 .cm-body{flex:1 1 0;min-height:0;display:flex;flex-direction:column;background:var(--bg)}
 .cm-body>.ch{flex:1 1 0;min-height:0;position:relative}
