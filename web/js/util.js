@@ -129,6 +129,32 @@ export function toast(msg, kind = '') {
   setTimeout(() => t.remove(), 3800);
   while ($('#toasts').children.length > 3) $('#toasts').firstChild.remove();
 }
+/** Teks manusiawi dari item izin: pertanyaan AskUserQuestion dibaca dari JSON-nya, sisanya ringkasan tool. */
+export function inboxText(item) {
+  if (item?.tool === 'AskUserQuestion') {
+    try { const q = JSON.parse(item.summary || '{}').questions || []; if (q[0]?.question) return { kind: 'tanya', title: 'bertanya', body: q[0].question + (q.length > 1 ? ` (+${q.length - 1} pertanyaan lagi)` : '') }; } catch {}
+    return { kind: 'tanya', title: 'bertanya', body: '' };
+  }
+  return { kind: 'izin', title: `minta izin · ${item?.tool || 'tool'}`, body: item?.summary || '', code: item?.tool === 'Bash' };
+}
+/** Kartu notifikasi izin/pertanyaan di pojok kanan atas; satu kartu per sesi, kartu baru menggantikan yang lama. */
+export function inboxToast(item, href) {
+  let box = document.getElementById('inboxToasts');
+  if (!box) { box = document.createElement('div'); box.id = 'inboxToasts'; box.className = 'ib-toasts'; box.setAttribute('aria-live', 'polite'); document.body.appendChild(box); }
+  const t = inboxText(item), key = item.sid || item.id;
+  box.querySelector(`[data-key="${CSS.escape(String(key))}"]`)?.remove();
+  const el = document.createElement('div');
+  el.className = `ib-toast k-${t.kind}`; el.dataset.key = key; el.setAttribute('role', 'status');
+  el.innerHTML = `<div class="ib-t-h"><b>${esc(item.who || 'Sesi')}</b><span>${esc(t.title)}</span><button type="button" class="ib-t-x" aria-label="Tutup">✕</button></div>${t.body ? `<div class="ib-t-b${t.code ? ' code' : ''}">${esc(t.body)}</div>` : ''}${href ? `<a class="btn sm ib-t-go" href="${esc(href)}">${t.kind === 'tanya' ? 'Jawab' : 'Buka'}</a>` : ''}`;
+  let timer = 0;
+  const close = () => { clearTimeout(timer); el.classList.add('out'); setTimeout(() => el.remove(), 180); };
+  const arm = () => { clearTimeout(timer); timer = setTimeout(close, 9000); };
+  el.addEventListener('mouseenter', () => clearTimeout(timer));
+  el.addEventListener('mouseleave', arm);
+  el.addEventListener('click', e => { if (e.target.closest('.ib-t-x, .ib-t-go')) close(); });
+  box.prepend(el); arm();
+  while (box.children.length > 3) box.lastChild.remove();
+}
 let modalActions = [];
 export function modal({ title, body = '', html = '', actions = [{ label: 'Tutup' }] }) {
   modalActions = actions;

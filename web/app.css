@@ -1023,3 +1023,20 @@ body.in-office .top-in{max-width:none}
 .us-win-top b.warn{color:var(--warn)}
 .us-win-top b.bad{color:var(--bad)}
 .us-card h3{font:700 14px var(--f-display);margin:14px 0 8px}
+
+/* kartu izin/pertanyaan agen: pojok kanan atas, tidak menutupi kolom ketik */
+.ib-toasts{position:fixed;top:116px;right:16px;z-index:85;display:grid;gap:8px;width:min(360px,calc(100% - 32px))}
+.ib-toast{display:grid;gap:6px;background:var(--surface);color:var(--ink);border:2px solid var(--line);border-left:5px solid var(--warn);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow-float,0 8px 24px rgba(0,0,0,.18));animation:ibIn .18s ease-out}
+.ib-toast.k-tanya{border-left-color:var(--blue,#2F6FEB)}
+.ib-toast.out{opacity:0;transform:translateX(12px);transition:.18s}
+.ib-t-h{display:flex;align-items:baseline;gap:6px;min-width:0;font-size:13px}
+.ib-t-h b{font-weight:800;white-space:nowrap}
+.ib-t-h span{color:var(--muted);font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ib-t-x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;line-height:1}
+.ib-t-x:hover{color:var(--ink)}
+.ib-t-b{font-size:13.5px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.ib-t-b.code{font:12.5px/1.4 var(--f-mono);background:var(--surface-2);border-radius:7px;padding:5px 8px;-webkit-line-clamp:2}
+.ib-t-go{justify-self:end}
+@keyframes ibIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.ib-toast{animation:none}.ib-toast.out{transition:none}}
+@media (max-width:700px){.ib-toasts{top:auto;bottom:86px;right:8px;left:8px;width:auto}}

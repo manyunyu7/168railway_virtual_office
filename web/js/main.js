@@ -1,4 +1,4 @@
-import { $, $$, esc, short, usd, api, post, del, toast, modal, closeModal, confirmDo, sprite, mini, onLive, connectLive, hhmm, ago, guestLook, modelName } from './util.js';
+import { $, $$, esc, short, usd, api, post, del, toast, inboxToast, inboxText, modal, closeModal, confirmDo, sprite, mini, onLive, connectLive, hhmm, ago, guestLook, modelName } from './util.js';
 import { createStage } from './office-canvas.js';
 import { isCodex } from './codex.js';
 import { openSession, openRole, drawerOnLive, HOSTS, MODE_LABEL } from './drawer.js';
@@ -623,8 +623,9 @@ onLive(async m => {
   if (m.t === 'log' && o && m.office === o.id) { o.log.unshift(m.entry); o.log.length = Math.min(o.log.length, 80); }
   if (m.t === 'inbox') {
     ctx.st && (ctx.st.inbox = [m.item, ...ctx.st.inbox.filter(x => x.id !== m.item.id)]);
-    toast(`${m.item.who || 'Sesi'} minta izin: ${m.item.tool} ${short(m.item.summary, 40)}`, 'warn');
-    notify(`${m.item.who || 'Sesi'} minta izin`, `${m.item.tool}: ${m.item.summary}`);
+    const it = inboxText(m.item);
+    inboxToast(m.item, m.item.office && m.item.sid ? `#/o/${encodeURIComponent(m.item.office)}/chat/${encodeURIComponent(m.item.sid)}` : '');
+    notify(`${m.item.who || 'Sesi'} ${it.title}`, short(it.body, 160));
   }
   if (m.t === 'inbox-update' && ctx.st) ctx.st.inbox = ctx.st.inbox.filter(x => x.id !== m.id || m.status === 'open');
   if (m.t?.startsWith('inbox')) { topCounts(); if (ctx.route?.name === 'map') { const el = $('#inboxAll'); if (el) el.innerHTML = inboxHTML(ctx.st.inbox, true); } }
