@@ -4,6 +4,7 @@ import path from 'node:path';
 import { globalDb, officeDb, one, run, nowIso } from './db.js';
 import { scanAppended } from './jsonl.js';
 import { readTranscript, unpaste } from './transcript.js';
+import { teammateMsgs } from '../web/js/teammate.js'; // satu pembaca untuk web dan server
 
 const FIRST_SCAN_MAX = 32 << 20; // transcript raksasa cukup dibaca 32 MB terakhir pada scan pertama
 const MARKS = ['"ai-title"', '"custom-title"', '"queue-operation"', '"role":"assistant"', '"role":"user","content":"', '"role":"user","content":[{"type":"text"', '"role":"user","content":[{"type":"image"', '[Request interrupted'];
@@ -30,6 +31,9 @@ export function closingQuestion(text) {
 /** Satu prompt jadi permintaan bermakna, atau null kalau bukan perintah (kosong, slash command, "lanjut", pesan sistem kantor). */
 export function askOf(raw, at) {
   const t = unpaste(raw).trim();
+  // pesan dari sesi Claude lain: permintaan agen, bukan pemilik
+  const tm = teammateMsgs(t);
+  if (tm) return { s: clip(`${tm[0].from}: ${tm[0].summary || tm[0].body}`, 280), at: at || null, from: 'agen' };
   if (!t || /^</.test(t) || /^\//.test(t) || /^\[Kantor\b/.test(t) || /^\[Image\b/.test(t) || /^\[Request interrupted/.test(t) || /^This session is being continued/.test(t) || t.length < 4 || TRIVIAL.test(t)) return null;
   const dm = /^\[Pesan dari ([^·\]]+?)\s*·[^\]]*\]\s*([\s\S]*)$/.exec(t);
   if (dm) return { s: clip(`${dm[1]}: ${dm[2].replace(/\s*Balas dengan tool kantor[\s\S]*$/, '')}`, 280), at: at || null, from: 'agen' };

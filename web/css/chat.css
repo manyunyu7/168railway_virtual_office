@@ -224,3 +224,14 @@
 .ch-typing-wrap{background:none!important}
 .ch-old{align-self:center;border:2px dashed var(--line);background:color-mix(in srgb,var(--bg) 85%,transparent);color:var(--muted);border-radius:99px;padding:4px 14px;font:700 12px var(--f-label);cursor:pointer}
 .ch-old:hover{color:var(--ink);border-color:var(--muted)}
+/* pesan dari sesi Claude lain */
+.ch-b.ch-tm{border-left:4px solid var(--tm);display:grid;gap:4px;min-width:min(320px,88%)}
+.ch-tm-h{display:flex;align-items:center;gap:6px;font-size:12.5px}
+.ch-tm-h i{width:8px;height:8px;border-radius:50%;background:var(--tm);flex:none}
+.ch-tm-h b{font-weight:800}
+.ch-tm-h span{font:700 10.5px var(--f-label);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--surface-2);border-radius:5px;padding:1px 6px}
+.ch-tm-s{font-weight:700}
+.ch-tm-d>summary{cursor:pointer;font:700 12px var(--f-label);color:var(--muted);list-style:none}
+.ch-tm-d>summary::before{content:'▸ '}.ch-tm-d[open]>summary::before{content:'▾ '}
+.ch-tm-d>summary::-webkit-details-marker{display:none}
+.ch-tm-d .md{margin-top:6px;max-height:50vh;overflow:auto}
