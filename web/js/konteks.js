@@ -34,10 +34,14 @@ export function pillHTML(s) {
 }
 
 /** Teks tambahan untuk kolom pencarian. */
-export const searchBits = s => [topicOf(s), s?.konteks?.state?.label, s?.konteks?.reply?.s, s?.konteks?.ask?.s].filter(Boolean).join(' ');
+export const searchBits = s => [topicOf(s), s?.konteks?.auto, s?.konteks?.state?.label, s?.konteks?.reply?.s, s?.konteks?.ask?.s].filter(Boolean).join(' ');
 
 /** Baris topik (satu baris, ellipsis lewat CSS); '' bila tidak ada topik. */
-export const topicHTML = (s, cls = '') => { const t = topicOf(s); return t ? `<span class="kx-topic${cls ? ' ' + cls : ''}" title="${esc(t)}">${esc(t)}</span>` : ''; };
+export const topicHTML = (s, cls = '') => {
+  const t = topicOf(s); if (!t) return '';
+  const l = s?.konteks?.label;
+  return `<span class="kx-topic${l ? ' kx-own' : ''}${cls ? ' ' + cls : ''}" title="${esc(l && s.konteks.auto ? `${t}\nOtomatis: ${s.konteks.auto}` : t)}">${l ? `<span class="kx-stk" aria-label="label kamu">${esc(t)}</span>` : esc(t)}</span>`;
+};
 
 /** Pil + detail dalam satu baris. */
 export function subHTML(s, fallback = '', max = 90) {
@@ -60,6 +64,8 @@ export function panelHTML(s, open = false) {
   const kx = s?.konteks; if (!kx) return '';
   const st = kx.state || {}, rows = [];
   const row = (l, body, cls = '') => body ? rows.push(`<div class="kx-r${cls ? ' ' + cls : ''}"><b>${esc(l)}</b><span>${body}</span></div>`) : 0;
+  if (kx.label) row(`Label kamu · ${kx.label.scope === 'role' ? 'ikut role' : 'sesi ini'}${kx.label.tell ? ' · agen dikabari' : ''}`, `<span class="kx-stk">${esc(kx.label.text)}</span>`, 'lbl');
+  if (kx.auto) row('Judul otomatis', esc(kx.auto));
   if (kx.kerjaan) row('Laporan agen', `${esc(kx.kerjaan.judul)}${kx.kerjaan.langkah ? `: ${esc(kx.kerjaan.langkah)}` : ''}${kx.kerjaan.persen != null ? ` <small>${esc(kx.kerjaan.persen)}%</small>` : ''}${kx.kerjaan.at ? ` <small>${esc(ago(kx.kerjaan.at))}</small>` : ''}`);
   if (kx.ask?.s) row(kx.ask.from === 'agen' ? `Diminta ${s.look?.name || 'agen lain'}` : 'Kamu minta', `${esc(kx.ask.s)}${kx.ask.at ? ` <small>${esc(ago(kx.ask.at))}</small>` : ''}`);
   if (kx.reply?.s) row('Terakhir dia bilang', `${esc(kx.reply.s)}${kx.reply.at ? ` <small>${esc(ago(kx.reply.at))}</small>` : ''}`);
@@ -71,23 +77,62 @@ export function panelHTML(s, open = false) {
   const topic = clean(kx.topic) || st.label || '';
   const lead = { jalan: 'Lagi', izin: 'Minta izin', tanya: 'Dia nanya', gagal: 'Galat', tunggu: 'Terakhir', henti: 'Terakhir', selesai: 'Hasil' }[st.k];
   const now = detailOf(s);
-  return `${draftHTML(kx.draft)}<details class="kx"${open ? ' open' : ''}><summary>${pillHTML(s)}<span class="kx-head"><span class="kx-sum">${esc(topic)}</span>${now && now !== topic ? `<span class="kx-now">${lead ? `<b>${esc(lead)}:</b> ` : ''}${esc(now)}</span>` : ''}</span></summary><div class="kx-body">${rows.join('') || '<p class="kx-none">Belum ada ringkasan.</p>'}</div></details>`;
+  return `${draftHTML(kx.draft)}<details class="kx"${open ? ' open' : ''}><summary>${pillHTML(s)}<span class="kx-head"><span class="kx-sum${kx.label ? ' kx-own' : ''}">${kx.label ? `<span class="kx-stk" title="Label kamu">${esc(topic)}</span>` : esc(topic)}</span>${now && now !== topic ? `<span class="kx-now">${lead ? `<b>${esc(lead)}:</b> ` : ''}${esc(now)}</span>` : ''}</span><button type="button" class="kx-lbtn" data-kx-label title="${kx.label ? 'Ubah label sesi ini' : 'Beri nama sendiri untuk sesi ini'}">✎ ${kx.label ? 'Ubah' : 'Beri label'}</button></summary><div class="kx-body">${rows.join('') || '<p class="kx-none">Belum ada ringkasan.</p>'}</div></details>`;
+}
+
+/** Form label pemilik. Opsi "bawa ke sesi berikutnya" hanya untuk sesi ber-role (sesi manual tidak punya shift berikutnya). */
+let formN = 0;
+export function labelFormHTML(s) {
+  const kx = s?.konteks || {}, l = kx.label, id = `kxl${++formN}`;
+  const auto = kx.label ? kx.auto : kx.topic;
+  return `<form class="kx-lform" data-kx-lform>
+    <label for="${id}">Label untuk ${esc(s?.look?.name || 'sesi ini')}</label>
+    <input type="text" id="${id}" name="text" maxlength="240" autocomplete="off" value="${esc(l?.text || '')}" placeholder="Misalnya: SEO gapeka, jadwal KA">
+    <div class="kx-lopts">${s?.role ? `<label for="${id}c"><input type="checkbox" id="${id}c" name="carry"${l?.scope === 'role' ? ' checked' : ''}> Bawa ke sesi berikutnya agen ini</label>` : ''}<label for="${id}t"><input type="checkbox" id="${id}t" name="tell"${l?.tell ? ' checked' : ''}> Kabari agennya</label></div>
+    ${auto ? `<small>Judul otomatis sekarang: ${esc(auto)}</small>` : ''}
+    <div class="kx-lbtns">${l ? '<button type="button" class="btn sm danger" data-kx-ldel>Hapus label</button>' : ''}<button type="button" class="btn sm" data-kx-lcancel>Batal</button><button type="submit" class="btn sm primary">Simpan label</button></div>
+  </form>`;
 }
 
 /** Pasang panel ke slot; kembalikan fungsi repaint. Status buka/tutup disimpan dan bertahan lewat repaint. */
 export function mountPanel(slot, getSess) {
   if (!slot) return () => {};
-  let last = null;
-  slot.addEventListener('click', e => {
-    const b = e.target.closest('[data-kx-draft]'), s = getSess(); if (!b || !s) return;
-    const act = () => post(`/api/sessions/${encodeURIComponent(s.sid)}/draft-laporan`, { aksi: b.dataset.kxDraft }).then(r => toast(r.masih ? 'Draf masih tampil, cek tab Terminal' : b.dataset.kxDraft === 'kirim' ? 'Laporan dikirim' : 'Draf diabaikan', r.masih ? 'bad' : 'ok')).catch(x => toast(x.message, 'bad'));
-    if (b.dataset.kxDraft === 'kirim') confirmDo('Kirim laporan ini ke Anthropic?', `Isinya: ${esc(short(s.konteks?.draft?.details || s.konteks?.draft?.title || '', 600))}`, 'Kirim', act, 'primary');
-    else act();
-  });
-  slot.addEventListener('toggle', e => { if (e.target.classList?.contains('kx')) setOpen(e.target.open); }, true);
-  return () => {
+  let last = null, editing = false;
+  const repaint = () => {
+    if (editing) return; // jangan timpa form yang sedang diisi
     const open = slot.querySelector('.kx')?.open ?? isOpen();
     const html = panelHTML(getSess(), open);
     if (html !== last) { last = html; slot.innerHTML = html; }
   };
+  const closeForm = () => { editing = false; last = null; repaint(); };
+  const saveLabel = (text, carry, tell) => {
+    const s = getSess(); if (!s) return;
+    post(`/api/sessions/${encodeURIComponent(s.sid)}/label`, { text, carry, tell })
+      .then(r => { if (s.konteks) s.konteks = { ...s.konteks, label: r.label }; toast(r.label ? 'Label disimpan' : 'Label dihapus', 'ok'); closeForm(); })
+      .catch(x => toast(x.message, 'bad'));
+  };
+  slot.addEventListener('click', e => {
+    const s = getSess(); if (!s) return;
+    if (e.target.closest('[data-kx-label]')) {
+      e.preventDefault(); // tombol ada di <summary>: jangan ikut membuka/menutup panel
+      editing = true; slot.innerHTML = labelFormHTML(s);
+      const i = slot.querySelector('input[name="text"]'); i?.focus(); i?.select();
+      return;
+    }
+    if (e.target.closest('[data-kx-lcancel]')) { closeForm(); return; }
+    if (e.target.closest('[data-kx-ldel]')) { saveLabel('', false, false); return; }
+    const b = e.target.closest('[data-kx-draft]'); if (!b) return;
+    const act = () => post(`/api/sessions/${encodeURIComponent(s.sid)}/draft-laporan`, { aksi: b.dataset.kxDraft }).then(r => toast(r.masih ? 'Draf masih tampil, cek tab Terminal' : b.dataset.kxDraft === 'kirim' ? 'Laporan dikirim' : 'Draf diabaikan', r.masih ? 'bad' : 'ok')).catch(x => toast(x.message, 'bad'));
+    if (b.dataset.kxDraft === 'kirim') confirmDo('Kirim laporan ini ke Anthropic?', `Isinya: ${esc(short(s.konteks?.draft?.details || s.konteks?.draft?.title || '', 600))}`, 'Kirim', act, 'primary');
+    else act();
+  });
+  slot.addEventListener('submit', e => {
+    if (!e.target.matches('[data-kx-lform]')) return;
+    e.preventDefault();
+    const f = e.target;
+    saveLabel(f.elements.text.value.trim(), !!f.elements.carry?.checked, !!f.elements.tell?.checked);
+  });
+  slot.addEventListener('keydown', e => { if (editing && e.key === 'Escape') { e.stopPropagation(); closeForm(); } });
+  slot.addEventListener('toggle', e => { if (e.target.classList?.contains('kx')) setOpen(e.target.open); }, true);
+  return repaint;
 }

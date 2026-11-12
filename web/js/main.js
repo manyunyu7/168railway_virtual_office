@@ -609,7 +609,7 @@ onLive(async m => {
     if (m.t === 'minions') { o0.minions = m.minions; ctx.stage.minions.apply(m.minions); if (ctx.view === kantorView) kantorView.minionCard(); }
     else ctx.stage.minions.live(m);
   }
-  if (m.t === 'reconnected') { if (anyRemote()) loadMachines(true).then(machinesRepaint).catch(() => {}); if (ctx.route) { await refreshState().catch(() => {}); if (ctx.office && ctx.office.id !== '_kompleks') { await loadOffice(ctx.office.id).catch(() => {}); ctx.stage?.sync(ctx.office.sessions); ctx.stage?.minions?.apply(ctx.office.minions); } } return; }
+  if (m.t === 'reconnected') { if (anyRemote()) loadMachines(true).then(machinesRepaint).catch(() => {}); if (ctx.route) { await refreshState().catch(() => {}); if (ctx.office && ctx.office.id !== '_kompleks') { await loadOffice(ctx.office.id).catch(() => {}); ctx.stage?.sync(ctx.office.sessions); ctx.stage?.minions?.apply(ctx.office.minions); } } if (ctx.view === chatmode) chatmode.live(m, ctx); return; }
   if (m.t === 'hello') return;
   agentsLive(m);
   const o = ctx.office;

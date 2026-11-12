@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 globalThis.window = globalThis; globalThis.dispatchEvent = () => true; globalThis.addEventListener = () => {}; globalThis.localStorage = { getItem() { return null; }, setItem() {} }; globalThis.devicePixelRatio = 1;
 globalThis.matchMedia = () => ({ addEventListener() {}, matches: false });
 globalThis.document = { addEventListener() {}, getElementById() { return null; }, createElement() { return {}; }, head: { appendChild() {} }, querySelector() { return null; }, querySelectorAll() { return []; }, documentElement: { style: { setProperty() {} }, dataset: {} } };
-const { detailOf, topicOf, pillHTML, panelHTML, subHTML } = await import('../web/js/konteks.js');
+const { detailOf, topicOf, pillHTML, panelHTML, subHTML, topicHTML, labelFormHTML } = await import('../web/js/konteks.js');
 const { resolveNav } = await import('../web/js/nav-memory.js');
 
 const kx = (k, more = {}) => ({ topic: 'Rapikan <login>', ask: null, reply: null, err: null, files: null, card: null, branch: null, state: { k, label: 'L ' + k }, ...more });
@@ -68,4 +68,21 @@ test('tab Terminal ikut pindah kantor dan membuka sesi seperti Chat', () => {
   const prev = { name: 'office', id: 'a', tab: 'terminal' };
   assert.deepEqual(resolveNav({ id: 'b', tab: 'kantor', explicit: false, rest: [] }, prev, { tab: 'terminal', sid: 's1' }, ok), { tab: 'terminal', rest: ['s1'], usedPending: false });
   assert.deepEqual(resolveNav({ id: 'b', tab: 'kantor', explicit: false, rest: [] }, prev, { tab: 'terminal', sid: '' }, { ...ok, pending: 's1', pendingTab: 'term' }), { tab: 'terminal', rest: ['s1'], usedPending: true });
+});
+
+test('label pemilik: penanda di topik, baris di panel, form ter-escape', () => {
+  const s = { role: 'aurora', look: { name: 'Aurora' }, konteks: kx('jalan', { topic: 'Audit <x>', auto: 'Judul "otomatis"', label: { text: 'Audit <x>', scope: 'role', tell: true } }) };
+  assert.ok(topicHTML(s).includes('kx-stk'));
+  assert.ok(!topicHTML({ konteks: kx('jalan') }).includes('kx-stk'));
+  const p = panelHTML(s);
+  assert.ok(p.includes('Label kamu · ikut role · agen dikabari'));
+  assert.ok(p.includes('Judul otomatis'));
+  assert.ok(p.includes('data-kx-label') && p.includes('✎ Ubah'));
+  assert.ok(!p.includes('<x>'));
+  const f = labelFormHTML(s);
+  assert.ok(f.includes('value="Audit &lt;x&gt;"'));
+  assert.ok(f.includes('name="carry"') && f.includes(' checked'));
+  assert.ok(f.includes('data-kx-ldel'));
+  assert.ok(!labelFormHTML({ konteks: kx('kosong') }).includes('name="carry"'), 'sesi tanpa role tidak punya opsi bawa');
+  assert.ok(panelHTML({ konteks: kx('kosong') }).includes('✎ Beri label'));
 });

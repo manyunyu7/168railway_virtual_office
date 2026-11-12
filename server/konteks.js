@@ -138,6 +138,44 @@ export function setKerjaan(s, { judul, langkah, persen, selesai } = {}) {
   return next;
 }
 
+/* ---------------- label dari pemilik ---------------- */
+// Nama yang diberi pemilik sendiri supaya ingat sesi ini mengerjakan apa. Beda dengan laporan agen: tidak kedaluwarsa
+// oleh prompt baru, dan menang jadi topik. Disimpan per sesi (`label.<sid>`) atau, bila pemilik mau dibawa ke shift
+// berikutnya, per role (`label.role.<office>.<role>`); label sesi didahulukan.
+export const LABEL_MAX = 240;
+const labelKey = sid => `label.${sid}`;
+const roleLabelKey = (office, role) => `label.role.${office}.${role}`;
+function kvGet(key) { try { return JSON.parse(one(globalDb(), 'SELECT value FROM kv WHERE key = ?', key)?.value || 'null'); } catch { return null; } }
+function kvPut(key, v) {
+  if (v == null) run(globalDb(), 'DELETE FROM kv WHERE key = ?', key);
+  else run(globalDb(), 'INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, JSON.stringify(v));
+}
+/** {text, tell, at, scope:'sesi'|'role'} atau null. */
+export function labelOf(s) {
+  if (!s?.sid) return null;
+  const own = kvGet(labelKey(s.sid));
+  if (own?.text) return { ...own, scope: 'sesi' };
+  const role = s.office && s.role ? kvGet(roleLabelKey(s.office, s.role)) : null;
+  return role?.text ? { ...role, scope: 'role' } : null;
+}
+/** Simpan label pemilik. Teks kosong menghapus label sesi ini dan label role-nya. `carry` hanya berlaku untuk sesi ber-role. */
+export function setLabel(s, { text, carry, tell } = {}) {
+  const t = clip(text, LABEL_MAX), rk = s.office && s.role ? roleLabelKey(s.office, s.role) : null;
+  kvPut(labelKey(s.sid), null);
+  if (rk) kvPut(rk, null);
+  if (!t) return null;
+  kvPut(carry && rk ? rk : labelKey(s.sid), { text: t, tell: !!tell, at: nowIso() });
+  return labelOf(s);
+}
+/** /clear dan /resume di pane yang sama memberi sesi id baru: label sesinya ikut pindah. */
+export function moveLabel(fromSid, toSid) {
+  if (!fromSid || !toSid || fromSid === toSid) return;
+  const v = kvGet(labelKey(fromSid));
+  if (!v) return;
+  kvPut(labelKey(toSid), v);
+  kvPut(labelKey(fromSid), null);
+}
+
 /** Keadaan sesi dalam bahasa pemilik. `k`: izin|tanya|jalan|tunggu|gagal|henti|selesai|kosong|tutup */
 export function stateOf(s, c) {
   if (s.status === 'ended') return { k: 'tutup', label: 'Sesi ditutup' };
@@ -154,7 +192,7 @@ export function stateOf(s, c) {
   return { k: 'kosong', label: 'Belum ada obrolan' };
 }
 
-/** {topic, kerjaan:{judul,langkah,persen,at}, ask:{s,at,from}, reply:{s,q,at}, err, files:{names,n}, card:{id,title}, branch, state:{k,label}}; bagian yang belum diketahui bernilai null. */
+/** {topic, auto (topik otomatis bila ada label), label:{text,tell,at,scope}, kerjaan:{judul,langkah,persen,at}, ask:{s,at,from}, reply:{s,q,at}, err, files:{names,n}, card:{id,title}, branch, state:{k,label}}; bagian yang belum diketahui bernilai null. */
 export function sessionKonteks(s) {
   let c = null;
   if (s.transcript) {
@@ -165,9 +203,11 @@ export function sessionKonteks(s) {
   const real = t => t && t !== 'Sesi belum terhubung' && !(s.role && / · /.test(t)) ? t : null;
   // laporan agen kalah oleh permintaan yang datang sesudahnya: mungkin sudah tidak berlaku
   const lapor = kerjaanOf(s), kerjaan = lapor && !(Date.parse(c?.ask?.at || 0) > Date.parse(lapor.at)) ? lapor : null;
-  const topic = kerjaan?.judul || real(c?.custom) || c?.ai || card?.title || real(s.title) || c?.ask?.s || null;
+  const auto = kerjaan?.judul || real(c?.custom) || c?.ai || card?.title || real(s.title) || c?.ask?.s || null;
+  // label pemilik menang; topik otomatis tetap dikirim supaya tampil sebagai detail
+  const label = labelOf(s), topic = label?.text || auto;
   return {
-    topic: topic ? clip(topic, 120) : null, kerjaan,
+    topic: topic ? clip(topic, label ? LABEL_MAX : 120) : null, auto: label && auto ? clip(auto, 120) : null, label, kerjaan,
     ask: c?.ask || null, reply: c?.reply || null, err: c?.err || null,
     files: c?.fileN ? { names: c.files, n: c.fileN } : null,
     // draf laporan ke Anthropic yang sedang menunggu keputusan di terminal; judulnya dari layar, isinya dari transcript

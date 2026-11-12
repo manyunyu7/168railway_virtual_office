@@ -4,7 +4,7 @@ import { config } from './config.js';
 import { globalDb, officeDb, one, run, all, nowIso, newId } from './db.js';
 import { officeForCwd, officeModel, roomForCwd, roomForRemote } from './offices.js';
 import { sessionHealth } from './health.js';
-import { sessionKonteks } from './konteks.js';
+import { sessionKonteks, moveLabel } from './konteks.js';
 import { subagentTokens, fileTokens, codexSubagentFile } from './subtokens.js';
 import * as gitinfo from './gitinfo.js';
 import { codexHealth, normalizeHook, engineOf, readCodexSettings } from './codex.js';
@@ -144,6 +144,7 @@ function inheritShift(s, p) {
     engine: engineOf(prev?.engine || src.engine || origin.engine), effort: prev?.effort || src.effort || origin.effort || null, permMode: prev?.permMode || s.permMode || null,
     machine: s.machine || prev?.machine || src.machine || origin.machine || null });
   setTmuxMachine(origin.tmux, s.machine);
+  moveLabel(prev?.sid || src?.sid, s.sid);
   if (s.office && s.role) try {
     run(officeDb(s.office), "UPDATE shifts SET sid = ?, status = 'aktif', ended_at = NULL WHERE sid = (SELECT sid FROM shifts WHERE tmux = ? ORDER BY started_at DESC LIMIT 1)", s.sid, origin.tmux);
   } catch {}

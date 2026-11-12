@@ -9,7 +9,7 @@ import { globalDb, officeDb, all, one, run, closeAll } from './db.js';
 import { listOffices, officeModel, registerOffice, candidateFolders, invalidate, addRoom, updateRoom, scanRoot, browseFolder, previewRoom, roomForCwd, saveLayout, resetLayout, layoutProblems, getFurniture, saveFurniture } from './offices.js';
 import { catalog as furnitureCatalog } from './furniture.js';
 import { prayerTimes } from './prayer.js';
-import { bus, handleHook, decide, answerAsk, openInbox, liveFor, live, serialize, whoOf } from './live.js';
+import { bus, handleHook, decide, answerAsk, openInbox, liveFor, live, serialize, whoOf, emitSessionNow } from './live.js';
 import * as st from './store.js';
 import * as bd from './boards.js';
 import { startShift, sessionAction, adoptSession, setSessionBoss, setPermMode, paneMode, paneModeAsync, adoptRunning, adoptManual, reapGoneTmux, ensureShell, tmux, bins, hasTmux, capture, globalHooksInstalled, hookSettings } from './tmux.js';
@@ -21,7 +21,7 @@ import { officeMetrics, complexMetrics, reportMarkdown } from './metrics.js';
 import { listMeetings, getMeeting, startMeeting, cancelMeeting, interject, actionToCard, resumeMeeting, continueMeeting, markInterrupted } from './meetings.js';
 import { TOOLS, callTool, resolveIdentity } from './agent.js';
 import { readTranscript } from './transcript.js';
-import { sessionKonteks } from './konteks.js';
+import { sessionKonteks, setLabel } from './konteks.js';
 import { scanProcesses } from './procscan.js';
 import { wizardFolders, wizardPreview, wizardCreate } from './wizard.js';
 import { officeMachines } from './kantor-mesin.js';
@@ -440,6 +440,15 @@ route('POST', '/api/sessions/:sid/codex/settings', async (req, res, p) => {
   return out;
 });
 route('POST', '/api/sessions/:sid/adopt', async (req, res, p) => { const b = await body(req); return adoptSession(p.sid, b.role || null, b.permissionMode || null, b.newRole || null, b.boss || null); });
+// label dari pemilik (konteks.js setLabel); teks kosong menghapus. Sesi lain dengan role yang sama ikut dikabarkan.
+route('POST', '/api/sessions/:sid/label', async (req, res, p) => {
+  const s = live.get(p.sid);
+  if (!s) { throw Object.assign(new Error('Sesi ini tidak sedang jalan, jadi labelnya tidak bisa diubah.'), { code: 404 }); }
+  const b = await body(req);
+  const label = setLabel(s, { text: b.text, carry: !!b.carry, tell: !!b.tell });
+  for (const x of live.values()) if (x === s || (s.role && x.office === s.office && x.role === s.role)) emitSessionNow(x);
+  return { ok: true, label };
+});
 route('POST', '/api/sessions/:sid/boss', async (req, res, p) => setSessionBoss(p.sid, (await body(req)).boss || null));
 route('GET', '/api/sessions/:sid/transcript', (req, res, p, q) => {
   const s = live.get(p.sid);
@@ -779,6 +788,7 @@ const DESCRIBE = {
   'POST /api/sessions/:sid/action': (p, b) => b.action === 'text' ? `mengirim perintah ke ${sessName(p.sid)}: ${short(b.text, 200)}` : `aksi "${b.action}" pada ${sessName(p.sid)}`,
   'POST /api/sessions/:sid/mode': (p, b) => `mengganti mode izin ${sessName(p.sid)} → ${b.mode}`,
   'POST /api/sessions/:sid/adopt': p => `memindahkan ${sessName(p.sid)} ke kantor`,
+  'POST /api/sessions/:sid/label': (p, b) => b.text ? `memberi label ${sessName(p.sid)}: ${short(b.text, 80)}` : `menghapus label ${sessName(p.sid)}`,
   'POST /api/sessions/:sid/boss': (p, b) => `mengatur atasan ${sessName(p.sid)} → ${b.boss || 'tidak ada'}`,
   'POST /api/offices/:id/roles/:rid/start': (p, b) => `memulai shift ${roleName(p.id, p.rid)}${b.task ? `: ${short(b.task, 200)}` : ''}${b.permissionMode ? ` (mode ${b.permissionMode})` : ''}`,
   'POST /api/offices/:id/roles': (p, b) => `membuat role ${short(b.name, 40)}`,

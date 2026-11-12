@@ -30,7 +30,7 @@ const ACTIONS = {
 const narrow = () => matchMedia('(max-width: 900px)').matches;
 const enc = encodeURIComponent;
 
-const M = { ctx: null, el: null, sid: null, q: '', chat: null, chatSid: null, queue: new Map(), draft: '', focusNext: false, shiftSids: null, offs: [] };
+const M = { ctx: null, el: null, sid: null, q: '', chat: null, chatSid: null, queue: new Map(), draft: '', focusNext: false, shiftSids: null, offs: [], paneOf: new Map() };
 
 const roleOf = id => M.ctx.office.roles.find(r => r.id === id);
 const liveSess = () => M.ctx.office.sessions.filter(s => s.status !== 'ended');
@@ -160,7 +160,17 @@ async function loadQueues() {
 const reloadQueue = sid => api(`/api/sessions/${enc(sid)}/outbox`).then(d => { M.queue.set(sid, (Array.isArray(d) ? d : d.items || []).filter(x => x.status === 'pending').length); paintList(); }).catch(() => {});
 
 /* ---------------- percakapan ---------------- */
+/** /clear dan /resume memberi sesi id baru di pane tmux yang sama. Kabar `session-gone` + `next` bisa terlewat
+ *  (koneksi putus, tab tidur): sesi yang hilang atau selesai diikuti ke sesi hidup di pane yang sama. */
+function paneSuccessor(sid) {
+  const s = findSess(sid), tmux = s?.tmux || M.paneOf.get(sid);
+  if (s?.tmux) M.paneOf.set(sid, s.tmux);
+  if (!tmux || (s && s.status !== 'ended')) return null;
+  return M.ctx.office.sessions.find(x => x.tmux === tmux && x.status !== 'ended' && x.sid !== sid)?.sid || null;
+}
 function select(sid, { silent } = {}) {
+  const nx = sid && paneSuccessor(sid);
+  if (nx) { go(nx); return; }
   M.sid = sid;
   const main = $('#cmMain', M.el); if (!main) return;
   setPane();
@@ -347,7 +357,7 @@ const repaint = debounce(() => { if (M.el) { paintList(); } }, 120);
 export function live(m, ctx) {
   if (!M.el || !M.el.isConnected) return;
   M.ctx = ctx;
-  if (m.t === 'reconnected') { paintList(); loadQueues(); if (M.chat) M.chat.refresh(); return; }
+  if (m.t === 'reconnected') { const nx = M.sid && paneSuccessor(M.sid); if (nx) { go(nx); return; } paintList(); loadQueues(); if (M.chat) M.chat.refresh(); return; }
   if (m.t === 'outbox' && m.sid) { reloadQueue(m.sid); return; }
   if (m.t?.startsWith('inbox')) { repaint(); M.chat?.live(m); if (M.chat) M.chat.update(); return; }
   if (m.t === 'changed' && (m.what === 'roles' || m.what === 'roles-order' || m.what === 'plan')) { repaint(); return; }

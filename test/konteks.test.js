@@ -8,7 +8,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'konteks-'));
 // laporan agen menulis ke DB: jangan sampai menyentuh ~/.kantor-claude milik daemon sungguhan
 process.env.KANTOR_HOME = path.join(dir, 'home');
 fs.mkdirSync(process.env.KANTOR_HOME, { recursive: true });
-const { sessionKonteks, askOf, closingQuestion, stateOf, plain, setKerjaan } = await import('../server/konteks.js');
+const { sessionKonteks, askOf, closingQuestion, stateOf, plain, setKerjaan, setLabel, labelOf, moveLabel } = await import('../server/konteks.js');
 let n = 0;
 const write = rows => { const f = path.join(dir, `t${n++}.jsonl`); fs.writeFileSync(f, rows.map(r => JSON.stringify(r) + '\n').join('')); return f; };
 const user = (content, extra = {}) => ({ parentUuid: 'p', isSidechain: false, type: 'user', message: { role: 'user', content }, timestamp: '2026-11-04T01:00:00Z', ...extra });
@@ -108,4 +108,44 @@ test('laporan agen jadi topik, dan kalah oleh permintaan yang datang sesudahnya'
   setKerjaan(s, { selesai: true });
   assert.throws(() => setKerjaan(s, {}), /judul/);
   assert.equal(setKerjaan(s, { judul: 'x', persen: 500 }).persen, null);
+});
+
+test('label pemilik menang atas laporan agen dan tidak kedaluwarsa oleh prompt baru', () => {
+  const s = sess(write([user('perbaiki login'), { type: 'ai-title', aiTitle: 'Perbaikan login' }]), { sid: 'lbl1' });
+  setKerjaan(s, { judul: 'Migrasi login', langkah: 'tes' });
+  setLabel(s, { text: '  Audit   login  ', tell: true });
+  let k = sessionKonteks(s);
+  assert.equal(k.topic, 'Audit login');
+  assert.equal(k.auto, 'Migrasi login');
+  assert.equal(k.label.scope, 'sesi');
+  assert.equal(k.label.tell, true);
+  fs.appendFileSync(s.transcript, JSON.stringify(user('kerjaan lain', { timestamp: '2099-01-01T00:00:00Z' })) + '\n');
+  k = sessionKonteks(s);
+  assert.equal(k.topic, 'Audit login');
+  assert.equal(k.auto, 'Perbaikan login');
+  setLabel(s, { text: '' });
+  k = sessionKonteks(s);
+  assert.equal(k.label, null);
+  assert.equal(k.auto, null);
+});
+
+test('label ikut role terbawa ke sesi berikutnya; label sesi didahulukan; /clear memindahkan label sesi', () => {
+  const m0 = sess(null, { sid: 'lbl6' });
+  const a = sess(null, { sid: 'lbl2', office: 'o', role: 'aurora' }), b = sess(null, { sid: 'lbl3', office: 'o', role: 'aurora' });
+  setLabel(a, { text: 'SEO gapeka', carry: true });
+  assert.equal(labelOf(b).text, 'SEO gapeka');
+  assert.equal(labelOf(b).scope, 'role');
+  setLabel(b, { text: 'Khusus sesi ini' });
+  assert.equal(labelOf(b).text, 'Khusus sesi ini');
+  assert.equal(labelOf(a), null, 'mengganti tanpa centang bawa menghapus label role');
+  moveLabel('lbl3', 'lbl4');
+  assert.equal(labelOf({ sid: 'lbl4' }).text, 'Khusus sesi ini');
+  assert.equal(labelOf({ sid: 'lbl3' }), null);
+  // sesi tanpa role: centang bawa diabaikan, tetap label sesi
+  // label panjang sampai 240 huruf tidak terpotong jadi topik
+  const long = 'x'.repeat(230);
+  setLabel(m0, { text: long });
+  assert.equal(sessionKonteks(m0).topic, long);
+  const m = sess(null, { sid: 'lbl5' });
+  assert.equal(setLabel(m, { text: 'Manual', carry: true }).scope, 'sesi');
 });

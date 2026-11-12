@@ -4,7 +4,7 @@ import { addHookContext, addToolObserver, whoOf } from './live.js';
 import { takeNotices } from './notices.js';
 import { warnBefore, recordAfter } from './repeat.js';
 import { globalDb, one, run, nowIso } from './db.js';
-import { sessionKonteks } from './konteks.js';
+import { sessionKonteks, labelOf } from './konteks.js';
 import { isRemote } from './machines.js';
 
 // Pengingat kerja berulang (repeat.js) membaca file gambar dan menjalankan git di path dari payload hook. Untuk sesi di
@@ -25,6 +25,18 @@ export function startHookContext() {
     s.kerjaanTold = true;
     if (sessionKonteks(s).kerjaan) return null;
     return '[Kantor Claude] Pemilik memantau pekerjaan tiap agen. Saat mulai pekerjaan baru atau pindah tahap besar, panggil tool kantor kerjaan_set dengan judul singkat dan langkah sekarang. Tidak perlu tiap langkah kecil.';
+  });
+  // label dari pemilik dengan "Kabari agennya": disampaikan sekali tiap labelnya berubah, pada prompt atau tool berikutnya
+  addHookContext((s, ev) => {
+    if (ev === 'PreToolUse') return null;
+    const l = labelOf(s);
+    if (!l?.tell) return null;
+    // disimpan di DB, supaya restart daemon tidak mengabarkan label yang sama lagi
+    const key = `label.told.${s.sid}`;
+    if ((s.labelTold ??= one(globalDb(), 'SELECT value FROM kv WHERE key = ?', key)?.value || null) === l.at) return null;
+    s.labelTold = l.at;
+    run(globalDb(), 'INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, l.at);
+    return `[Kantor Claude] Pemilik memberi label untuk sesi ini: "${l.text}". Itu ringkasan pekerjaan yang dia harapkan darimu di sesi ini. Tidak perlu dibalas.`;
   });
   addHookContext((s, ev, p) => {
     if (!s.office || (s.engine === 'codex' && ev === 'PreToolUse')) return null; // Codex takes context from PostToolUse / UserPromptSubmit only
