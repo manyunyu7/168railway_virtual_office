@@ -159,6 +159,7 @@ const QUICK = [['lanjut', 'say', 'lanjut'], ['ya', 'say', 'ya'], ['Hentikan', 'd
  * Mengembalikan { update(), live(msg), refresh(), destroy() }.
  */
 export function mountChat(host, o) {
+  let showOld = false, oldN = 0, shownOldN = 0; // berkas dari sebelum /clear: disembunyikan sampai diminta
   let size = null, timer = 0, bump = 0, dead = false, loading = false, sticky = true, items = [], gs = [], atts = [], outbox = [], unsub = null, pvs = [], wasOff = false;
   const pend = document.createElement('div'); pend.className = 'ch-pend';
   const typ = document.createElement('div'); typ.className = 'ch-typing-wrap';
@@ -289,7 +290,9 @@ export function mountChat(host, o) {
       : g.k === 'preview' ? pvRow(g.item)
       : itemHTML(g, i === gs.length - 1, running()));
     pend.remove();
-    list.innerHTML = rows.length || pend.childElementCount ? rows.join('') : '<p class="ch-empty">Belum ada percakapan di transcript.</p>';
+    shownOldN = oldN;
+    const old = oldN ? `<button type="button" class="ch-old" data-act="ch-old">Tampilkan ${oldN} berkas dari sebelum /clear</button>` : '';
+    list.innerHTML = old + (rows.length || pend.childElementCount ? rows.join('') : '<p class="ch-empty">Belum ada percakapan di transcript.</p>');
     list.appendChild(pend);
     for (const d of list.querySelectorAll('details[data-k]')) if (open.has(d.dataset.k)) d.open = true;
     paintTyping();
@@ -313,10 +316,11 @@ export function mountChat(host, o) {
   }
   function upsertPv(it) { if (!it || it.sid !== o.sid) return; const i = pvs.findIndex(x => x.id === it.id); if (i >= 0) pvs[i] = it; else pvs.push(it); paint(); }
   async function loadAtts() {
-    let d; try { d = await api(`/api/sessions/${encodeURIComponent(o.sid)}/attachments`); } catch { return; }
+    let d; try { d = await api(`/api/sessions/${encodeURIComponent(o.sid)}/attachments${showOld ? '?all=1' : ''}`); } catch { return; }
     if (dead) return;
     const arr = Array.isArray(d) ? d : d.items || d.attachments || [];
-    if (JSON.stringify(arr) === JSON.stringify(atts)) return;
+    oldN = showOld ? 0 : Number(d?.hiddenBeforeClear) || 0;
+    if (JSON.stringify(arr) === JSON.stringify(atts) && oldN === shownOldN) return;
     atts = arr; paint();
   }
   function addAtt(item) { if (!item) return; atts = atts.some(a => a.id === item.id) ? atts.map(a => a.id === item.id ? item : a) : [...atts, item]; paint(); }
@@ -352,6 +356,7 @@ export function mountChat(host, o) {
     return it;
   }
   // kolom ketik ditangani drawer.js; di sini hanya ikut membaca isinya saat dikirim
+  host.addEventListener('click', e => { if (e.target.closest('[data-act="ch-old"]')) { showOld = true; loadAtts(); } });
   host.addEventListener('submit', e => { if (e.target.id === 'drQuick') { const it = optimistic($('#drQuickIn', host)?.value); if (it) setTimeout(loadOutbox, 600); } }, true);
   const send0 = o.send;
   o = { ...o, send: async text => { const it = optimistic(text); const ok = await send0(text); if (!ok && it) { outbox = outbox.filter(x => x !== it); paint(); } else if (ok) setTimeout(loadOutbox, 600); return ok; } };

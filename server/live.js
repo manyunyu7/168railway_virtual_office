@@ -236,7 +236,11 @@ export async function handleHook(p) {
     case 'SessionStart':
       s.status = s.status === 'starting' ? 'idle' : (s.status === 'ended' ? 'idle' : s.status || 'idle');
       if (p.session_title) s.title = p.session_title;
-      if (p.source === 'clear') { s.subs.clear(); logOffice(s.office, who, 'mereset percakapan (/clear)', 'session'); }
+      if (p.source === 'clear') {
+        s.subs.clear(); logOffice(s.office, who, 'mereset percakapan (/clear)', 'session');
+        // berkas kiriman agen dari sebelum /clear tidak ikut tampil di chat yang baru (attachments.js)
+        run(globalDb(), 'INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', `cleared.${s.sid}`, nowIso());
+      }
       else if (p.source === 'compact') { s.compacting = false; if (s.tool?.name === 'Compact') s.tool = null; }
       else logOffice(s.office, who, p.source === 'resume' ? 'melanjutkan sesi lama' : `mulai sesi di ${s.room || 'kantor'}`, 'session');
       if (p.source === 'resume') run(globalDb(), 'UPDATE sessions SET ended_at = NULL WHERE sid = ?', s.sid);

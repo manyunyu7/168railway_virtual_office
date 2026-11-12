@@ -193,10 +193,14 @@ function sidFamily(sid) {
   return [...new Set([sid, ...rows.map(r => r.sid)])];
 }
 
-export function listAttachments(sid, { limit = 200, after = '' } = {}) {
-  const fam = sidFamily(sid);
-  const rows = all(globalDb(), `SELECT * FROM attachments WHERE sid IN (${fam.map(() => '?').join(',')}) ${after ? 'AND at > ?' : ''} ORDER BY at DESC, rowid DESC LIMIT ?`, ...[...fam, ...(after ? [after] : []), Math.min(500, Math.max(1, Number(limit) || 200))]);
-  return { items: rows.reverse().map(serialize) };
+/** Waktu /clear terakhir yang memulai sesi ini; berkas sebelum itu disembunyikan kecuali diminta (`all`). */
+const clearedAt = sid => one(globalDb(), 'SELECT value FROM kv WHERE key = ?', `cleared.${sid}`)?.value || null;
+export function listAttachments(sid, { limit = 200, after = '', all: every = false } = {}) {
+  const fam = sidFamily(sid), cut = every ? null : clearedAt(sid);
+  const since = [after, cut].filter(Boolean).sort().pop() || '';
+  const rows = all(globalDb(), `SELECT * FROM attachments WHERE sid IN (${fam.map(() => '?').join(',')}) ${since ? 'AND at > ?' : ''} ORDER BY at DESC, rowid DESC LIMIT ?`, ...[...fam, ...(since ? [since] : []), Math.min(500, Math.max(1, Number(limit) || 200))]);
+  const hidden = cut ? one(globalDb(), `SELECT COUNT(*) n FROM attachments WHERE sid IN (${fam.map(() => '?').join(',')}) AND at <= ?`, ...fam, cut)?.n || 0 : 0;
+  return { items: rows.reverse().map(serialize), clearedAt: cut, hiddenBeforeClear: hidden };
 }
 export const getAttachment = id => { const r = getRow(id); return r ? serialize(r) : null; };
 

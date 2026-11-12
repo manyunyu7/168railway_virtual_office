@@ -222,3 +222,5 @@
 :root[data-ch-bub="awan"] .ch-form textarea,:root[data-ch-bub="awan"] .ch-attach,:root[data-ch-bub="awan"] .ch-chip{border-radius:18px;border-color:transparent;box-shadow:0 3px 10px rgba(0,0,0,.10)}
 /* wadah "Sedang mengetik" selebar daftar: gelembungnya sudah punya latar sendiri */
 .ch-typing-wrap{background:none!important}
+.ch-old{align-self:center;border:2px dashed var(--line);background:color-mix(in srgb,var(--bg) 85%,transparent);color:var(--muted);border-radius:99px;padding:4px 14px;font:700 12px var(--f-label);cursor:pointer}
+.ch-old:hover{color:var(--ink);border-color:var(--muted)}
