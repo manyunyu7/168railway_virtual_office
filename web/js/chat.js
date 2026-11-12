@@ -185,6 +185,7 @@ export function mountChat(host, o) {
       <div class="ch-quick">${QUICK.map(([l, act, v]) => act === 'say'
         ? `<button type="button" class="ch-chip" data-act="ch-say" data-text="${esc(v)}">${esc(l)}</button>`
         : `<button type="button" class="ch-chip${v === 'esc' ? ' halt' : ''}" data-act="dr-action" data-a="${v}">${esc(l)}</button>`).join('')}</div>
+      <div class="ch-tray" data-slot="tray" hidden></div>
       <form class="msgbox ch-form" id="drQuick"><button type="button" class="ch-attach" data-act="ch-attach" title="Lampirkan file" aria-label="Lampirkan file">📎</button><input type="file" multiple hidden data-slot="file"><textarea id="drQuickIn" rows="1" aria-label="Pesan untuk ${esc(o.name())}" placeholder="Pesan untuk ${esc(o.name())}…"></textarea><button class="btn primary sm" type="submit">Kirim</button></form>
     </div></div>`;
   const list = $('[data-slot="list"]', host);
@@ -366,24 +367,56 @@ export function mountChat(host, o) {
   }
   // kolom ketik ditangani drawer.js; di sini hanya ikut membaca isinya saat dikirim
   host.addEventListener('click', e => { if (e.target.closest('[data-act="ch-old"]')) { showOld = true; loadAtts(); } });
+  // ada lampiran di baki: Kirim mengirim file + tulisan sebagai satu pesan, bukan teks biasa (didaftarkan lebih dulu, menghentikan yang lain)
+  host.addEventListener('submit', e => {
+    if (e.target.id !== 'drQuick' || !staged.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    sendStaged();
+  }, true);
   host.addEventListener('submit', e => { if (e.target.id === 'drQuick') { const it = optimistic($('#drQuickIn', host)?.value); if (it) setTimeout(loadOutbox, 600); } }, true);
   const send0 = o.send;
   o = { ...o, send: async text => { const it = optimistic(text); const ok = await send0(text); if (!ok && it) { outbox = outbox.filter(x => x !== it); paint(); } else if (ok) setTimeout(loadOutbox, 600); return ok; } };
 
   /* ---- unggah ---- */
   const queue = []; let busy = false;
-  function pickFiles(files, caption) {
+  /* ---- lampiran ditahan di baki dulu; Kirim mengunggah semuanya lalu mengirim satu pesan bersama tulisanmu ---- */
+  let staged = [];
+  const MAX_STAGED = 20;
+  function pickFiles(files) {
     const fs = [...files].filter(f => f.size >= 0); if (!fs.length) return;
-    fs.forEach((f, i) => enqueue(f, i === 0 ? caption : ''));
+    const room = MAX_STAGED - staged.length;
+    if (fs.length > room) toast(`Maksimal ${MAX_STAGED} file sekali kirim`, 'warn');
+    for (const f of fs.slice(0, Math.max(0, room))) staged.push({ key: Math.random().toString(36).slice(2), file: f, url: /^image\//.test(f.type) ? URL.createObjectURL(f) : null });
+    paintTray(); ta()?.focus();
   }
-  function enqueue(file, caption) {
+  function unstage(key) { const it = staged.find(x => x.key === key); if (it?.url) URL.revokeObjectURL(it.url); staged = staged.filter(x => x !== it); paintTray(); }
+  function paintTray() {
+    const tray = $('[data-slot="tray"]', host); if (!tray) return;
+    tray.hidden = !staged.length;
+    tray.innerHTML = staged.map(it => `<div class="ch-ti">${it.url ? `<img src="${it.url}" alt="">` : `<span class="ch-ti-f">${esc((it.file.name || 'file').split('.').pop().slice(0, 4).toUpperCase())}</span>`}<small title="${esc(it.file.name || 'gambar tempel')}">${esc(short(it.file.name || 'gambar tempel', 18))}</small><button type="button" class="ch-ti-x" data-act="ch-unstage" data-key="${it.key}" aria-label="Hapus ${esc(it.file.name || 'file')}">✕</button></div>`).join('')
+      + (staged.length ? `<span class="ch-ti-n">${staged.length} file · tulis konteksnya lalu Kirim</span>` : '');
+  }
+  async function sendStaged() {
+    const batch = staged; staged = []; paintTray();
+    const t = ta(), text = (t?.value || '').trim();
+    if (t) { t.value = ''; t.style.height = 'auto'; t.dispatchEvent(new Event('input', { bubbles: true })); }
+    const jobs = batch.map(it => enqueue(it.file, '', { defer: true }));
+    batch.forEach(it => it.url && URL.revokeObjectURL(it.url));
+    const ids = (await Promise.all(jobs.map(j => j.done))).filter(Boolean);
+    if (!ids.length) { if (text) o.send(text); return; }
+    try { await post(`/api/sessions/${encodeURIComponent(o.sid)}/attachments/deliver`, { ids, text }); loadAtts(); bumpLoad(); }
+    catch (e) { toast(`File sudah terunggah, tapi belum sampai ke agen: ${e.message}`, 'bad'); }
+  }
+  function enqueue(file, caption, { defer = false } = {}) {
     const el = document.createElement('div'); el.className = 'ch-row me ch-up';
     const name = file.name || 'gambar tempel';
     el.innerHTML = `<div class="ch-b me att"><div class="ch-upn"><b>${esc(short(name, 40))}</b><small>${fmtSize(file.size)}</small></div><div class="ch-bar"><i></i></div><div class="ch-upi"><span data-s>Menunggu giliran…</span><button type="button" class="ch-x" data-x aria-label="Batalkan">Batal</button></div></div>`;
     pend.appendChild(el); sticky = true; list.scrollTop = list.scrollHeight;
-    const ctl = new AbortController(), job = { file, caption, el, ctl };
-    $('[data-x]', el).onclick = () => { ctl.abort(); if (!job.started) { el.remove(); queue.splice(queue.indexOf(job), 1); } };
+    const ctl = new AbortController(), job = { file, caption, el, ctl, defer };
+    job.done = new Promise(r => { job.resolve = r; });
+    $('[data-x]', el).onclick = () => { ctl.abort(); if (!job.started) { el.remove(); queue.splice(queue.indexOf(job), 1); job.resolve(null); } };
     queue.push(job); pump();
+    return job;
   }
   async function pump() {
     if (busy) return; busy = true;
@@ -391,10 +424,12 @@ export function mountChat(host, o) {
       const job = queue.shift(), { el } = job, s = $('[data-s]', el), bar = $('.ch-bar i', el), x = $('[data-x]', el);
       job.started = true; if (job.ctl.signal.aborted) { el.remove(); continue; }
       try {
-        const r = await uploadFile(o.sid, job.file, { caption: job.caption, signal: job.ctl.signal, onProgress: (n, t) => { const p = t ? Math.min(100, Math.round(n / t * 100)) : 100; bar.style.width = p + '%'; s.textContent = `Mengunggah ${p}%`; } });
-        void r; s.textContent = 'Terkirim'; el.classList.add('done'); x.remove();
+        const r = await uploadFile(o.sid, job.file, { caption: job.caption, defer: job.defer, signal: job.ctl.signal, onProgress: (n, t) => { const p = t ? Math.min(100, Math.round(n / t * 100)) : 100; bar.style.width = p + '%'; s.textContent = `Mengunggah ${p}%`; } });
+        job.resolve?.(r?.attachment || null);
+        s.textContent = job.defer ? 'Terunggah' : 'Terkirim'; el.classList.add('done'); x.remove();
         await loadAtts(); setTimeout(() => el.remove(), 600);
       } catch (e) {
+        job.resolve?.(null);
         if (e.aborted) { el.remove(); continue; }
         el.classList.add('fail'); s.textContent = e.message || 'Gagal mengunggah'; x.textContent = 'Tutup'; x.onclick = () => el.remove();
         toast(`Gagal mengunggah ${job.file.name || 'file'}: ${e.message}`, 'bad');
@@ -403,23 +438,23 @@ export function mountChat(host, o) {
     busy = false;
   }
   const fileIn = $('[data-slot="file"]', host), ta = () => $('#drQuickIn', host);
-  const takeCaption = () => { const t = ta(); const v = (t?.value || '').trim(); if (t && v) { t.value = ''; t.style.height = 'auto'; } return v; };
-  fileIn.addEventListener('change', () => { pickFiles(fileIn.files, takeCaption()); fileIn.value = ''; });
+  fileIn.addEventListener('change', () => { pickFiles(fileIn.files); fileIn.value = ''; });
   const drop = $('.ch-drop', host); let dragN = 0;
   const hasFiles = e => [...(e.dataTransfer?.types || [])].includes('Files');
   host.addEventListener('dragenter', e => { if (hasFiles(e)) { dragN++; drop.hidden = false; } });
   host.addEventListener('dragover', e => { if (hasFiles(e)) e.preventDefault(); });
   host.addEventListener('dragleave', e => { if (hasFiles(e) && --dragN <= 0) { dragN = 0; drop.hidden = true; } });
-  host.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragN = 0; drop.hidden = true; pickFiles(e.dataTransfer.files, takeCaption()); });
+  host.addEventListener('drop', e => { if (!hasFiles(e)) return; e.preventDefault(); dragN = 0; drop.hidden = true; pickFiles(e.dataTransfer.files); });
   host.addEventListener('paste', e => {
     const fs = [...(e.clipboardData?.files || [])]; if (!fs.length) return;
-    e.preventDefault(); pickFiles(fs, takeCaption());
+    e.preventDefault(); pickFiles(fs);
   });
 
   host.addEventListener('click', async e => {
     if (e.target.closest('.pv-cb')) { await chatClick(e, pvOffice(), pvs, upsertPv); return; }
     const b = e.target.closest('[data-act]'); if (!b) return;
     if (b.dataset.act === 'ch-attach') fileIn.click();
+    else if (b.dataset.act === 'ch-unstage') unstage(b.dataset.key);
     else if (b.dataset.act === 'ob-cancel') { try { await api(`/api/sessions/${encodeURIComponent(o.sid)}/outbox/${encodeURIComponent(b.dataset.id)}`, { method: 'DELETE' }); outbox = outbox.filter(x => x.id !== b.dataset.id); paint(); } catch (er) { toast(er.message, 'bad'); loadOutbox(); } }
     else if (b.dataset.act === 'img-open') lightbox({ name: b.dataset.name || 'gambar', url: b.dataset.url });
     else if (b.dataset.act === 'att-open') { const a = atts.find(x => x.id === b.dataset.id); if (a) lightbox(a); }

@@ -9,6 +9,18 @@ const sameText = (a, b) => {
 /** Urutan transcript tetap menjadi acuan; item tambahan disisipkan pada waktunya. */
 export function chatTimeline(items, outbox = [], attachments = [], previews = []) {
   const used = new Set();
+  // pesan gabungan lampiran (deliverBatch) di transcript: tampilkan tulisan pemiliknya saja, daftar file sudah jadi kartu
+  const batches = [...new Map(attachments.filter(a => a.message).map(a => [a.message, a.note || ''])).entries()];
+  if (batches.length) items = items.flatMap(g => {
+    if (g.k !== 'user') return [g];
+    const hit = batches.find(([m]) => sameText(g.s, m));
+    return !hit ? [g] : hit[1] ? [{ ...g, s: hit[1] }] : [];
+  });
+  // antrean (pesan yang belum dibaca agen) juga: tulisan pemilik saja
+  if (batches.length) outbox = outbox.flatMap(it => {
+    const hit = batches.find(([m]) => sameText(it.text, m));
+    return !hit ? [it] : hit[1] ? [{ ...it, text: hit[1] }] : [];
+  });
   const extras = [
     ...outbox.filter(it => {
       const i = items.findIndex((g, j) => g.k === 'user' && !used.has(j) && sameText(g.s, it.text) && ms(g.at) >= ms(it.at) - 5000);

@@ -416,6 +416,7 @@ route('POST', '/api/sessions/:sid/uploads', async (req, res, p) => { const r = a
 route('HEAD', '/api/uploads/:id', (req, res, p) => { const r = att.uploadInfo(p.id); res.setHeader('Upload-Offset', r.offset); res.setHeader('Upload-Length', r.size); return r; });
 route('GET', '/api/uploads/:id', (req, res, p) => att.uploadInfo(p.id));
 route('PUT', '/api/uploads/:id', async (req, res, p) => { const r = await att.appendUpload(p.id, req); res.setHeader('Upload-Offset', r.offset); return r; });
+route('POST', '/api/sessions/:sid/attachments/deliver', async (req, res, p) => att.deliverBatch(p.sid, await body(req)));
 route('GET', '/api/sessions/:sid/attachments', (req, res, p, q) => att.listAttachments(p.sid, { limit: q.get('limit'), after: q.get('after') || '', all: q.get('all') === '1' }));
 route('GET', '/api/sessions/:sid/outbox', (req, res, p) => listOutbox(p.sid));
 route('DELETE', '/api/sessions/:sid/outbox/:id', (req, res, p) => cancelOutgoing(p.sid, p.id));

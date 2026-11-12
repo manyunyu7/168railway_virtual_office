@@ -32,11 +32,11 @@ function putChunk(id, offset, blob, onBytes, signal) {
  * Unggah satu file. Mengembalikan promise; onProgress(bytesTerkirim, total).
  * Putus koneksi: ulang dengan jeda yang membesar, mulai dari offset yang diakui server.
  */
-export async function uploadFile(sid, file, { caption, onProgress, signal } = {}) {
+export async function uploadFile(sid, file, { caption, onProgress, signal, defer } = {}) {
   const total = file.size;
   const name = file.name || `tempel-${Date.now()}.${(file.type.split('/')[1] || 'bin').replace('jpeg', 'jpg')}`;
-  const open = await post(`/api/sessions/${encodeURIComponent(sid)}/uploads`, { name, size: total, mime: file.type || 'application/octet-stream', ...(caption ? { caption } : {}) });
-  const id = open.id; let offset = open.offset || 0, chunk = open.chunk || 1048576, tries = 0;
+  const open = await post(`/api/sessions/${encodeURIComponent(sid)}/uploads`, { name, size: total, mime: file.type || 'application/octet-stream', ...(caption ? { caption } : {}), ...(defer ? { defer: true } : {}) });
+  const id = open.id; let offset = open.offset || 0, chunk = open.chunk || 1048576, tries = 0, attachment = null;
   onProgress?.(offset, total);
   while (offset < total || total === 0) {
     if (signal?.aborted) throw Object.assign(new Error('Dibatalkan'), { aborted: true });
@@ -44,14 +44,16 @@ export async function uploadFile(sid, file, { caption, onProgress, signal } = {}
     try {
       const r = await putChunk(id, offset, file.slice(offset, end), l => onProgress?.(base + l, total), signal);
       offset = typeof r.offset === 'number' ? r.offset : end;
+      attachment = r.attachment?.id || attachment;
       tries = 0; onProgress?.(offset, total);
       if (r.done || total === 0) break;
     } catch (e) {
       if (e.aborted || (e.status && e.status < 500 && e.status !== 409)) throw e;
       if (++tries > MAX_TRY) throw e;
       await sleep(Math.min(8000, 400 * 2 ** tries));
-      try { const st = await api(`/api/uploads/${encodeURIComponent(id)}`); offset = st.offset || 0; if (st.done) break; } catch {}
+      try { const st = await api(`/api/uploads/${encodeURIComponent(id)}`); offset = st.offset || 0; attachment = st.attachment?.id || attachment; if (st.done) break; } catch {}
     }
   }
-  return { id, name };
+  // id lampiran (bukan id unggahan): dipakai untuk mengirim beberapa file sekaligus (deliverBatch)
+  return { id, name, attachment };
 }

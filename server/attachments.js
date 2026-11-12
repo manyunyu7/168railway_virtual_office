@@ -154,7 +154,7 @@ function serialize(r) {
     id: r.id, sid: r.sid, office: r.office, dir: r.dir, name: r.name, path: rel, mime: r.mime, size: r.size, caption: r.caption || '', at: r.at, kind,
     duration: meta.duration ?? null, width: meta.width ?? null, height: meta.height ?? null,
     frames: meta.frames ? { dir: meta.frames.dir, count: meta.frames.count } : null,
-    processing: !!meta.processing, delivered: r.dir === 'in' ? !!meta.delivered : null,
+    processing: !!meta.processing, delivered: r.dir === 'in' ? !!meta.delivered : null, held: !!meta.defer, message: meta.message || null, note: meta.note ?? null,
     url: `/api/attachments/${r.id}/raw`, thumb: kind === 'image' || kind === 'video' ? `/api/attachments/${r.id}/thumb` : null,
     ...(meta.remote ? { machine: meta.remote.machine, machineName: machineLabel(meta.remote.machine) } : {}),
   };
@@ -226,7 +226,7 @@ export function createUpload(sid, b = {}) {
   if (size > c.maxBytes) throw err(413, `File terlalu besar (maks ${fmtSize(c.maxBytes)})`);
   fs.mkdirSync(UPLOADS, { recursive: true, mode: 0o700 });
   const id = crypto.randomBytes(12).toString('hex');
-  const m = { id, sid, office: where.office, name: path.basename(name.replace(/\\/g, '/')), size, mime: mimeOf(name, b.mime), caption: clip(b.caption, 1000), createdAt: nowIso(), done: false };
+  const m = { id, sid, office: where.office, name: path.basename(name.replace(/\\/g, '/')), size, mime: mimeOf(name, b.mime), caption: clip(b.caption, 1000), createdAt: nowIso(), done: false, defer: !!b.defer };
   fs.writeFileSync(partPath(id), '', { mode: 0o600 });
   writeUpload(m);
   return { id, offset: 0, size, chunk: c.chunkBytes };
@@ -277,7 +277,7 @@ async function finalizeUpload(m) {
   catch (e) { if (e.code !== 'EXDEV') throw e; fs.copyFileSync(partPath(m.id), dest); fs.unlinkSync(partPath(m.id)); }
   const kind = kindOf(m.mime);
   const row = insert({ sid: m.sid, office: where.office, dir: 'in', file: dest, name: m.name, mime: m.mime, size: m.size, caption: m.caption,
-    meta: { base: where.base, processing: kind === 'video' || kind === 'audio' || m.mime === 'application/octet-stream' } });
+    meta: { base: where.base, processing: kind === 'video' || kind === 'audio' || m.mime === 'application/octet-stream', ...(m.defer ? { defer: true } : {}) } });
   writeUpload({ ...m, done: true, attachment: row.id });
   const item = emit(row);
   processIncoming(row.id).catch(e => console.error(`lampiran ${row.id}: ${e.message}`));
@@ -294,7 +294,7 @@ async function finalizeRemote(m, where) {
   try { fs.renameSync(partPath(m.id), dest); }
   catch (e) { if (e.code !== 'EXDEV') throw e; fs.copyFileSync(partPath(m.id), dest); fs.unlinkSync(partPath(m.id)); }
   const row = insert({ sid: m.sid, office: where.office, dir: 'in', file: dest, name: m.name, mime: m.mime, size: m.size, caption: m.caption,
-    meta: { base: where.base, remote: { machine: where.machine, path: `${inbox}/${name}` }, processing: true } });
+    meta: { base: where.base, remote: { machine: where.machine, path: `${inbox}/${name}` }, processing: true, ...(m.defer ? { defer: true } : {}) } });
   writeUpload({ ...m, done: true, attachment: row.id });
   const item = emit(row);
   processIncoming(row.id).catch(e => console.error(`lampiran ${row.id}: ${e.message}`));
@@ -337,6 +337,8 @@ async function processIncoming(id) {
   r = setMeta(id, patch);
   const item = serialize(r);
   const text = describeIncoming(r, { ...meta, ...patch });
+  // ditahan: dikirim bersama file lain dan tulisan pemilik lewat deliverBatch
+  if (meta.defer) { r = setMeta(id, { delivered: false }); emit(r); return { item: serialize(r), delivered: false, text: null }; }
   let delivered = false;
   try { await sessionAction(r.sid, 'text', text); delivered = true; } catch { /* not typeable: the file stays in the inbox and the chat shows it */ }
   r = setMeta(id, { delivered, message: text });
@@ -344,17 +346,41 @@ async function processIncoming(id) {
   return { item, delivered, text };
 }
 
-function describeIncoming(r, meta) {
+function describeIncoming(r, meta, { bare = false } = {}) {
   const it = serialize({ ...r, meta: JSON.stringify(meta) });
   const rel = it.path;
-  const parts = [`Kamu menerima file dari pemilik: ${rel} (${fmtSize(r.size)}, ${r.mime}).`];
+  const parts = [`${bare ? '' : 'Kamu menerima file dari pemilik: '}${rel} (${fmtSize(r.size)}, ${r.mime}).`];
   if (it.kind === 'image') parts.push('Itu gambar; lihat dengan membaca file-nya.');
   if (it.frames) {
     const rf = path.relative(meta.base, it.frames.dir).split(path.sep).join('/');
     parts.push(`Frame ${meta.frames.everySec > 1 ? `tiap ${meta.frames.everySec} detik` : 'tiap detik'} ada di ${rf}/ (${it.frames.count} gambar${it.duration ? `, durasi ${fmtDur(it.duration)}` : ''}${it.width ? `, ${it.width}x${it.height}` : ''}).`);
   } else if (it.duration) parts.push(`Durasi ${fmtDur(it.duration)}${it.width ? `, ${it.width}x${it.height}` : ''}.`);
-  if (r.caption) parts.push(`Pesan pemilik: ${r.caption}`);
+  if (r.caption && !bare) parts.push(`Pesan pemilik: ${r.caption}`);
   return parts.join(' ');
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+/** Kirim beberapa lampiran yang ditahan plus tulisan pemilik sebagai SATU pesan ke agen.
+ *  Menunggu pemrosesan (frame video, salin ke Mac lain) selesai, paling lama 3 menit. */
+export async function deliverBatch(sid, { ids = [], text = '' } = {}) {
+  const want = [...new Set((Array.isArray(ids) ? ids : []).map(String))].slice(0, 20);
+  if (!want.length) throw err(400, 'Tidak ada lampiran');
+  const fam = new Set(sidFamily(sid)), until = Date.now() + 180000;
+  let rows;
+  for (;;) {
+    rows = want.map(getRow);
+    if (rows.some(r => !r || !fam.has(r.sid) || r.dir !== 'in')) throw err(404, 'Lampiran tidak ditemukan di sesi ini');
+    if (rows.every(r => !metaOf(r).processing)) break;
+    if (Date.now() > until) throw err(409, 'File masih diproses. Coba kirim lagi sebentar lagi.');
+    await sleep(400);
+  }
+  const note = String(text ?? '').trim().slice(0, 4000);
+  const lines = rows.map(r => describeIncoming(r, metaOf(r), { bare: true }));
+  const msg = [note, rows.length === 1 ? `[Lampiran dari pemilik] ${lines[0]}` : `[Lampiran dari pemilik, ${rows.length} file]\n${lines.map(l => `- ${l}`).join('\n')}`].filter(Boolean).join('\n\n');
+  let delivered = false;
+  try { await sessionAction(sid, 'text', msg); delivered = true; } catch { /* tidak bisa diketik: file tetap di inbox dan tampil di chat */ }
+  for (const r of rows) emit(setMeta(r.id, { defer: false, delivered, message: msg, note }));
+  return { delivered, text: msg };
 }
 
 /* ---------------- agent -> owner ---------------- */
