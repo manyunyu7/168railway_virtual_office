@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
 import pty from 'node-pty';
-import { config, saveConfig, loadConfig, SERVER_JSON, ROOT_DIR, CLAUDE_DIR } from './config.js';
+import { config, saveConfig, loadConfig, SERVER_JSON, ROOT_DIR, CLAUDE_DIR, DATA_DIR, OFFICE_DIR } from './config.js';
+import { DatabaseSync } from 'node:sqlite';
 import { globalDb, officeDb, all, one, run, closeAll } from './db.js';
 import { listOffices, officeModel, registerOffice, candidateFolders, invalidate, addRoom, updateRoom, scanRoot, browseFolder, previewRoom, roomForCwd, saveLayout, resetLayout, layoutProblems, getFurniture, saveFurniture } from './offices.js';
 import { catalog as furnitureCatalog } from './furniture.js';
@@ -19,7 +20,7 @@ import { scanCodexUsage } from './codexusage.js';
 import { limits as usageLimits, recordClaudeLimits, summary as usageSummary, pollCodexLimits } from './usage.js';
 import { payroll, scanUsage, setBudget, monthCost, currentMonth } from './payroll.js';
 import { officeMetrics, complexMetrics, reportMarkdown } from './metrics.js';
-import { listMeetings, getMeeting, startMeeting, cancelMeeting, interject, actionToCard, resumeMeeting, continueMeeting, markInterrupted } from './meetings.js';
+import { listMeetings, getMeeting, startMeeting, cancelMeeting, interject, actionToCard, resumeMeeting, continueMeeting, markInterrupted, runningMeetings } from './meetings.js';
 import { TOOLS, callTool, resolveIdentity } from './agent.js';
 import { readTranscript } from './transcript.js';
 import { sessionKonteks, setLabel } from './konteks.js';
@@ -137,7 +138,7 @@ const ADMIN_ONLY = [
   /^\w+ \/api\/akun\/anggota/, /^GET \/api\/audit\/verify$/,
   /^POST \/api\/wizard\//, /^GET \/api\/(wizard\/folders|candidates)$/, /^POST \/api\/offices$/, /^POST \/api\/offices\/[^/]+\/(hide|open-local|budget)$/,
   /^GET \/api\/offices\/[^/]+\/browse$/, /^(POST|PATCH) \/api\/offices\/[^/]+\/rooms(\/[^/]+)?$/,
-  /^POST \/api\/settings$/, /^POST \/api\/hooks\//, /^PUT \/api\/offices\/[^/]+\/(aturan|autopilot)$/, /^(PUT|POST) \/api\/pratinjau\/(storage|cleanup)$/,
+  /^POST \/api\/settings$/, /^POST \/api\/hooks\//, /^POST \/api\/daemon\//, /^PUT \/api\/offices\/[^/]+\/(aturan|autopilot)$/, /^(PUT|POST) \/api\/pratinjau\/(storage|cleanup)$/,
 ];
 function policy(a, sig) {
   // token mesin: hanya hook, MCP, dan limit, di mode apa pun
@@ -598,6 +599,34 @@ route('POST', '/api/music/playlists', async req => { const b = await body(req); 
 route('PATCH', '/api/music/playlists/:id', async (req, res, p) => updatePlaylist(p.id, await body(req)));
 route('DELETE', '/api/music/playlists/:id', (req, res, p) => deletePlaylist(p.id));
 route('GET', '/api/music/file', (req, res, p, q) => { sendMusic(q.get('path') || '', req, res); });
+/* restart daemon: launchd (KeepAlive) yang menyalakannya lagi; shift di tmux tetap hidup */
+const DAEMON_STARTED = Date.now();
+const underLaunchd = () => process.env.XPC_SERVICE_NAME === 'com.kantor-claude';
+route('GET', '/api/daemon', () => ({ pid: process.pid, startedAt: DAEMON_STARTED, launchd: underLaunchd(), meetings: runningMeetings() }));
+/** Salin semua DB (global + tiap kantor, termasuk yang disembunyikan) ke backup-restart-<ts>/; simpan 5 terakhir. */
+function backupForRestart() {
+  const ts = new Date().toISOString().replace(/\D/g, '').slice(0, 14), dir = path.join(DATA_DIR, `backup-restart-${ts}`);
+  fs.mkdirSync(path.join(dir, 'offices'), { recursive: true });
+  const dbs = [path.join(DATA_DIR, 'kantor.db'), ...fs.readdirSync(OFFICE_DIR).filter(f => f.endsWith('.db')).map(f => path.join(OFFICE_DIR, f))];
+  for (const f of dbs) {
+    const to = path.join(dir, path.dirname(f) === OFFICE_DIR ? 'offices' : '', path.basename(f));
+    const db = new DatabaseSync(f, { readOnly: true });
+    try { db.exec(`VACUUM INTO '${to.replace(/'/g, "''")}'`); } finally { db.close(); }
+  }
+  const old = fs.readdirSync(DATA_DIR).filter(d => d.startsWith('backup-restart-')).sort().slice(0, -5);
+  for (const d of old) fs.rmSync(path.join(DATA_DIR, d), { recursive: true, force: true });
+  return dir;
+}
+route('POST', '/api/daemon/restart', async req => {
+  const b = await body(req);
+  if (!underLaunchd()) throw new Error('Kantor tidak dijalankan lewat launchd, jadi tidak akan menyala sendiri. Mulai ulang manual dengan node bin/kantor.js start.');
+  const meetings = runningMeetings();
+  if (meetings.length && !b.force) throw Object.assign(new Error(`Ada ${meetings.length} rapat yang sedang berjalan (${meetings.map(m => m.office).join(', ')}). Restart akan memutusnya.`), { code: 409 });
+  const backup = backupForRestart();
+  console.log(`restart diminta lewat web; backup di ${backup}`);
+  setTimeout(stop, 500); // beri waktu respons + audit terkirim
+  return { ok: true, backup, pid: process.pid };
+});
 const SETTINGS_FILE = path.join(CLAUDE_DIR, 'settings.json');
 route('POST', '/api/hooks/install', () => {
   const raw = fs.existsSync(SETTINGS_FILE) ? fs.readFileSync(SETTINGS_FILE, 'utf8') : '{}';
@@ -822,6 +851,7 @@ const DESCRIBE = {
   'POST /api/offices/:id/meetings': (p, b) => `memulai rapat "${short(b.topic, 80)}"`,
   'POST /api/offices/:id/meetings/:mid/say': (p, b) => `menyela rapat: ${short(b.text, 160)}`,
   'POST /api/settings': () => 'mengubah pengaturan kantor',
+  'POST /api/daemon/restart': (p, b) => `memulai ulang kantor${b.force ? ' (memutus rapat yang berjalan)' : ''}`,
   'POST /api/akun/anggota': (p, b) => `membuat akun ${short(b.username, 32)} (${b.role || 'anggota'})`,
   'PATCH /api/akun/anggota/:mid': (p, b) => `mengubah akun ${memberName(p.mid)}${b.disabled === true ? ': dinonaktifkan' : b.disabled === false ? ': diaktifkan lagi' : ''}${b.role ? `, peran ${b.role}` : ''}`,
   'POST /api/akun/anggota/:mid/reset': p => `mereset password dan 2FA ${memberName(p.mid)} (undangan baru)`,

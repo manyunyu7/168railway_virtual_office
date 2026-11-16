@@ -27,7 +27,7 @@ function draw() {
   root.innerHTML = `<div class="wrap"><div class="settings">
     <div><p class="eyebrow">Kantor Claude</p><h1>Pengaturan</h1></div>
     <section class="card"><h2>Status</h2><dl class="facts" style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;align-items:center">
-      <dt>Daemon</dt><dd>${flag(true, 'Tersambung', '')}</dd>
+      <dt>Daemon</dt><dd>${flag(true, 'Tersambung', '')} <button type="button" class="btn sm danger" data-act="st-restart" title="Mulai ulang daemon Kantor; shift agen di tmux tetap jalan">Restart kantor</button></dd>
       <dt>tmux</dt><dd>${flag(st.tmux, 'Tersedia', 'Tidak ditemukan')}${st.tmux ? '' : ' <span class="hint">Tanpa tmux, shift dari kantor dan terminal tidak bisa dipakai.</span>'}</dd>
       <dt>Claude CLI</dt><dd>${flag(st.claude, 'Ditemukan', 'Tidak ditemukan')}${st.claude ? '' : ' <span class="hint">Rapat dan shift butuh perintah <code>claude</code> di PATH.</span>'}</dd>
       <dt>Hooks global</dt><dd>${flag(st.hooks, 'Terpasang', 'Belum dipasang')}</dd></dl></section>
@@ -101,10 +101,29 @@ async function pvClean() {
   } catch (err) { toast(err.message, 'bad'); }
 }
 
+/** Restart daemon lewat launchd. Shift di tmux tidak ikut mati; halaman dimuat ulang begitu daemon baru menjawab. */
+async function restartKantor() {
+  let d;
+  try { d = await api('/api/daemon'); } catch (err) { toast(err.message, 'bad'); return; }
+  if (!d.launchd) { toast('Kantor tidak jalan lewat launchd, jadi tidak akan menyala sendiri. Mulai ulang manual dengan node bin/kantor.js start.', 'warn'); return; }
+  const rapat = d.meetings.length ? `<br><br><b>${d.meetings.length} rapat sedang berjalan akan terputus</b> (${esc(d.meetings.map(m => m.office).join(', '))}). Nanti bisa dilanjutkan dari giliran terakhir.` : '';
+  confirmDo('Restart kantor?', `Daemon dimulai ulang, biasanya 10–20 detik. Shift agen di tmux tetap jalan; terminal dan halaman ini tersambung lagi sendiri. Database dicadangkan dulu ke <code>~/.kantor-claude/backup-restart-*</code>.${rapat}`, 'Restart', async () => {
+    try { await post('/api/daemon/restart', { force: d.meetings.length > 0 }); } catch (err) { toast(err.message, 'bad'); return; }
+    toast('Kantor dimulai ulang…', 'warn');
+    const until = Date.now() + 60000;
+    while (Date.now() < until) {
+      await new Promise(r => setTimeout(r, 1500));
+      try { if ((await api('/api/daemon')).pid !== d.pid) { location.reload(); return; } } catch {}
+    }
+    toast('Kantor belum menyala lagi setelah 60 detik. Cek ~/.kantor-claude/kantor.log.', 'bad');
+  });
+}
+
 async function onClick(e) {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const act = t.dataset.act;
   if (act === 'st-pvclean') return pvClean();
+  if (act === 'st-restart') return restartKantor();
   if (act === 'st-copy') {
     const text = $('#' + t.dataset.src, root).textContent;
     try { await navigator.clipboard.writeText(text); toast('Tersalin', 'ok'); } catch { toast('Gagal menyalin, blok teksnya lalu salin manual', 'warn'); }

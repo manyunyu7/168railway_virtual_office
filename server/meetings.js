@@ -103,6 +103,9 @@ export function markInterrupted(office) {
   }
 }
 
+/** Rapat yang sedang jalan di daemon ini (semua kantor); restart daemon akan memutusnya. */
+export const runningMeetings = () => [...running.entries()].map(([office, st]) => ({ office, meetingId: st.meetingId }));
+
 export function cancelMeeting(office) {
   const st = running.get(office);
   if (!st) throw new Error('Tidak ada rapat yang berjalan');
