@@ -9,6 +9,7 @@ import path from 'node:path';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kc-term-'));
 process.env.KANTOR_HOME = path.join(tmp, 'home');
 process.env.TMUX_TMPDIR = tmp; // server tmux sendiri, terpisah dari tmux pengguna (lokal maupun transport local:)
+delete process.env.TMUX; // $TMUX mengalahkan TMUX_TMPDIR: tanpa ini, test yang jalan di dalam tmux (shift agen) ikut kill-server tmux asli
 fs.mkdirSync(process.env.KANTOR_HOME, { recursive: true });
 fs.writeFileSync(path.join(process.env.KANTOR_HOME, 'config.json'), JSON.stringify({ roots: [tmp], token: 'x' }));
 
