@@ -926,6 +926,30 @@ ${wrong ? '<div class="err" role="alert">Token salah. Periksa huruf besar-kecil 
 const logDenied = (req, why) => console.error(`akses ditolak (${why}): host=${req.headers.host} path=${req.url.split('?')[0]} dari=${req.socket.remoteAddress} ua=${String(req.headers['user-agent'] || '').slice(0, 80)}`);
 
 /* ---------------- server ---------------- */
+/** Aplikasi lokal untuk Host ini (cfg.tls.proxy), hanya lewat HTTPS kantor.
+ *  Nilainya "http://127.0.0.1:port", atau { url, login: false } untuk aplikasi yang cukup dilindungi tailnet. */
+function proxyTargetOf(req) {
+  const map = cfg.tls?.proxy; if (!map || !req.socket.encrypted) return null;
+  const t = map[String(req.headers.host || '').split(':')[0]];
+  if (!t) return null;
+  try { return typeof t === 'string' ? { url: new URL(t), login: true } : { url: new URL(t.url), login: t.login !== false }; } catch { return null; }
+}
+const HOP = new Set(['connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade', 'te', 'trailer']);
+function proxyTo(req, res, target) {
+  const headers = {};
+  for (const [k, v] of Object.entries(req.headers)) if (!HOP.has(k) && k !== 'cookie' && k !== 'authorization') headers[k] = v;
+  headers.host = target.host;
+  headers['x-forwarded-proto'] = 'https'; headers['x-forwarded-host'] = req.headers.host || '';
+  const up = http.request({ hostname: target.hostname, port: target.port, method: req.method, path: req.url, headers }, r => {
+    const out = {};
+    for (const [k, v] of Object.entries(r.headers)) if (!HOP.has(k)) out[k] = v;
+    res.writeHead(r.statusCode || 502, out);
+    r.pipe(res);
+  });
+  up.on('error', e => { if (!res.headersSent) { res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end(`Aplikasi di ${target.host} tidak menjawab (${e.code || e.message}). Mungkin belum dijalankan.`); } else res.destroy(); });
+  req.pipe(up);
+}
+
 async function handle(req, res) {
   guardFraming(res);
   const url = new URL(req.url, 'http://x');
@@ -937,6 +961,16 @@ async function handle(req, res) {
     const next = url.searchParams.get('next') || '';
     res.writeHead(302, { 'Set-Cookie': `kc_token=${encodeURIComponent(cfg.token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${req.socket.encrypted ? '; Secure' : ''}`, Location: '/' + (next.startsWith('#/') ? next : '') });
     return res.end();
+  }
+  // nama lain di sertifikat yang sama diteruskan ke aplikasi lokal (cfg.tls.proxy: { "nama": "http://127.0.0.1:port" }),
+  // di balik login kantor yang sama; token mesin tidak boleh lewat sini
+  const px = proxyTargetOf(req);
+  if (px) {
+    if (px.login) {
+      const a = identify(req);
+      if (!a || a.role === 'machine') { logDenied(req, 'proxy'); return loginPage(res, 401, false); }
+    }
+    return proxyTo(req, res, px.url);
   }
   // pratinjau files: signed path instead of the cookie (a sandboxed page has an opaque origin and sends none)
   if (url.pathname.startsWith('/pv/') || url.pathname.startsWith('/pvt/')) {
