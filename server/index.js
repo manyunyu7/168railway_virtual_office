@@ -1,5 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
+import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { WebSocketServer } from 'ws';
@@ -172,7 +173,13 @@ async function body(req) {
 }
 function send(res, code, data) {
   const s = JSON.stringify(data ?? null);
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  const head = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+  // JSON besar dikompres kalau klien mau (app HP lewat data seluler, browser); yang kecil tidak sepadan
+  if (s.length > 2048 && /\bgzip\b/.test(String(res.req?.headers['accept-encoding'] || ''))) {
+    res.writeHead(code, { ...head, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' });
+    return res.end(zlib.gzipSync(s, { level: 5 }));
+  }
+  res.writeHead(code, head);
   res.end(s);
 }
 const O = id => { if (id !== '_kompleks' && !one(globalDb(), 'SELECT 1 FROM offices WHERE id = ?', id)) throw Object.assign(new Error('Kantor tidak ditemukan'), { code: 404 }); return id; };
@@ -227,9 +234,11 @@ route('POST', '/api/offices/:id/fav', async (req, res, p) => { const b = await b
 route('POST', '/api/offices/:id/hide', async (req, res, p) => { run(globalDb(), 'UPDATE offices SET hidden = 1 WHERE id = ?', O(p.id)); bus.emit('msg', { t: 'changed', office: '*', what: 'offices' }); return { ok: true }; });
 route('POST', '/api/offices/:id/rescan', (req, res, p) => { invalidate(O(p.id)); bus.emit('msg', { t: 'changed', office: p.id, what: 'plan' }); return { ok: true }; });
 
-route('GET', '/api/offices/:id', (req, res, p) => {
+route('GET', '/api/offices/:id', (req, res, p, q) => {
   const m = officeModel(O(p.id));
-  return { id: m.id, name: m.name, root: m.root, style: m.style, plan: m.plan, roles: st.listRoles(p.id), sessions: liveFor(p.id), news: st.listNews(p.id), log: st.listLog(p.id, 60),
+  // ?lite=1 (app HP): tanpa buku catatan role, yang bisa ratusan KB; isinya diambil lewat /roles saat dibuka
+  const roles = q.get('lite') === '1' ? st.listRoles(p.id).map(({ notes, ...r }) => r) : st.listRoles(p.id);
+  return { id: m.id, name: m.name, root: m.root, style: m.style, plan: m.plan, roles, sessions: liveFor(p.id), news: st.listNews(p.id), log: st.listLog(p.id, 60),
     minions: (() => { try { return getMinions(m.id); } catch { return null; } })(), wall: st.listNotes(p.id).filter(n => n.wall).slice(0, 6), cards: st.listCards(p.id).map(c => ({ id: c.id, title: c.title, col: c.col, stage: c.stage, done: c.done, board: c.board, who: c.who, repo: c.repo, blocked: c.blocked })) };
 });
 
@@ -454,7 +463,8 @@ route('POST', '/api/sessions/:sid/boss', async (req, res, p) => setSessionBoss(p
 route('GET', '/api/sessions/:sid/transcript', (req, res, p, q) => {
   const s = live.get(p.sid);
   const file = s?.transcript || one(globalDb(), 'SELECT transcript FROM sessions WHERE sid = ?', p.sid)?.transcript;
-  return readTranscript(file, Number(q.get('n')) || 120);
+  return readTranscript(file, Number(q.get('n')) || 120,
+    q.has('after') || q.get('delta') === '1' ? { sid: p.sid, after: q.get('after') } : undefined);
 });
 route('GET', '/api/sessions/:sid/peek', async (req, res, p) => {
   const s = live.get(p.sid);

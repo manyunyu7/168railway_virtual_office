@@ -1,3 +1,4 @@
+import { resetTranscript, appendTranscript, transcriptResponse } from './transcript-delta.js';
 // Gemini through the subscription-backed Antigravity CLI. Credentials stay with agy.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -108,16 +109,15 @@ export function normalizeAgyHook(event, p) {
 }
 export const isAgyTranscript = file => /[/\\]antigravity(?:-cli|-ide)?[/\\]brain[/\\].+[/\\]transcript(?:_full)?\.jsonl$/.test(file || '');
 const transcriptCache = new Map();
-export function readAgyTranscript(file, n = 120) {
+export function readAgyTranscript(file, n = 120, options) {
   if (!file || !fs.existsSync(file)) return { items: [], missing: true };
   const c = transcriptCache.get(file) || { ino: null, offset: 0, items: [] };
   const stat = scanAppended(file, c, null, d => {
-    c.items.push(...agyTranscriptItems(d));
-    if (c.items.length > 2000) c.items = c.items.slice(-2000);
-  }, () => { c.items = []; }, true);
+    appendTranscript(c, agyTranscriptItems(d));
+  }, () => { resetTranscript(c); }, true);
   transcriptCache.set(file, c);
   if (transcriptCache.size > 100) transcriptCache.delete(transcriptCache.keys().next().value);
-  return { items: c.items.slice(-n), size: stat.size };
+  return transcriptResponse(c, stat, n, options);
 }
 
 function agyTranscriptItems(d) {

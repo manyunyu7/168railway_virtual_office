@@ -12,10 +12,23 @@ const parse = l => { try { return JSON.parse(l); } catch { return null; } };
 const HEAD = 320, CHUNK = 4 << 20;
 export function scanAppended(file, state, marks, onLine, reset, includeFinal = false) {
   const st = fs.statSync(file);
-  if (state.ino !== st.ino || st.size < state.offset) { state.ino = st.ino; state.offset = 0; reset(); }
+  // A truncate+rewrite can already have regrown past the old offset between
+  // polls. Check the immutable prefix too, instead of silently mixing sessions.
+  let replaced = state.ino !== st.ino || st.size < state.offset;
+  if (!replaced && state.prefix?.length && (st.size !== state.lastSize || st.mtimeMs !== state.lastMtime)) {
+    const check = Buffer.alloc(state.prefix.length), fd = fs.openSync(file, 'r');
+    try { const got = fs.readSync(fd, check, 0, check.length, 0); replaced = got !== check.length || !check.equals(state.prefix); }
+    finally { fs.closeSync(fd); }
+  }
+  if (replaced) { state.ino = st.ino; state.offset = 0; state.prefix = null; reset(); }
+  state.lastSize = st.size; state.lastMtime = st.mtimeMs;
   if (st.size === state.offset) return st;
   const fd = fs.openSync(file, 'r');
   try {
+    if (!state.prefix && st.size) {
+      state.prefix = Buffer.alloc(Math.min(256, st.size));
+      fs.readSync(fd, state.prefix, 0, state.prefix.length, 0);
+    }
     let pos = state.offset, lineStart = pos, parts = [], keep = marks ? null : true, head = '';
     const buf = Buffer.alloc(Math.min(CHUNK, st.size - pos));
     while (pos < st.size) {

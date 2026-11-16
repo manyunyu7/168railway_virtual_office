@@ -1,3 +1,4 @@
+import { resetTranscript, appendTranscript, transcriptResponse } from './transcript-delta.js';
 import { scanAppended } from './jsonl.js';
 // OpenAI Codex CLI as a second engine for Kantor shifts (see docs/CODEX.md).
 // Pure helpers live here (CLI arguments, hook wiring, screen and rollout parsing) so they can be tested without
@@ -345,13 +346,13 @@ const capCache = m => { if (m.size > 100) m.delete(m.keys().next().value); };
 
 const chatCache = new Map(); // file -> { ino, offset, items }
 const CHAT_KEEP = 2000;
-export function readRollout(file, n, toolLabel) {
+export function readRollout(file, n, toolLabel, options) {
   if (!file || !fs.existsSync(file)) return { items: [], missing: true };
   const c = chatCache.get(file) || { ino: null, offset: 0, items: [] };
-  const st = scanAppended(file, c, ['item_completed'], d => { c.items.push(...rolloutItems(d, toolLabel)); }, () => { c.items = []; });
+  const st = scanAppended(file, c, ['item_completed'], d => { appendTranscript(c, rolloutItems(d, toolLabel), CHAT_KEEP); }, () => { resetTranscript(c); });
   if (c.items.length > CHAT_KEEP) c.items = c.items.slice(-CHAT_KEEP);
   chatCache.set(file, c); capCache(chatCache);
-  return { items: c.items.slice(-n), size: st.size };
+  return transcriptResponse(c, st, n, options);
 }
 
 /** True for a Codex rollout (first line is session_meta). */
