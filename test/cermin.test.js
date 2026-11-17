@@ -204,3 +204,42 @@ test('scanCodexUsage: rollout cermin dihitung sekali; salinan loopback dari fold
   assert.ok(files.includes(rf) && !files.includes(local), 'salinan cermin tidak dipindai');
   process.env.CODEX_HOME = emptyCodex;
 });
+
+// Sesi Codex / Antigravity di Mac lain: hook melapor transcript_path (rollout / brain transcript) → live.js memanggil
+// mirrorTranscript, dan /transcript, ?delta=1, serta /open membaca salinan lokal itu seperti transkrip Claude.
+test('rollout Codex dan transkrip Antigravity remote: tercermin dan terbaca lewat /transcript, delta, dan /open', async () => {
+  const { readTranscript } = await import('../server/transcript.js');
+  const { transcriptArgs, openSession } = await import('../server/session-open.js');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kc-cermin-cx-'));
+  const ev = (i, item) => JSON.stringify({ timestamp: `2026-11-15T10:00:${String(i).padStart(2, '0')}.000Z`, ordinal: i, type: 'event_msg', payload: { type: 'item_completed', item } }) + '\n';
+  const msg = (i, type, text) => ev(i, { type, content: [{ type: 'text', text }] });
+  // Codex baru menulis rollout setelah prompt pertama: saat SessionStart file remote bisa belum ada
+  const rf = path.join(root, '.codex', 'sessions', '2026', '11', '15', 'rollout-2026-11-15T17-53-17-01a1dcx0-0000-7000-8000-000000000001.jsonl');
+  const local = mirror.mirrorTranscript(m.id, rf);
+  assert.equal(local, mx.mirrorPath(m.id, rf));
+  assert.equal(readTranscript(local, 20, { sid: 'cx' }).items.length, 0);
+  fs.mkdirSync(path.dirname(rf), { recursive: true });
+  fs.writeFileSync(rf, JSON.stringify({ timestamp: '2026-11-15T10:00:00.000Z', ordinal: 0, type: 'session_meta', payload: { id: 'x' } }) + '\n'
+    + msg(1, 'UserMessage', 'halo viodex') + msg(2, 'AgentMessage', 'siap'));
+  await mirror.syncNow(local);
+  const route = (sid, q) => readTranscript(local, ...transcriptArgs(sid, q)); // sama dengan route di index.js
+  const full = route('cx', new URLSearchParams('n=20&delta=1'));
+  assert.deepEqual(full.items.map(i => [i.k, i.s]), [['user', 'halo viodex'], ['text', 'siap']]);
+  fs.appendFileSync(rf, msg(3, 'AgentMessage', 'selesai'));
+  await mirror.tick(later());
+  const delta = route('cx', new URLSearchParams(`n=20&after=${full.cursor}`));
+  assert.equal(delta.reset, false);
+  assert.deepEqual(delta.items.map(i => i.s), ['selesai']);
+  const open = openSession('cx', new URLSearchParams('n=40'), { transcript: route, attachments: () => [], session: () => null });
+  assert.deepEqual(open.transcript.items.map(i => i.s), ['halo viodex', 'siap', 'selesai']);
+  assert.ok(mirror.mirrorEntries().some(e => e.local === local && !e.missing));
+
+  // Antigravity: path cermin tetap dikenali sebagai transkrip brain
+  const af = path.join(root, '.gemini', 'antigravity-cli', 'brain', 'conv-1', 'transcript.jsonl');
+  fs.mkdirSync(path.dirname(af), { recursive: true });
+  fs.writeFileSync(af, [{ type: 'USER_INPUT', created_at: 'now', content: '<USER_REQUEST>\nHai\n</USER_REQUEST>' }, { type: 'PLANNER_RESPONSE', created_at: 'now', content: 'Halo' }].map(o => JSON.stringify(o) + '\n').join(''));
+  const alocal = mirror.mirrorTranscript(m.id, af);
+  assert.notEqual(alocal, af);
+  assert.deepEqual(readTranscript(alocal, 20).items.map(i => [i.k, i.s]), [['user', 'Hai'], ['text', 'Halo']]);
+  fs.rmSync(root, { recursive: true, force: true });
+});

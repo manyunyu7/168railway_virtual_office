@@ -1,0 +1,117 @@
+[38;5;174m ▐[48;5;16m▛███▛█[39m[49m   [1mClaude[0m [1mCode[0m [38;5;246mv2.1.326
+[38;5;174m▝▜[48;5;16m█████[49m█▀[39m  [38;5;246mSonnet[39m [38;5;246m5.5[39m [38;5;246m·[39m [38;5;246mClaude[39m [38;5;246mUltra
+[38;5;174m ▝▝[39m   [38;5;174m▝▝[39m   [38;5;246m/…/scratchpad/work
+
+
+[48;5;237m❯ [38;5;231mMulai jawabanmu dengan satu kalimat pembuka singkat. Lalu [39m    
+  [38;5;231mjalankan perintah Bash [38;5;153mls[38;5;231m sekali. Setelah itu, tanpa alat [39m    
+  [38;5;231mlain, tulis panduan sekitar 700 kata tentang cara merawat [39m    
+  [38;5;231msepeda: dua judul ##, satu daftar bernomor 4 butir, satu [39m     
+  [38;5;231mdaftar berpoin, kalimat [1mtebal[0m[38;5;231m[48;5;237m, [38;5;153mkode inline[38;5;231m, satu tabel kecil [39m 
+  [38;5;231m3 baris, dan satu blok kode python 6 baris.[39m                   
+
+[38;5;231m[49m⏺[39m Saya akan menjalankan [38;5;153mls[39m dulu, lalu menulis panduannya.
+
+  [38;5;246mListed [1m1[0m[38;5;246m directory (ctrl+o to expand)[39m                         
+
+[38;5;231m⏺[39m [1mPerawatan Rutin Sepeda
+
+[0m  Sepeda yang dirawat dengan baik terasa lebih ringan dikayuh,
+  lebih aman dipakai, dan awet bertahun-tahun. Perawatan tidak  
+  harus rumit. Kebiasaan kecil yang dilakukan teratur sudah   
+  mencegah sebagian besar kerusakan. [1mRawat sedikit tapi sering, 
+[0m  [1mjangan menunggu sampai ada yang rusak.[0m Biaya perbaikan besar
+  hampir selalu berasal dari masalah kecil yang dibiarkan.    
+
+  Berikut empat langkah dasar yang sebaiknya jadi kebiasaan:
+
+  1. [1mPeriksa[0m [1mtekanan[0m [1mban.[0m Ban yang kurang angin membuat kayuhan
+     berat dan mudah bocor. Cek seminggu sekali dengan pompa
+     bermanometer, lalu sesuaikan dengan angka yang tertera di
+     dinding ban.
+  2. [1mBersihkan[0m [1mrantai.[0m Lap rantai dengan kain kering untuk
+     membuang debu dan oli lama. Bila sudah sangat kotor,
+     gunakan degreaser dan sikat lembut.
+  3. [1mBeri[0m [1mpelumas.[0m Teteskan satu tetes oli rantai pada setiap
+     mata rantai sambil memutar engkol ke belakang. Diamkan
+     beberapa menit, lalu lap sisa oli yang berlebih.
+  4. [1mTes[0m [1mrem[0m [1msebelum[0m [1mberangkat.[0m Tarik tuas rem sambil mendorong
+     sepeda. Kalau tuas terlalu dalam atau terdengar bunyi
+     gesekan logam, kampas perlu disetel atau diganti.
+
+  Selain empat langkah itu, ada beberapa hal yang perlu dicek
+  berkala:
+
+  - Kencangkan baut sadel, stang, dan roda dengan kunci yang
+    sesuai.
+  - Periksa kabel rem dan kabel persneling, apakah ada yang
+    berkarat atau berserabut.
+  - Lihat alur ban. Ban yang sudah gundul atau retak halus di
+    sisinya harus diganti.
+  - Pastikan lampu dan reflektor berfungsi, terutama kalau
+    sering bersepeda saat gelap.
+  - Simpan sepeda di tempat teduh dan kering agar rangka tidak
+    berkarat.
+
+  Merawat sepeda juga berarti mengenali bunyinya. Bunyi berderit
+  biasanya tanda kurang pelumas, sedangkan bunyi klik berulang
+  di setiap putaran pedal sering berasal dari rantai yang kering
+  atau baut pedal yang longgar. Dengarkan sepedamu, karena ia
+  memberi tanda sebelum rusak.
+
+  [1mJadwal[0m [1mdan[0m [1mPencatatan
+
+[0m  Supaya perawatan tidak terlewat, buat jadwal sederhana
+  berdasarkan frekuensi pemakaian. Tabel berikut bisa dijadikan
+  acuan untuk pemakaian harian:
+
+  ┌───────────┬────────────────────────────┬────────────────┐
+  │ Frekuensi │           Tugas            │   Perkiraan    │   
+  │           │                            │     waktu      │
+  ├───────────┼────────────────────────────┼────────────────┤   
+  │ Mingguan  │ Cek tekanan ban dan lap    │ 5 menit        │
+  │           │ rantai                     │                │ 
+  ├───────────┼────────────────────────────┼────────────────┤
+  │ Bulanan   │ Lumasi rantai dan periksa  │ 15 menit       │
+  │           │ rem                        │                │   
+  ├───────────┼────────────────────────────┼────────────────┤
+  │ Tahunan   │ Servis lengkap di bengkel  │ 1–2 jam        │
+  └───────────┴────────────────────────────┴────────────────┘   
+
+  Servis tahunan mencakup pembersihan bearing, penyetelan
+  persneling, dan pemeriksaan rangka. Pekerjaan ini lebih baik
+  diserahkan ke mekanik berpengalaman karena butuh alat khusus.
+  Kalau kamu bersepeda jauh atau sering melewati jalan
+  berlumpur, percepat jadwalnya menjadi enam bulan sekali.
+
+  Catatan jarak tempuh membantu kamu tahu kapan komponen perlu
+  diganti. Rantai biasanya aus setelah 2.000 sampai 3.000
+  kilometer, sedangkan kampas rem bergantung pada medan dan gaya
+  mengerem. Mengganti rantai tepat waktu menyelamatkan gigi
+  belakang dan depan, yang harganya jauh lebih mahal. Untuk
+  mencatat jarak, kamu bisa memakai aplikasi sepeda atau skrip
+  sederhana seperti ini:                                        
+
+  jarak_total = [32m0
+[39m  catatan = [[32m12.5[39m, [32m8.0[39m, [32m20.3[39m, [32m15.2[39m]
+  [94mfor[39m km [94min[39m catatan:                                            
+      jarak_total += km
+  [36mprint[39m([31mf"Total: [39m{jarak_total} km")
+  [36mprint[39m([31m"Cek rantai"[39m [94mif[39m jarak_total > [32m2000[39m [94melse[39m [31m"Masih aman"[39m)
+
+  Setelah hujan, keringkan sepeda dengan kain bersih dan lumasi
+  ulang rantainya. Air membuat oli luntur dan karat muncul dalam
+  hitungan hari. Hindari menyemprot air bertekanan tinggi ke
+  arah bearing, karena air akan menembus ke dalam dan membuang
+  gemuk pelumasnya. Cukup gunakan spons basah dan sabun ringan,
+  lalu bilas dengan air mengalir pelan.
+
+  Untuk penyimpanan jangka panjang, misalnya saat bepergian
+  berminggu-minggu, kempiskan ban sedikit dan gantung atau
+
+[38;5;244m────────────────────────────────────────────────────────────────
+[38;5;246m❯ [39m                                                              
+[38;5;244m────────────────────────────────────────────────────────────────
+[39m  [38;5;210m⏵⏵ bypass permissions on[38;5;246m · esc to interrupt · ← 3 agents[39m    
+  [38;5;246mtmux[39m [38;5;246mfocus-events[39m [38;5;246moff[39m [38;5;246m·[39m [38;5;246madd[39m [38;5;246m'set[39m [38;5;246m-g[39m [38;5;246mfocus-events[39m [38;5;246mon'[39m [38;5;246mto[39m [38;5;246m~/.…
+

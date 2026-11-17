@@ -1,0 +1,40 @@
+[1;2m[48;5;8m› [0m[48;5;8mTanpa menjalankan perintah apa pun, tulis panduan sekitar 450 kata tentang menyiapkan server kec…
+[49m  Hindari menaruh kata sandi di catatan yang dibagikan.                                             
+                                                                                                    
+  [1m[38;2;243;139;168mCadangan yang berguna harus tersimpan terpisah dari server utama dan sudah pernah diuji untuk[0m     
+  [1m[38;2;243;139;168mmemulihkan berkas penting.[0m                                                                        
+                                                                                                    
+  Jadwalkan pencadangan otomatis, tetapi periksa hasilnya secara berkala. Coba pulihkan beberapa    
+  berkas contoh setiap bulan agar kamu mengetahui langkah pemulihannya. Pantau ruang kosong, suhu   
+  perangkat, dan pembaruan keamanan; pemeriksaan singkat mingguan biasanya lebih mudah dipertahankan
+  daripada perawatan besar yang jarang dilakukan.                                                   
+                                                                                                    
+  Untuk akses dari luar rumah, pertimbangkan VPN dan pahami pengaturannya sebelum membuka layanan ke
+  internet. Mulailah secara [3m[38;2;243;139;168mbertahap[0m: jalankan satu layanan sampai stabil, dokumentasikan           
+  pengaturannya, kemudian tambahkan layanan berikutnya sesuai kebutuhan.                            
+                                                                                                    
+[2m  Worked for 30s • 13:23                                                                            
+[0m                                                                                                    
+[48;5;8m                                                                                                    
+[1;2m› [0m[48;5;8mTanpa menjalankan perintah apa pun, tulis catatan sekitar 300 kata tentang backup data rumahan.   
+  Wajib memuat: judul ## di awal, satu tautan markdown ke ]8;;https://restic.net\https://restic.net]8;;\ dengan teks "situs     
+  restic", satu URL polos ]8;;https://example.com/backup\https://example.com/backup]8;;\, dua kata miring, satu kalimat tebal panjang   
+  (lebih dari 12 kata) yang memuat kode inline `restic init` di tengahnya, satu kutipan (blockquote 
+  >), satu daftar berpoin dengan sub-butir, dan satu blok kode tanpa nama bahasa berisi 6 baris     
+  yang di tengahnya ada satu baris kosong.                                                          
+                                                                                                    
+[49m                                                                                                    
+[2m• [0;1m[38;2;250;179;135m## Catatan Backup Data Rumahan[0m                                                                    
+                                                                                                    
+  Backup data rumahan membantu menjaga foto keluarga, dokumen pekerjaan, arsip keuangan, dan berkas 
+  pribadi ketika perangkat rusak atau terhapus tanpa sengaja. Mulailah dari data yang sulit diganti,
+  kemudian tentukan jadwal pencadangan yang realistis. Kebiasaan yang [3m[38;2;243;139;168mkonsisten[0m biasanya lebih      
+  berguna daripada pengaturan rumit yang akhirnya jarang diperiksa.                                 
+  Gunakan prinsip tiga salinan: satu data utama dan dua cadangan, dengan salah satu cadangan berada 
+  di lokasi berbeda. Contohnya, simpan data utama di                                                
+                                                                                                   
+                                                                                                   
+[1m›[0m [2mAsk Codex to do anything[0m                
+ 
+  [38;2;246;226;183mGPT-6.1-Sol medium[39m · [38;2;171;223;167m/tmp/scratch/work
+[39m  [1m←[0m for agents · [1m?[0m for shortcuts                                           ⚠ [38;2;196;167;103m1 warning[39m · [1mf2[0m to view

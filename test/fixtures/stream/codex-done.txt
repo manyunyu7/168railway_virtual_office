@@ -1,0 +1,19 @@
+## Cara Kerja Rem Cakram Sepeda
+
+Rem cakram sepeda bekerja dengan menjepit sebuah piringan logam yang disebut rotor. Rotor terpasang pada hub, yaitu bagian tengah roda, sehingga ikut berputar bersama roda. Di dekat rotor terdapat kaliper yang terpasang pada rangka atau garpu sepeda. Kaliper menampung kampas rem serta mekanisme yang mendorong kampas tersebut. Ketika tuas rem ditarik, kampas menekan kedua sisi rotor dan menghasilkan gesekan yang memperlambat putaran roda.
+
+**Saat pengereman, sebagian energi gerak sepeda berubah menjadi panas akibat gesekan antara kampas dan rotor.** Karena itu, rotor dapat menjadi sangat panas setelah pengereman panjang, terutama ketika menuruni jalan curam. Panas tersebut kemudian dilepaskan ke udara melalui permukaan rotor. Lubang dan celah pada rotor membantu mengurangi bobot serta mendukung pembuangan air dan kotoran, meskipun kemampuan menangani panas juga bergantung pada ukuran, ketebalan, dan bahan rotor.
+
+Urutan kerjanya dapat diringkas menjadi tiga tahap:
+
+- Pengendara menarik tuas rem, lalu gaya dari tangan diteruskan menuju kaliper melalui kabel mekanis atau tekanan cairan hidraulis.
+- Mekanisme di dalam kaliper mendorong kampas hingga menjepit rotor, sehingga muncul gesekan yang menahan putarannya.
+- Ketika tuas dilepas, kampas kembali memiliki celah kecil terhadap rotor, sehingga roda dapat berputar bebas.
+
+Pada rem cakram mekanis, kabel baja menarik lengan penggerak di kaliper. Gerakan ini diubah menjadi dorongan kampas. Sebagian desain hanya menggerakkan satu kampas, sedangkan desain lainnya menggerakkan keduanya. Seiring kampas menipis dan kabel mengalami perubahan tegangan, jarak kampas biasanya perlu disetel agar tarikan tuas tetap nyaman dan pengereman tetap efektif.
+
+Pada rem cakram hidraulis, tarikan tuas menggerakkan piston di silinder utama. Piston menekan cairan rem di dalam selang, lalu tekanan diteruskan ke piston kaliper. Dorongan piston membuat kampas menjepit rotor. Sistem ini umumnya menyesuaikan posisi kampas secara otomatis ketika kampas menipis. Namun, udara yang masuk ke sirkuit dapat membuat tuas terasa empuk karena udara mudah dimampatkan, sehingga sistem perlu dibuang udaranya melalui proses bleeding.
+
+Besar perlambatan tidak hanya ditentukan oleh kuatnya jepitan kampas. Daya cengkeram ban terhadap permukaan jalan juga membatasi pengereman. Jika gaya rem melebihi kemampuan ban mencengkeram, roda dapat terkunci dan tergelincir. Saat memperlambat sepeda, beban berpindah ke depan sehingga rem depan biasanya mampu memberikan kontribusi pengereman lebih besar.
+
+Pengendalian yang baik dilakukan dengan menarik tuas secara bertahap dan menyesuaikan tekanannya dengan kondisi jalan. Rotor dan kampas juga harus bebas dari minyak karena kontaminasi dapat menurunkan gesekan serta menimbulkan bunyi. Pemeriksaan ketebalan kampas, kelurusan rotor, dan kondisi kabel atau selang membantu menjaga pengereman tetap konsisten. Hindari menyentuh rotor segera setelah pengereman berat karena panasnya dapat melukai kulit.

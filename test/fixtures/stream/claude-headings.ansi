@@ -1,0 +1,109 @@
+[38;5;174m ▐[48;5;16m▛███▛█[39m[49m   [1mClaude[0m [1mCode[0m [38;5;246mv2.1.326
+[38;5;174m▝▜[48;5;16m█████[49m█▀[39m  [38;5;246mSonnet[39m [38;5;246m5.5[39m [38;5;246m·[39m [38;5;246mClaude[39m [38;5;246mUltra
+[38;5;174m ▝▝[39m   [38;5;174m▝▝[39m   [38;5;246m/…/scratchpad/work
+
+
+[48;5;237m❯ [38;5;231mTanpa menjalankan alat apa pun, tulis panduan singkat (sekitar 450 [39m   
+  [38;5;231mkata) tentang menyiapkan server kecil di rumah. Wajib memuat: satu [39m   
+  [38;5;231mjudul level 1 (#), dua judul level 2 (##), satu judul level 3 (###), [39m 
+  [38;5;231msatu kalimat tebal, beberapa kode inline (nama berkas seperti [39m        
+  [38;5;153mconfig.yaml[38;5;231m dan perintah seperti [38;5;153msudo apt update[38;5;231m), satu kata miring, [39m 
+  [38;5;231msatu daftar berpoin 3 butir, satu daftar bernomor 3 butir, satu tabel[39m 
+  [38;5;231mkecil 3 baris, satu blok kode TANPA nama bahasa (hanya tiga [39m          
+  [38;5;231mbacktick) berisi 5 baris perintah shell, dan satu blok kode tanpa [39m    
+  [38;5;231mnama bahasa berisi 4 baris konfigurasi key: value yang menjorok.[39m      
+[49m                                                              
+[38;5;231m⏺[39m [1;3;4mPanduan Menyiapkan Server Kecil di Rumah[0m       
+
+  Server rumahan cocok untuk menyimpan berkas pribadi, menjalankan media
+  server, atau sekadar belajar administrasi sistem. Anda tidak perlu
+  perangkat mahal. Komputer bekas, mini PC, atau Raspberry Pi sudah
+  cukup untuk memulai.
+
+  [1mPersiapan Perangkat dan Jaringan[0m                                      
+
+  Sebelum memasang apa pun, tentukan dulu kebutuhan Anda. Server untuk
+  berbagi berkas jauh lebih ringan daripada server yang mentranskode
+  video. Periksa tiga hal berikut:
+
+  - Prosesor dan RAM sesuai beban kerja (minimal 2 GB untuk layanan     
+    ringan)
+  - Penyimpanan cukup, sebaiknya SSD untuk sistem dan HDD untuk data    
+  - Koneksi kabel LAN, karena lebih stabil daripada Wi-Fi
+
+  Berikut perkiraan spesifikasi untuk beberapa keperluan umum:
+
+  ┌────────────────────┬──────┬─────────────┐
+  │     Keperluan      │ RAM  │ Penyimpanan │                           
+  ├────────────────────┼──────┼─────────────┤                         
+  │ Berbagi berkas     │ 2 GB │ 500 GB      │                           
+  ├────────────────────┼──────┼─────────────┤                         
+  │ Media server       │ 4 GB │ 2 TB        │                         
+  ├────────────────────┼──────┼─────────────┤                           
+  │ Web dan basis data │ 4 GB │ 256 GB      │
+  └────────────────────┴──────┴─────────────┘                           
+
+  [1mSelalu pasang pembaruan keamanan sebelum server Anda terhubung ke 
+[0m  [1minternet.[0m                                                             
+
+  [1mInstalasi dan Konfigurasi[0m                                             
+                                                                      
+  Pasang Debian atau Ubuntu Server dari USB, lalu hubungkan server ke 
+  router. Catat alamat IP-nya, karena Anda akan memakainya untuk masuk
+  dari komputer lain.                                                   
+
+  [1mPengaturan dasar[0m                                                      
+                                                                      
+  Ikuti urutan berikut setelah sistem menyala pertama kali:           
+
+  1. Masuk lewat SSH dari komputer utama dengan [38;5;153mssh 
+[39m     [38;5;153mpengguna@192.168.1.50[39m.
+  2. Perbarui sistem dan pasang paket yang diperlukan.                  
+  3. Aktifkan firewall dan buka hanya port yang benar-benar dipakai.
+
+  Perintah yang biasa dijalankan pada tahap ini:
+
+  [38;5;153msudo apt update[39m                                                       
+  [38;5;153msudo apt upgrade -y[39m                                                   
+  [38;5;153msudo apt install openssh-server ufw[39m                                 
+  [38;5;153msudo ufw allow 22/tcp[39m                                                 
+  [38;5;153msudo ufw enable
+
+[39m  Setelah itu, siapkan layanan yang Anda pilih. Banyak aplikasi memakai
+  berkas seperti [38;5;153mconfig.yaml[39m untuk menyimpan pengaturannya. Contoh isi
+  yang sederhana:                                                       
+
+  [38;5;153mserver:
+[39m    [38;5;153mhost: 0.0.0.0[39m                                                       
+    [38;5;153mport: 8080
+[39m    [38;5;153mdebug: false[39m                                                        
+
+  Jika [38;5;153mdebug[39m dibiarkan aktif, layanan bisa menampilkan informasi
+  sensitif. Ubah nilainya menjadi [38;5;153mfalse[39m sebelum server dipakai
+  sehari-hari.
+
+  Beberapa kebiasaan baik akan menghemat banyak masalah di kemudian
+  hari. Berikan alamat IP tetap lewat router agar server tidak berpindah
+  alamat setelah restart. Nonaktifkan login kata sandi di
+  [38;5;153m/etc/ssh/sshd_config[39m dan pakai kunci SSH. Buat cadangan berkala ke
+  disk eksternal, karena RAID bukan pengganti backup. Pantau suhu dan
+  pemakaian disk sesekali, terutama jika server berada di ruangan yang
+  pengap.
+
+  Bila ingin mengakses server dari luar rumah, jangan langsung membuka
+  port di router. Lebih aman memakai VPN seperti WireGuard atau
+  Tailscale, sehingga hanya perangkat Anda yang bisa masuk. Cara ini
+  juga menghindari repotnya alamat IP publik yang berubah-ubah.
+
+  Mulailah dari satu layanan kecil dan pastikan berjalan stabil, baru
+  tambahkan yang berikutnya. Server yang dibangun bertahap lebih mudah
+  dirawat dan lebih mudah diperbaiki saat ada masalah. Selamat
+  bereksperimen!                                                        
+
+[38;5;246m✻[39m [38;5;246mBaked for 14s · done 1:22 PM[39m                                          
+                                                                      
+[38;5;244m────────────────────────────────────────────────────────────────────────
+[39m❯ 
+[38;5;244m────────────────────────────────────────────────────────────────────────
+[39m  [38;5;220m⏵⏵[39m [38;5;220mauto[39m [38;5;220mmode[39m [38;5;220mon[38;5;246m (shift+tab[39m [38;5;246mto[39m [38;5;246mcycle)[39m [38;5;246m·[39m [38;5;246m← 3[39m [38;5;246magents[39m                   
+

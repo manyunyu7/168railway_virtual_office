@@ -1,0 +1,40 @@
+[1;2m[48;5;8m› [0m[48;5;8mTanpa menjalankan perintah apa pun, tulis catatan sekitar 300 kata tentang backup data rumahan. … 
+[49m  repositori, dan cara memulihkan berkas.                                                           
+                                                                                                    
+  [1m[38;2;243;139;168mSebelum menjalankan perintah [0m[38;2;166;227;161mrestic init[1m[38;2;243;139;168m untuk membuat repositori cadangan, pastikan lokasi tujuan
+[0m  [1m[38;2;243;139;168msudah benar dan kata sandinya tersimpan dengan aman.[0m                                              
+                                                                                                    
+  Berikut contoh susunan perintah, hanya sebagai teks referensi. Blok ini berisi enam baris,        
+  termasuk satu baris kosong di tengah:                                                             
+                                                                                                    
+  export RESTIC_REPOSITORY="/media/backup/repositori"                                               
+  restic init                                                                                       
+  restic backup "$HOME/Documents"                                                                   
+                                                                                                    
+  restic snapshots                                                                                  
+  restic check                                                                                      
+                                                                                                    
+  Contoh tersebut mengasumsikan disk cadangan sudah terpasang dan folder dokumen memang tersedia.   
+  Jangan mengandalkan nama lokasi contoh tanpa memeriksa perangkatmu sendiri.                       
+                                                                                                    
+[38;2;245;194;231m  > Cadangan baru benar-benar berguna ketika berkasnya dapat dipulihkan pada saat dibutuhkan.[39m       
+                                                                                                    
+  Atur rutinitas sederhana:                                                                         
+                                                                                                    
+  [38;2;148;226;213m• [39mTentukan cakupan pencadangan.                                                                   
+  [38;2;148;226;213m    • [39mDahulukan dokumen, foto asli, dan arsip penting.                                            
+  [38;2;148;226;213m    • [39mAbaikan berkas sementara yang mudah dibuat ulang.                                           
+  [38;2;148;226;213m• [39mPeriksa hasil pencadangan.                                                                      
+  [38;2;148;226;213m    • [39mTinjau pesan kesalahan dan ruang penyimpanan.                                               
+  [38;2;148;226;213m    • [39mUji pemulihan beberapa berkas setiap bulan.                                                 
+  [38;2;148;226;213m• [39mLindungi akses cadangan.                                                                        
+  [38;2;148;226;213m    • [39mSimpan kata sandi dalam pengelola kata sandi.                                               
+  [38;2;148;226;213m    • [39mLepaskan disk eksternal setelah proses selesai jika memungkinkan.                           
+  Catat jadwal, lokasi cadangan, dan petunjuk pemulihan agar anggota keluarga dapat membantu. Alamat
+  [4m[38;2;137;180;250m]8;;https://example.com/backup\https://example.com/backup[0m]8;;\ dapat dipakai sebagai contoh penulisan alamat                          
+                                                                                                   
+                                                                                                   
+[1m›[0m [2mAsk Codex to do anything[0m                
+ 
+  [38;2;246;226;183mGPT-6.1-Sol medium[39m · [38;2;171;223;167m/tmp/scratch/work
+[39m  [1m←[0m for agents · [1m?[0m for shortcuts                                           ⚠ [38;2;196;167;103m1 warning[39m · [1mf2[0m to view

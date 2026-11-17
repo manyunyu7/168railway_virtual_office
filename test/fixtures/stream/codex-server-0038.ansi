@@ -1,0 +1,40 @@
+[1;2m[48;5;8m› [0m[48;5;8mTanpa menjalankan perintah apa pun, tulis panduan sekitar 450 kata tentang menyiapkan server kec…
+[2m[49m• [0;1m[38;2;250;179;135m## Menyiapkan Server Kecil di Rumah[0m                                                              
+                                                                                                   
+  Server kecil di rumah bisa menjadi tempat menyimpan berkas, mencadangkan foto, menjalankan       
+  aplikasi pribadi, atau mencoba layanan baru. Kamu tidak perlu langsung membeli perangkat mahal.  
+  Laptop lama, komputer mini, atau komputer bekas yang masih sehat biasanya cukup untuk kebutuhan  
+  awal. Panduan ini mengasumsikan kamu memakai Ubuntu Server dan menghubungkannya ke router rumah  
+  melalui kabel Ethernet.                                                                          
+                                                                                                   
+  [1m[38;2;243;139;168mMulailah dengan satu kebutuhan yang jelas agar pilihan perangkat, kapasitas penyimpanan, dan waktu
+[0m  [1m[38;2;243;139;168mperawatan tetap sesuai kemampuanmu.[0m                                                              
+                                                                                                   
+  Untuk penyimpanan keluarga, prioritaskan kesehatan disk dan kemudahan pencadangan. Untuk aplikasi 
+  pribadi, perhatikan kapasitas memori serta dukungan perangkat lunaknya. Letakkan perangkat di    
+  tempat kering, memiliki aliran udara baik, dan mudah dijangkau ketika perlu diperiksa. Hindari    
+  lemari tertutup yang membuat panas terperangkap.                                                  
+                                                                                                    
+  Siapkan tiga komponen utama berikut:                                                             
+                                                                                                    
+  [38;2;148;226;213m• [39mPerangkat hemat daya dengan RAM minimal 4 GB untuk beberapa layanan ringan.                     
+  [38;2;148;226;213m• [39mSSD untuk sistem operasi serta disk tambahan bila kebutuhan penyimpanan cukup besar.            
+  [38;2;148;226;213m• [39mKabel Ethernet dan media cadangan terpisah, misalnya disk eksternal yang dilepas setelah        
+    pencadangan.                                                                                    
+                                                                                                    
+  Sebagai gambaran, gunakan pembagian sederhana ini:                                                
+                                                                                                    
+[1m[38;2;249;226;175m   Komponen         Fungsi                                                                          
+[0m  [2m━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m                                          
+   SSD sistem       Menyimpan sistem operasi dan aplikasi                                           
+  [2m───────────────  ───────────────────────────────────────[0m                                          
+   Disk data        Menampung berkas serta foto                                                    
+  [2m───────────────  ───────────────────────────────────────[0m                                          
+   Disk cadangan    Menyimpan salinan pemulihan                                                     
+  [1;3m[38;2;249;226;175m### Instalasi,[0m                                                                                    
+                                                                                                   
+                                                                                                   
+[1m›[0m [2mAsk Codex to do anything
+[0m 
+  [38;2;246;226;183mGPT-6.1-Sol medium[39m · [38;2;171;223;167m/tmp/scratch/work
+[39m  [1m←[0m for agents · [1m?[0m for shortcuts                                           ⚠ [38;2;196;167;103m1 warning[39m · [1mf2[0m to view

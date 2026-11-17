@@ -57,3 +57,50 @@ test('complete final record without newline is not duplicated in delta', () => {
   const b=readTranscript(file,200,{sid:'partial',after:a.cursor});
   assert.equal(b.reset,false);assert.deepEqual(b.items.map(i=>i.s),['two']);
 });
+
+test('first/gen/older on full and delta responses', () => {
+  const file=path.join(tmp,'seq.jsonl');fs.writeFileSync(file,Array.from({length:10},(_,i)=>row('m'+i)).join(''));
+  const full=readTranscript(file,4,{sid:'seq'});
+  assert.equal(full.first,6);assert.equal(typeof full.gen,'string');assert.equal(full.older,true);
+  assert.deepEqual(full.items.map(i=>i.s),['m6','m7','m8','m9']);
+  const all=readTranscript(file,50,{sid:'seq'});assert.equal(all.first,0);assert.equal(all.older,false);assert.equal(all.gen,full.gen);
+  fs.appendFileSync(file,row('m10')+row('m11'));
+  const delta=readTranscript(file,4,{sid:'seq',after:full.cursor});
+  assert.equal(delta.reset,false);assert.equal(delta.first,10);assert.equal(delta.older,true);assert.equal(delta.gen,full.gen);
+  assert.deepEqual(delta.items.map(i=>i.s),['m10','m11']);
+  const none=readTranscript(file,4,{sid:'seq',after:delta.cursor});assert.deepEqual(none.items,[]);assert.equal(none.first,12);assert.equal(none.older,true);
+  assert.deepEqual(Object.keys(readTranscript(file,4)),['items','size']);
+});
+
+test('paging before= walks back to older=false; wrong gen or range resets; n clamped', () => {
+  const file=path.join(tmp,'page.jsonl');fs.writeFileSync(file,Array.from({length:450},(_,i)=>row('p'+i)).join(''));
+  const head=readTranscript(file,50,{sid:'page'});assert.equal(head.first,400);
+  const seen=[...head.items.map(i=>i.s)];let first=head.first,older=head.older,pages=0;
+  while(older){
+    const pg=readTranscript(file,120,{sid:'page',before:String(first),gen:head.gen});
+    assert.deepEqual(Object.keys(pg).sort(),['first','gen','items','older']);
+    assert.equal(pg.first,Math.max(0,first-120));assert.equal(pg.items.length,first-pg.first);assert.equal(pg.gen,head.gen);
+    seen.unshift(...pg.items.map(i=>i.s));first=pg.first;older=pg.older;pages++;
+  }
+  assert.equal(pages,4);assert.equal(first,0);
+  assert.deepEqual(seen,Array.from({length:450},(_,i)=>'p'+i));
+  assert.deepEqual(readTranscript(file,120,{sid:'page',before:'400',gen:'nope'}),{items:[],reset:true,gen:head.gen});
+  assert.deepEqual(readTranscript(file,120,{sid:'page',before:'451',gen:head.gen}),{items:[],reset:true,gen:head.gen});
+  assert.equal(readTranscript(file,120,{sid:'page',before:'-1',gen:head.gen}).reset,true);
+  assert.equal(readTranscript(file,120,{sid:'page',before:'abc',gen:head.gen}).reset,true);
+  assert.equal(readTranscript(file,120,{sid:'page',before:'400',gen:''}).reset,true);
+  assert.equal(readTranscript(file,1000,{sid:'page',before:'400',gen:head.gen}).items.length,200);
+  const one=readTranscript(file,-5,{sid:'page',before:'400',gen:head.gen});assert.equal(one.items.length,1);assert.equal(one.items[0].s,'p399');
+  const at0=readTranscript(file,10,{sid:'page',before:'0',gen:head.gen});assert.deepEqual(at0,{items:[],first:0,gen:head.gen,older:false});
+});
+
+test('paging respects the retained window and a new generation', () => {
+  const file=path.join(tmp,'evict.jsonl');fs.writeFileSync(file,Array.from({length:2300},(_,i)=>row('e'+i)).join(''));
+  const head=readTranscript(file,100,{sid:'ev'});assert.equal(head.first,2200);
+  const edge=readTranscript(file,200,{sid:'ev',before:'500',gen:head.gen});
+  assert.equal(edge.first,300);assert.equal(edge.older,false);assert.equal(edge.items[0].s,'e300');
+  assert.equal(readTranscript(file,200,{sid:'ev',before:'299',gen:head.gen}).reset,true);
+  fs.writeFileSync(file,row('fresh'));
+  const after=readTranscript(file,200,{sid:'ev',before:'2200',gen:head.gen});
+  assert.equal(after.reset,true);assert.notEqual(after.gen,head.gen);
+});

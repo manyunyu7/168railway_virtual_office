@@ -1,0 +1,49 @@
+## Perawatan Rutin Sepeda
+
+Sepeda yang dirawat dengan baik terasa lebih ringan dikayuh, lebih aman dipakai, dan awet bertahun-tahun. Perawatan tidak harus rumit. Kebiasaan kecil yang dilakukan teratur sudah mencegah sebagian besar kerusakan. **Rawat sedikit tapi sering, jangan menunggu sampai ada yang rusak.** Biaya perbaikan besar hampir selalu berasal dari masalah kecil yang dibiarkan.
+
+Berikut empat langkah dasar yang sebaiknya jadi kebiasaan:
+
+1. **Periksa tekanan ban.** Ban yang kurang angin membuat kayuhan berat dan mudah bocor. Cek seminggu sekali dengan pompa bermanometer, lalu sesuaikan dengan angka yang tertera di dinding ban.
+2. **Bersihkan rantai.** Lap rantai dengan kain kering untuk membuang debu dan oli lama. Bila sudah sangat kotor, gunakan degreaser dan sikat lembut.
+3. **Beri pelumas.** Teteskan satu tetes oli rantai pada setiap mata rantai sambil memutar engkol ke belakang. Diamkan beberapa menit, lalu lap sisa oli yang berlebih.
+4. **Tes rem sebelum berangkat.** Tarik tuas rem sambil mendorong sepeda. Kalau tuas terlalu dalam atau terdengar bunyi gesekan logam, kampas perlu disetel atau diganti.
+
+Selain empat langkah itu, ada beberapa hal yang perlu dicek berkala:
+
+- Kencangkan baut sadel, stang, dan roda dengan kunci yang sesuai.
+- Periksa kabel rem dan kabel persneling, apakah ada yang berkarat atau berserabut.
+- Lihat alur ban. Ban yang sudah gundul atau retak halus di sisinya harus diganti.
+- Pastikan lampu dan reflektor berfungsi, terutama kalau sering bersepeda saat gelap.
+- Simpan sepeda di tempat teduh dan kering agar rangka tidak berkarat.
+
+Merawat sepeda juga berarti mengenali bunyinya. Bunyi berderit biasanya tanda kurang pelumas, sedangkan bunyi klik berulang di setiap putaran pedal sering berasal dari rantai yang kering atau baut pedal yang longgar. Dengarkan sepedamu, karena ia memberi tanda sebelum rusak.
+
+## Jadwal dan Pencatatan
+
+Supaya perawatan tidak terlewat, buat jadwal sederhana berdasarkan frekuensi pemakaian. Tabel berikut bisa dijadikan acuan untuk pemakaian harian:
+
+| Frekuensi | Tugas | Perkiraan waktu |
+|-----------|-------|-----------------|
+| Mingguan | Cek tekanan ban dan lap rantai | 5 menit |
+| Bulanan | Lumasi rantai dan periksa rem | 15 menit |
+| Tahunan | Servis lengkap di bengkel | 1–2 jam |
+
+Servis tahunan mencakup pembersihan bearing, penyetelan persneling, dan pemeriksaan rangka. Pekerjaan ini lebih baik diserahkan ke mekanik berpengalaman karena butuh alat khusus. Kalau kamu bersepeda jauh atau sering melewati jalan berlumpur, percepat jadwalnya menjadi enam bulan sekali.
+
+Catatan jarak tempuh membantu kamu tahu kapan komponen perlu diganti. Rantai biasanya aus setelah 2.000 sampai 3.000 kilometer, sedangkan kampas rem bergantung pada medan dan gaya mengerem. Mengganti rantai tepat waktu menyelamatkan gigi belakang dan depan, yang harganya jauh lebih mahal. Untuk mencatat jarak, kamu bisa memakai aplikasi sepeda atau skrip sederhana seperti ini:
+
+```python
+jarak_total = 0
+catatan = [12.5, 8.0, 20.3, 15.2]
+for km in catatan:
+    jarak_total += km
+print(f"Total: {jarak_total} km")
+print("Cek rantai" if jarak_total > 2000 else "Masih aman")
+```
+
+Setelah hujan, keringkan sepeda dengan kain bersih dan lumasi ulang rantainya. Air membuat oli luntur dan karat muncul dalam hitungan hari. Hindari menyemprot air bertekanan tinggi ke arah bearing, karena air akan menembus ke dalam dan membuang gemuk pelumasnya. Cukup gunakan spons basah dan sabun ringan, lalu bilas dengan air mengalir pelan.
+
+Untuk penyimpanan jangka panjang, misalnya saat bepergian berminggu-minggu, kempiskan ban sedikit dan gantung atau sandarkan sepeda agar ban tidak menanggung beban terus-menerus. Gunakan `oli rantai` khusus sepeda, bukan pelumas serbaguna yang cepat menguap dan menarik debu. Pelumas yang tepat membuat rantai lebih senyap dan tahan lama.
+
+Terakhir, jangan ragu bertanya ke bengkel sepeda terdekat. Mekanik biasanya senang berbagi tips, dan sering kali masalah kecil bisa diselesaikan dalam hitungan menit. Dengan perawatan yang konsisten, sepedamu akan setia menemani perjalanan harian maupun petualangan akhir pekan.

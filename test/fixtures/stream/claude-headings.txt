@@ -1,0 +1,60 @@
+# Panduan Menyiapkan Server Kecil di Rumah
+
+Server rumahan cocok untuk menyimpan berkas pribadi, menjalankan media server, atau sekadar belajar administrasi sistem. Anda tidak perlu perangkat mahal. Komputer bekas, mini PC, atau Raspberry Pi sudah cukup untuk memulai.
+
+## Persiapan Perangkat dan Jaringan
+
+Sebelum memasang apa pun, tentukan dulu kebutuhan Anda. Server untuk berbagi berkas jauh lebih ringan daripada server yang mentranskode video. Periksa tiga hal berikut:
+
+- Prosesor dan RAM sesuai beban kerja (minimal 2 GB untuk layanan ringan)
+- Penyimpanan cukup, sebaiknya SSD untuk sistem dan HDD untuk data
+- Koneksi kabel LAN, karena lebih stabil daripada Wi-Fi
+
+Berikut perkiraan spesifikasi untuk beberapa keperluan umum:
+
+| Keperluan | RAM | Penyimpanan |
+|---|---|---|
+| Berbagi berkas | 2 GB | 500 GB |
+| Media server | 4 GB | 2 TB |
+| Web dan basis data | 4 GB | 256 GB |
+
+**Selalu pasang pembaruan keamanan sebelum server Anda terhubung ke internet.**
+
+## Instalasi dan Konfigurasi
+
+Pasang Debian atau Ubuntu Server dari USB, lalu hubungkan server ke router. Catat alamat IP-nya, karena Anda akan memakainya untuk masuk dari komputer lain.
+
+### Pengaturan dasar
+
+Ikuti urutan berikut setelah sistem menyala pertama kali:
+
+1. Masuk lewat SSH dari komputer utama dengan `ssh pengguna@192.168.1.50`.
+2. Perbarui sistem dan pasang paket yang diperlukan.
+3. Aktifkan firewall dan buka hanya port yang benar-benar dipakai.
+
+Perintah yang biasa dijalankan pada tahap ini:
+
+```
+sudo apt update
+sudo apt upgrade -y
+sudo apt install openssh-server ufw
+sudo ufw allow 22/tcp
+sudo ufw enable
+```
+
+Setelah itu, siapkan layanan yang Anda pilih. Banyak aplikasi memakai berkas seperti `config.yaml` untuk menyimpan pengaturannya. Contoh isi yang sederhana:
+
+```
+server:
+  host: 0.0.0.0
+  port: 8080
+  debug: false
+```
+
+Jika `debug` dibiarkan aktif, layanan bisa menampilkan informasi sensitif. Ubah nilainya menjadi `false` sebelum server dipakai sehari-hari.
+
+Beberapa kebiasaan baik akan menghemat banyak masalah di kemudian hari. Berikan alamat IP tetap lewat router agar server tidak berpindah alamat setelah restart. Nonaktifkan login kata sandi di `/etc/ssh/sshd_config` dan pakai kunci SSH. Buat cadangan berkala ke disk eksternal, karena RAID bukan pengganti backup. Pantau suhu dan pemakaian disk sesekali, terutama jika server berada di ruangan yang pengap.
+
+Bila ingin mengakses server dari luar rumah, jangan langsung membuka port di router. Lebih aman memakai VPN seperti WireGuard atau Tailscale, sehingga hanya perangkat Anda yang bisa masuk. Cara ini juga menghindari repotnya alamat IP publik yang berubah-ubah.
+
+Mulailah dari satu layanan kecil dan pastikan berjalan stabil, baru tambahkan yang berikutnya. Server yang dibangun bertahap lebih mudah dirawat dan lebih mudah diperbaiki saat ada masalah. Selamat bereksperimen!

@@ -1,0 +1,49 @@
+## Menyiapkan Server Kecil di Rumah
+
+Server kecil di rumah bisa menjadi tempat menyimpan berkas, mencadangkan foto, menjalankan aplikasi pribadi, atau mencoba layanan baru. Kamu tidak perlu langsung membeli perangkat mahal. Laptop lama, komputer mini, atau komputer bekas yang masih sehat biasanya cukup untuk kebutuhan awal. Panduan ini mengasumsikan kamu memakai Ubuntu Server dan menghubungkannya ke router rumah melalui kabel Ethernet.
+
+**Mulailah dengan satu kebutuhan yang jelas agar pilihan perangkat, kapasitas penyimpanan, dan waktu perawatan tetap sesuai kemampuanmu.**
+
+Untuk penyimpanan keluarga, prioritaskan kesehatan disk dan kemudahan pencadangan. Untuk aplikasi pribadi, perhatikan kapasitas memori serta dukungan perangkat lunaknya. Letakkan perangkat di tempat kering, memiliki aliran udara baik, dan mudah dijangkau ketika perlu diperiksa. Hindari lemari tertutup yang membuat panas terperangkap.
+
+Siapkan tiga komponen utama berikut:
+
+- Perangkat hemat daya dengan RAM minimal 4 GB untuk beberapa layanan ringan.
+- SSD untuk sistem operasi serta disk tambahan bila kebutuhan penyimpanan cukup besar.
+- Kabel Ethernet dan media cadangan terpisah, misalnya disk eksternal yang dilepas setelah pencadangan.
+
+Sebagai gambaran, gunakan pembagian sederhana ini:
+
+| Komponen | Fungsi |
+|---|---|
+| SSD sistem | Menyimpan sistem operasi dan aplikasi |
+| Disk data | Menampung berkas serta foto |
+| Disk cadangan | Menyimpan salinan pemulihan |
+
+### Instalasi, Akses, dan Perawatan
+
+Unduh pemasang sistem operasi dari situs resminya, lalu buat USB instalasi menggunakan komputer lain. Saat memasang, periksa nama dan kapasitas disk tujuan dengan teliti karena proses instalasi dapat menghapus isinya. Buat akun pengguna biasa dengan kata sandi kuat, kemudian aktifkan SSH bila kamu ingin mengelola server dari perangkat lain.
+
+Kerjakan penyiapan awal secara berurutan:
+
+1. Pasang sistem operasi, pilih zona waktu yang tepat, dan pastikan koneksi jaringan berfungsi.
+2. Tetapkan reservasi alamat IP melalui router agar alamat server tidak berubah setelah dinyalakan ulang.
+3. Perbarui sistem, pasang layanan yang dibutuhkan, lalu uji aksesnya dari jaringan rumah.
+
+Berikut contoh lima baris perintah untuk Ubuntu Server. Ini hanya contoh tertulis; sesuaikan aturan akses dengan kebutuhan jaringanmu sebelum menggunakannya.
+
+```
+sudo apt update
+sudo apt upgrade
+sudo apt install openssh-server ufw
+sudo ufw allow OpenSSH
+sudo ufw enable
+```
+
+Perintah `sudo apt update` memperbarui daftar paket, sedangkan peningkatan paket dilakukan oleh baris berikutnya. Aturan `OpenSSH` memberi jalan bagi koneksi SSH sebelum firewall diaktifkan. Simpan catatan perubahan dan berkas pengaturan seperti `config.yaml` dalam folder yang teratur. Hindari menaruh kata sandi di catatan yang dibagikan.
+
+**Cadangan yang berguna harus tersimpan terpisah dari server utama dan sudah pernah diuji untuk memulihkan berkas penting.**
+
+Jadwalkan pencadangan otomatis, tetapi periksa hasilnya secara berkala. Coba pulihkan beberapa berkas contoh setiap bulan agar kamu mengetahui langkah pemulihannya. Pantau ruang kosong, suhu perangkat, dan pembaruan keamanan; pemeriksaan singkat mingguan biasanya lebih mudah dipertahankan daripada perawatan besar yang jarang dilakukan.
+
+Untuk akses dari luar rumah, pertimbangkan VPN dan pahami pengaturannya sebelum membuka layanan ke internet. Mulailah secara *bertahap*: jalankan satu layanan sampai stabil, dokumentasikan pengaturannya, kemudian tambahkan layanan berikutnya sesuai kebutuhan.

@@ -1,0 +1,31 @@
+## Catatan Singkat Backup Data Rumahan
+
+Foto keluarga, dokumen pajak, dan arsip pekerjaan sering hanya tersimpan di satu laptop. Padahal disk bisa rusak kapan saja. Backup yang baik harus otomatis, terenkripsi, dan bisa dipulihkan. Menurut saya, ketiganya sama pentingnya. **Backup yang belum pernah diuji pemulihannya belum bisa disebut backup.** Jadi sisihkan waktu sesekali untuk mencoba mengembalikan beberapa berkas.
+
+> Aturan 3-2-1: simpan tiga salinan data, di dua jenis media berbeda, dengan satu salinan di luar rumah.
+
+### Memilih alat
+
+Untuk pemakaian rumahan, restic cukup ringan dan mendukung enkripsi bawaan. Dokumentasi lengkapnya ada di [situs restic](https://restic.net). Anda juga bisa menyimpan panduan pribadi di https://example.com/backup agar mudah dibuka saat darurat.
+
+Yang perlu disiapkan:
+
+- Media penyimpanan
+  - Disk eksternal untuk salinan lokal
+  - Layanan cloud atau server di rumah saudara untuk salinan luar rumah
+- Jadwal otomatis
+  - Harian untuk dokumen penting
+  - Mingguan untuk arsip besar
+
+Setelah repositori siap, backup folder foto cukup dengan `restic backup ~/foto`. Contoh rangkaian perintah lengkapnya:
+
+```
+export RESTIC_REPOSITORY=/mnt/disk-backup
+export RESTIC_PASSWORD_FILE=~/.restic-pass
+restic init
+
+restic backup ~/foto ~/dokumen
+restic forget --keep-daily 7 --keep-weekly 4 --prune
+```
+
+Simpan kata sandi repositori di tempat terpisah, misalnya pengelola kata sandi atau kertas di brankas. Tanpa kata sandi itu, data terenkripsi tidak bisa dibuka lagi. Terakhir, pasang pengingat bulanan untuk memeriksa hasil backup dan mencoba memulihkan satu berkas secara acak.

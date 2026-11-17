@@ -1,0 +1,43 @@
+## Perawatan rutin agar sepeda nyaman dan awet
+
+Merawat sepeda tidak harus membutuhkan bengkel lengkap atau keahlian mekanik tingkat lanjut. Kebiasaan sederhana yang dilakukan secara teratur sudah membantu menjaga kenyamanan, memperpanjang umur komponen, dan mengurangi kemungkinan kerusakan saat perjalanan. Mulailah dengan mengenali kondisi normal sepeda Anda: bagaimana bunyi rantainya, seberapa kuat rem menggigit, serta bagaimana roda berputar. Perubahan kecil akan lebih mudah diketahui jika Anda terbiasa memperhatikannya.
+
+**Jangan mengendarai sepeda jika rem tidak bekerja dengan baik atau roda terasa longgar.** Kedua masalah tersebut perlu diperiksa sebelum perjalanan berikutnya. Untuk pekerjaan yang memerlukan penyetelan presisi, seperti memperbaiki rem hidraulis, meluruskan roda, atau menangani rangka retak, mintalah bantuan mekanik yang berpengalaman.
+
+Gunakan empat langkah berikut sebagai dasar perawatan:
+
+1. **Bersihkan sepeda dengan lembut.** Singkirkan debu menggunakan kain atau sikat berbulu halus, lalu gunakan air dan sabun ringan untuk membersihkan rangka. Hindari menyemprot air bertekanan tinggi ke bagian bantalan roda, poros pedal, dan headset karena air dapat masuk serta mengganggu pelumasan. Bersihkan lumpur sebelum mengering dan mengeras, terutama di sekitar pemindah gigi. Setelah selesai, keringkan sepeda dengan kain bersih. Pada sepeda listrik, ikuti petunjuk pabrikan mengenai baterai, konektor, dan bagian yang boleh terkena air.
+
+2. **Rawat rantai sesuai kondisi pemakaian.** Lap kotoran pada rantai sebelum menambahkan pelumas khusus sepeda. Teteskan pelumas secukupnya pada bagian sambungan rantai sambil memutar pedal perlahan ke belakang, jika sistem sepeda memungkinkan. Tunggu sesuai petunjuk produk, kemudian lap kelebihan pelumas pada permukaan luar rantai. Lapisan berlebih justru menarik debu dan membentuk kotoran yang mempercepat keausan. Pilih pelumas sesuai kondisi kering atau basah, dan hindarkan seluruh pelumas dari cakram, pelek pengereman, serta kampas rem.
+
+3. **Periksa ban dan roda.** Ukur tekanan ban dengan pompa yang memiliki pengukur, bukan hanya dengan menekan ban menggunakan jari. Tentukan tekanan berdasarkan rekomendasi ban dan pelek, berat pengendara, serta permukaan jalan; jangan melampaui batas komponen yang paling rendah. Periksa apakah ada pecahan kaca, sayatan, benjolan, atau bagian tapak yang menipis. Putar roda dan amati apakah gerakannya lurus. Pastikan pengunci roda terpasang dengan benar sesuai jenisnya sebelum sepeda digunakan.
+
+4. **Uji rem dan perpindahan gigi.** Tekan masing-masing tuas rem dan pastikan responsnya konsisten. Tuas yang menyentuh setang, kabel yang berjumbai, atau kebocoran cairan memerlukan pemeriksaan. Amati ketebalan kampas mengikuti batas keausan dari pabrikan. Kemudian coba perpindahan gigi sambil mengayuh ringan di tempat yang aman. Jika rantai terus melompat atau sulit berpindah, periksa penyetelan dan keausannya. Hindari memaksa perpindahan gigi ketika pedal sedang menerima beban besar, misalnya saat menanjak.
+
+## Pemeriksaan berkala dan kebiasaan penyimpanan
+
+Selain perawatan rutin, siapkan perlengkapan sederhana agar pemeriksaan lebih mudah dilakukan. Simpan semuanya di tempat yang bersih dan mudah dijangkau. Perlengkapan dasar berikut cukup untuk banyak kebutuhan sehari-hari:
+
+- Kain lap terpisah untuk rangka dan rantai.
+- Sikat lembut serta sabun ringan.
+- Pelumas rantai khusus sepeda.
+- Pompa dengan pengukur tekanan.
+- Kunci yang sesuai dengan baut sepeda.
+- Ban dalam cadangan atau perlengkapan tambal yang cocok.
+
+Sebelum setiap perjalanan, luangkan beberapa menit untuk memeriksa ban, rem, dan pemasangan roda. Periksa juga setang, sadel, serta pedal untuk memastikan tidak ada kelonggaran yang baru muncul. Jika perlu mengencangkan baut, ikuti nilai torsi dari pabrikan dan gunakan kunci torsi bila dipersyaratkan, terutama pada komponen karbon. Mengencangkan baut sekuat mungkin bukan cara yang tepat karena dapat merusak ulir atau menjepit komponen secara berlebihan.
+
+Sesuaikan jadwal perawatan dengan penggunaan. Sepeda yang sering melewati hujan, lumpur, atau jalan berdebu membutuhkan pembersihan lebih sering daripada sepeda yang digunakan sesekali di jalan bersih. Setelah kehujanan, keringkan sepeda dan periksa kembali rantainya. Secara berkala, ukur keausan rantai menggunakan alat yang sesuai. Penggantian rantai pada waktunya membantu mengurangi keausan lanjutan pada sproket dan chainring.
+
+Simpan sepeda di tempat teduh, kering, dan memiliki sirkulasi udara. Hindari membiarkannya terus-menerus terkena matahari atau hujan. Jika sepeda lama tidak digunakan, periksa tekanan ban dan fungsi rem sebelum mengendarainya kembali. Catat tanggal pemeriksaan dalam buku atau berkas bernama `catatan_perawatan.txt` agar riwayatnya mudah ditelusuri. Contoh Python berikut hanya menggambarkan pengingat sederhana dan tidak dijalankan:
+
+```python
+from datetime import date, timedelta
+terakhir_dirawat = date(2026, 11, 17)
+jeda = timedelta(days=30)
+pemeriksaan_berikutnya = terakhir_dirawat + jeda
+print("Jadwal pemeriksaan:", pemeriksaan_berikutnya)
+print("Periksa lebih awal setelah hujan atau penggunaan berat.")
+```
+
+Catatan tersebut sebaiknya memuat keluhan, komponen yang diganti, dan pekerjaan bengkel. Dengan begitu, Anda dapat mengenali masalah berulang dan menjelaskan kondisi sepeda kepada mekanik secara lebih jelas.

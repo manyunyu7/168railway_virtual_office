@@ -48,7 +48,7 @@ export function serialize(s) {
     sid: s.sid, office: s.office, room: s.room, role: s.role, kind: s.kind, worktree: s.worktree || null, cwd: s.cwd,
     status: s.status, tool: s.tool, title: s.title, model: s.model, startedAt: s.startedAt, lastSeen: s.lastSeen, tmux: s.tmux || null,
     waiting: s.waiting || null, slot: s.slot || 0, compacting: !!s.compacting, tty: s.tty || null, host: s.host || null, machine: s.machine || null, machineOffline: isOffline(s.machine), permMode: s.permMode || null, boss: s.boss || null, engine: s.engine || 'claude', effort: s.effort || null,
-    tunggu: s.tunggu || null, anggaran: s.anggaran || null, konteks: sessionKonteks(s),
+    tunggu: s.tunggu || null, anggaran: s.anggaran || null, konteks: sessionKonteks(s), blocker: s.blocker || null, // layar login/konfirmasi yang menahan agen (server/blocker.js)
     subs: [...s.subs.values()].map(x => ({ id: x.id, type: x.type, desc: x.desc, status: x.status, tool: x.tool, started: x.started, ended: x.ended || null, tokens: s.engine === 'codex' ? fileTokens(x.transcript || codexSubagentFile(x.id, x.started)) : subagentTokens(s.transcript, x.id) })),
     bgAgents: [...s.subs.values()].filter(x => x.status !== 'done').length,
     ...(s.engine === 'codex' ? codexHealth(s.transcript) : s.engine === 'antigravity' ? { ctx: null, health: null, errStreak: 0, compactions: 0 } : sessionHealth(s.transcript, s.model)),

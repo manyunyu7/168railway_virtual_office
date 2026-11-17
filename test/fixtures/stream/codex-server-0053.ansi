@@ -1,0 +1,40 @@
+[1;2m[48;5;8m› [0m[48;5;8mTanpa menjalankan perintah apa pun, tulis panduan sekitar 450 kata tentang menyiapkan server kec…
+[49m  Sebagai gambaran, gunakan pembagian sederhana ini:                                                
+                                                                                                    
+[1m[38;2;249;226;175m   Komponen         Fungsi                                                                          
+[0m  [2m━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m                                          
+   SSD sistem       Menyimpan sistem operasi dan aplikasi                                           
+  [2m───────────────  ───────────────────────────────────────[0m                                          
+   Disk data        Menampung berkas serta foto                                                     
+  [2m───────────────  ───────────────────────────────────────[0m                                          
+   Disk cadangan    Menyimpan salinan pemulihan                                                     
+                                                                                                    
+  [1;3m[38;2;249;226;175m### Instalasi, Akses, dan Perawatan[0m                                                               
+                                                                                                    
+  Unduh pemasang sistem operasi dari situs resminya, lalu buat USB instalasi menggunakan komputer   
+  lain. Saat memasang, periksa nama dan kapasitas disk tujuan dengan teliti karena proses instalasi 
+  dapat menghapus isinya. Buat akun pengguna biasa dengan kata sandi kuat, kemudian aktifkan SSH    
+  bila kamu ingin mengelola server dari perangkat lain.                                             
+                                                                                                    
+  Kerjakan penyiapan awal secara berurutan:                                                         
+                                                                                                    
+  [38;5;12m1. [39mPasang sistem operasi, pilih zona waktu yang tepat, dan pastikan koneksi jaringan berfungsi.   
+  [38;5;12m2. [39mTetapkan reservasi alamat IP melalui router agar alamat server tidak berubah setelah dinyalakan
+     ulang.                                                                                         
+  [38;5;12m3. [39mPerbarui sistem, pasang layanan yang dibutuhkan, lalu uji aksesnya dari jaringan rumah.        
+                                                                                                    
+  Berikut contoh lima baris perintah untuk Ubuntu Server. Ini hanya contoh tertulis; sesuaikan      
+  aturan akses dengan kebutuhan jaringanmu sebelum menggunakannya.                                  
+                                                                                                    
+  sudo apt update                                                                                   
+  sudo apt upgrade                                                                                  
+  sudo apt install openssh-server ufw                                                               
+  sudo ufw allow OpenSSH                                                                            
+  sudo ufw enable                                                                                   
+  Perintah [38;2;166;227;161msudo apt update[39m memperbarui daftar paket, sedangkan peningkatan paket dilakukan          
+                                                                                                   
+                                                                                                   
+[1m›[0m [2mAsk Codex to do anything
+[0m 
+  [38;2;246;226;183mGPT-6.1-Sol medium[39m · [38;2;171;223;167m/tmp/scratch/work
+[39m  [1m←[0m for agents · [1m?[0m for shortcuts                                           ⚠ [38;2;196;167;103m1 warning[39m · [1mf2[0m to view

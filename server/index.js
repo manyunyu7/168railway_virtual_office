@@ -23,6 +23,9 @@ import { officeMetrics, complexMetrics, reportMarkdown } from './metrics.js';
 import { listMeetings, getMeeting, startMeeting, cancelMeeting, interject, actionToCard, resumeMeeting, continueMeeting, markInterrupted, runningMeetings } from './meetings.js';
 import { TOOLS, callTool, resolveIdentity } from './agent.js';
 import { readTranscript } from './transcript.js';
+import { transcriptArgs, openSession } from './session-open.js';
+import { blockerAction, kickBlocker, startBlockerWatch } from './blocker.js';
+import { watchStream, streamState, startStreamWatch } from './stream.js';
 import { sessionKonteks, setLabel } from './konteks.js';
 import { scanProcesses } from './procscan.js';
 import { wizardFolders, wizardPreview, wizardCreate } from './wizard.js';
@@ -218,7 +221,7 @@ route('GET', '/api/state', () => {
     try { roleRows = st.listRoles(o.id); } catch {}
     const look = s => { const r = roleRows.find(x => x.id === s.role); return r ? { name: r.name + (s.slot ? ` #${s.slot + 1}` : ''), color: r.color, hair: r.hair, skin: r.skin, hairStyle: r.hairStyle, outfit: r.outfit, acc: r.acc, hijab: r.hijab, tie: r.tie, title: r.title } : null; };
     return { id: o.id, name: o.name, root: o.root, fav: !!o.fav, style: o.style || officeModel(o.id)?.style,
-      sessions: sessions.map(s => ({ sid: s.sid, role: s.role, status: s.status, title: s.title, kind: s.kind, room: s.room, tool: s.tool, waiting: s.waiting, look: look(s), lastSeen: s.lastSeen, permMode: s.permMode || null, boss: s.boss || null, host: s.host || null, machine: s.machine || null, machineOffline: authMx.isOffline(s.machine), tty: s.tty || null, model: s.model || null, engine: s.engine || null, bgAgents: s.bgAgents || 0, slot: s.slot || 0, konteks: s.konteks })),
+      sessions: sessions.map(s => ({ sid: s.sid, role: s.role, status: s.status, title: s.title, kind: s.kind, room: s.room, tool: s.tool, waiting: s.waiting, blocker: s.blocker || null, look: look(s), lastSeen: s.lastSeen, permMode: s.permMode || null, boss: s.boss || null, host: s.host || null, machine: s.machine || null, machineOffline: authMx.isOffline(s.machine), tty: s.tty || null, model: s.model || null, engine: s.engine || null, bgAgents: s.bgAgents || 0, slot: s.slot || 0, konteks: s.konteks })),
       machines: officeMachines(o.id), // ruangan di Mac lain: [{ id, rooms }]; tidak ada = semuanya di Mac ini
       roles, cards, monthCost: monthCost(o.id), lastSeen: one(globalDb(), 'SELECT MAX(last_seen) t FROM sessions WHERE office = ?', o.id)?.t || o.created_at };
   });
@@ -427,7 +430,8 @@ route('HEAD', '/api/uploads/:id', (req, res, p) => { const r = att.uploadInfo(p.
 route('GET', '/api/uploads/:id', (req, res, p) => att.uploadInfo(p.id));
 route('PUT', '/api/uploads/:id', async (req, res, p) => { const r = await att.appendUpload(p.id, req); res.setHeader('Upload-Offset', r.offset); return r; });
 route('POST', '/api/sessions/:sid/attachments/deliver', async (req, res, p) => att.deliverBatch(p.sid, await body(req)));
-route('GET', '/api/sessions/:sid/attachments', (req, res, p, q) => att.listAttachments(p.sid, { limit: q.get('limit'), after: q.get('after') || '', all: q.get('all') === '1' }));
+const sessionAttachments = (sid, q) => att.listAttachments(sid, { limit: q.get('limit'), after: q.get('after') || '', all: q.get('all') === '1' });
+route('GET', '/api/sessions/:sid/attachments', (req, res, p, q) => sessionAttachments(p.sid, q));
 route('GET', '/api/sessions/:sid/outbox', (req, res, p) => listOutbox(p.sid));
 route('DELETE', '/api/sessions/:sid/outbox/:id', (req, res, p) => cancelOutgoing(p.sid, p.id));
 route('GET', '/api/attachments/:id/raw', (req, res, p, q) => { att.sendRaw(p.id, req, res, q.get('dl') === '1'); });
@@ -461,12 +465,22 @@ route('POST', '/api/sessions/:sid/label', async (req, res, p) => {
   return { ok: true, label };
 });
 route('POST', '/api/sessions/:sid/boss', async (req, res, p) => setSessionBoss(p.sid, (await body(req)).boss || null));
-route('GET', '/api/sessions/:sid/transcript', (req, res, p, q) => {
-  const s = live.get(p.sid);
-  const file = s?.transcript || one(globalDb(), 'SELECT transcript FROM sessions WHERE sid = ?', p.sid)?.transcript;
-  return readTranscript(file, Number(q.get('n')) || 120,
-    q.has('after') || q.get('delta') === '1' ? { sid: p.sid, after: q.get('after') } : undefined);
-});
+function sessionTranscript(sid, q) {
+  const s = live.get(sid);
+  const file = s?.transcript || one(globalDb(), 'SELECT transcript FROM sessions WHERE sid = ?', sid)?.transcript;
+  return readTranscript(file, ...transcriptArgs(sid, q));
+}
+route('GET', '/api/sessions/:sid/transcript', (req, res, p, q) => sessionTranscript(p.sid, q));
+// app HP membuka chat: transcript delta + lampiran + sesi live dalam satu permintaan (server/session-open.js)
+route('GET', '/api/sessions/:sid/open', (req, res, p, q) => openSession(p.sid, q, {
+  transcript: sessionTranscript, attachments: sessionAttachments,
+  session: sid => { const s = live.get(sid); if (s?.tmux) kickBlocker(sid); return s && s.status !== 'ended' ? serialize(s) : null; },
+}));
+// app HP menjawab layar yang menahan agen (login Codex/Claude, percayai folder, Enter): server/blocker.js
+route('POST', '/api/sessions/:sid/blocker', async (req, res, p) => { if (foreignSid(actor(), p.sid)) throw DENY_FOREIGN(); const b = await body(req); return blockerAction(p.sid, b?.action, b?.value); });
+// jawaban agen yang sedang ditulis, dibaca dari layar pane selama chat dibuka (server/stream.js)
+route('POST', '/api/sessions/:sid/watch', async (req, res, p) => { await body(req).catch(() => null); return watchStream(p.sid); });
+route('GET', '/api/sessions/:sid/stream', (req, res, p) => streamState(p.sid));
 route('GET', '/api/sessions/:sid/peek', async (req, res, p) => {
   const s = live.get(p.sid);
   const m = s?.tmux ? termMx.tmuxMachineOf(s.tmux) : null;
@@ -1027,7 +1041,9 @@ async function handle(req, res) {
 
 const wssEvents = new WebSocketServer({ noServer: true });
 const wssTerm = new WebSocketServer({ noServer: true });
-const makeServer = () => http.createServer(handle).on('upgrade', onUpgrade);
+// koneksi HP dibiarkan hidup 65 dtk (bawaan Node 5 dtk): kembali ke app setelah jeda tidak perlu jabat tangan TLS baru
+const keepAlive = s => Object.assign(s, { keepAliveTimeout: 65_000, headersTimeout: 66_000 });
+const makeServer = () => keepAlive(http.createServer(handle).on('upgrade', onUpgrade));
 const server = makeServer();
 function onUpgrade(req, sock, head) {
   const url = new URL(req.url, 'http://x');
@@ -1109,7 +1125,7 @@ function listenTls() {
   if (!t?.cert || !t?.key || !t?.host) return;
   const creds = () => ({ cert: fs.readFileSync(t.cert), key: fs.readFileSync(t.key) });
   let srv;
-  try { srv = https.createServer(creds(), handle).on('upgrade', onUpgrade); } catch (e) { return console.error(`HTTPS tidak jalan: ${e.message}`); }
+  try { srv = keepAlive(https.createServer(creds(), handle).on('upgrade', onUpgrade)); } catch (e) { return console.error(`HTTPS tidak jalan: ${e.message}`); }
   const port = t.port || 443;
   srv.listen(port, t.host, () => console.log(`  juga di https://${(t.names || [])[0] || t.host}${port === 443 ? '' : ':' + port}`))
     .on('error', e => console.error(`Tidak bisa listen HTTPS di ${t.host}:${port}: ${e.message}`));
@@ -1146,6 +1162,8 @@ if (!DEMO) { setTimeout(() => scanProcesses(), 1500); setInterval(() => scanProc
 // own timer: a slow or stuck process scan must not keep dead shift sessions on the board
 if (!DEMO) setInterval(() => { try { reapGoneTmux(); } catch (e) { console.error('reap tmux:', e.message); } }, 20e3).unref();
 if (!DEMO) startTailWatch(); // pushes { t: 'transcript' } to chat views when a session's transcript grows
+if (!DEMO) startBlockerWatch(); // layar login/konfirmasi yang menahan agen → session.blocker (server/blocker.js)
+if (!DEMO) startStreamWatch(); // teks jawaban yang sedang ditulis → event {t:'stream'} untuk chat yang dibuka (server/stream.js)
 // keep the permission mode of office panes current (it changes with Shift+Tab, which sends no hook)
 // async and one pane at a time, so the terminal bridge never waits on tmux
 let modeBusy = false;

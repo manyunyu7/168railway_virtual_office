@@ -1,0 +1,30 @@
+  [38;2;99;168;248m>_ [1m[39mOpenAI Codex[0;2m (v0.167.0)[0m                       
+     [2m/tmp/scratch/work
+[0m                                                                                                                     
+[2m  To get started, describe a task or try one of these commands:
+[0m                                                   
+  /init[2m - create an AGENTS.md file with instructions for Codex[0m                                                       
+  /status[2m - show current session configuration[0m               
+  /permissions[2m - choose what Codex is allowed to do[0m                                                                  
+  /model[2m - choose what model and reasoning effort to use[0m                
+  /review[2m - review any changes and find issues[0m                                                                       
+                                                                                                                     
+[48;5;8m                                                                          
+[1;2m› [0m[48;5;8mTulis satu kalimat pembuka dulu. Lalu jalankan perintah shell `ls` sekali. Setelah itu tulis penjelasan sekitar 400
+  kata tentang cara kerja rem cakram sepeda, dengan satu judul ## dan satu daftar berpoin 3 butir, satu kalimat
+  **tebal**.                                                                
+                                                                             
+[49m                                                                                                                     
+[2m• [0mRem cakram sepeda memperlambat putaran roda dengan mengubah energi gerak menjadi panas melalui gesekan.      
+                                                                                                                     
+[2m•[0m [1mExplored[0m                                                                                                     
+[2m  └ [0m[38;2;99;168;248mList[39m ls                                                                                                          
+[2m    + Show details                                                                                                      
+[0m                                                                   
+[1m[38;2;167;167;167m•[0m [2mWorking[0m [2m(5s • [0;1mesc[0;2m to interrupt)[0m                                                                        
+ 
+ 
+[1m›[0m [2mAsk Codex to do anything
+[0m 
+  [38;2;246;226;183mGPT-6.1-Sol medium[39m · [38;2;171;223;167m/tmp/scratch/work
+[39m  [1m←[0m for agents · [1m?[0m for shortcuts                                                               ⚠ [38;2;196;167;103m1 warning[39m · [1mf2[0m to view
