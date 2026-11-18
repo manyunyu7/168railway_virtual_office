@@ -6,6 +6,7 @@ import { chatBubble, chatClick } from './pratinjau.js';
 import { chatTimeline } from './chat-timeline.js';
 import { teammateMsgs, teammateRest } from './teammate.js';
 import { compactSummary } from './compact.js';
+import { mergeHistory } from './chat-history.js';
 
 /** Kartu "percakapan dilanjutkan": ringkasan kompaksi, pratinjau terlihat, isi lengkap dilipat. */
 const compactHTML = (c, at, pasted) => `<div class="ch-row ch-cmp-row"><div class="ch-cmp"><div class="ch-cmp-h"><span aria-hidden="true">↻</span><b>Percakapan dilanjutkan</b><small>${pasted ? 'ringkasan yang kamu tempel' : 'konteks diringkas otomatis'}</small></div>${c.preview ? `<p class="ch-cmp-p">${esc(c.preview)}</p>` : ''}${c.body ? `<details class="ch-tm-d"><summary>Lihat ringkasan</summary><div class="md">${md(c.body)}</div></details>` : ''}</div><time>${esc(hhmm(at))}</time></div>`;
@@ -174,6 +175,7 @@ const QUICK = [['lanjut', 'say', 'lanjut'], ['ya', 'say', 'ya'], ['Hentikan', 'd
  * Mengembalikan { update(), live(msg), refresh(), destroy() }.
  */
 export function mountChat(host, o) {
+  let history = { items: [] };
   let showOld = false, oldN = 0, shownOldN = 0; // berkas dari sebelum /clear: disembunyikan sampai diminta
   let size = null, timer = 0, bump = 0, dead = false, loading = false, sticky = true, items = [], gs = [], atts = [], outbox = [], unsub = null, pvs = [], wasOff = false;
   const pend = document.createElement('div'); pend.className = 'ch-pend';
@@ -285,17 +287,24 @@ export function mountChat(host, o) {
   }
   const sigPerm = () => (o.ctx.st?.inbox || []).filter(i => i.sid === o.sid).map(i => i.id + (i.held ? 'h' : '')).join(',');
 
-  async function load() {
+  async function load(older = false) {
     if (dead || loading) return;
     loading = true;
     let data;
-    try { data = await api(`/api/sessions/${encodeURIComponent(o.sid)}/transcript?n=200`); } catch { loading = false; return; }
+    const q = older ? `n=200&before=${history.first}&gen=${encodeURIComponent(history.gen)}`
+      : `n=2000&delta=1${history.cursor ? `&after=${encodeURIComponent(history.cursor)}` : ''}`;
+    try { data = await api(`/api/sessions/${encodeURIComponent(o.sid)}/transcript?${q}`); } catch { loading = false; return; }
     loading = false;
     if (dead || !list.isConnected) return;
-    if (String(data.size) === size && data.size != null) return;
-    size = String(data.size);
-    items = (data.items || []).map(i => i.k === 'image' ? { ...i, sid: o.sid } : i);
+    if (data.missing) return; // a transient missing mirror must not blank the chat
+    if (older && data.reset) { history.cursor = null; return load(); }
+    if (!older && String(data.size) === size && data.size != null && history.gen === data.gen) return;
+    if (data.size != null) size = String(data.size);
+    const height = list.scrollHeight, top = list.scrollTop;
+    history = mergeHistory(history, data);
+    items = history.items.map(i => i.k === 'image' ? { ...i, sid: o.sid } : i);
     paint();
+    if (older) list.scrollTop = top + list.scrollHeight - height;
   }
   /** Gabungkan seluruh percakapan menurut waktu; unggahan yang sedang jalan selalu di ujung bawah. */
   function paint() {
@@ -307,7 +316,7 @@ export function mountChat(host, o) {
       : itemHTML(g, i === gs.length - 1, running()));
     pend.remove();
     shownOldN = oldN;
-    const old = oldN ? `<button type="button" class="ch-old" data-act="ch-old">Tampilkan ${oldN} berkas dari sebelum /clear</button>` : '';
+    const old = (history.older ? '<button type="button" class="ch-old" data-act="ch-history">Muat percakapan sebelumnya</button>' : '') + (oldN ? `<button type="button" class="ch-old" data-act="ch-old">Tampilkan ${oldN} berkas dari sebelum /clear</button>` : '');
     list.innerHTML = old + (rows.length || pend.childElementCount ? rows.join('') : '<p class="ch-empty">Belum ada percakapan di transcript.</p>');
     list.appendChild(pend);
     for (const d of list.querySelectorAll('details[data-k]')) if (open.has(d.dataset.k)) d.open = true;
@@ -372,7 +381,7 @@ export function mountChat(host, o) {
     return it;
   }
   // kolom ketik ditangani drawer.js; di sini hanya ikut membaca isinya saat dikirim
-  host.addEventListener('click', e => { if (e.target.closest('[data-act="ch-old"]')) { showOld = true; loadAtts(); } });
+  host.addEventListener('click', e => { if (e.target.closest('[data-act="ch-old"]')) { showOld = true; loadAtts(); } else if (e.target.closest('[data-act="ch-history"]')) load(true); });
   // ada lampiran di baki: Kirim mengirim file + tulisan sebagai satu pesan, bukan teks biasa (didaftarkan lebih dulu, menghentikan yang lain)
   host.addEventListener('submit', e => {
     if (e.target.id !== 'drQuick' || !staged.length) return;

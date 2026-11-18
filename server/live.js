@@ -12,6 +12,7 @@ import { codexHealth, normalizeHook, engineOf, readCodexSettings } from './codex
 import { who as actorName } from './actor.js';
 import { setTmuxMachine, isOffline, LOCAL as LOCAL_MACHINE, events as machineEvents } from './machines.js';
 import { mirrorTranscript } from './mirror.js';
+import { ownedTranscript } from './transcript-owner.js';
 
 export const bus = new EventEmitter();
 bus.setMaxListeners(100);
@@ -119,6 +120,7 @@ function restoreFromDb(sid) {
   if (!row) return null;
   const s = blank(sid);
   Object.assign(s, { office: row.office, room: row.room, role: row.role, cwd: row.cwd, kind: row.source || 'manual', tmux: row.tmux, title: row.title, model: row.model, startedAt: row.started_at, tty: row.tty, transcript: row.transcript, boss: row.boss || null, engine: engineOf(row.engine), effort: row.effort || null, machine: row.machine || null });
+  s.transcript = ownedTranscript(s.sid, s.transcript, s.engine);
   if (s.tmux) setTmuxMachine(s.tmux, s.machine);
   return s;
 }
@@ -194,7 +196,11 @@ function sessionFor(p) {
       if (m) { const r = roomForCwd(m, s.cwd || p.cwd); s.room = r.room; s.worktree = r.worktree || null; }
     }
   }
-  if (p.transcript_path) s.transcript = transcriptOf(s, p.transcript_path);
+  if (p.transcript_path) {
+    const file = ownedTranscript(s.sid, p.transcript_path, s.engine);
+    if (file) s.transcript = transcriptOf(s, file);
+    else s.transcript = ownedTranscript(s.sid, s.transcript, s.engine);
+  }
   if (p.kantor_tty) {
     s.tty = p.kantor_tty;
     // the process scanner may be showing this terminal as a placeholder; the real session replaces it

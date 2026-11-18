@@ -23,6 +23,7 @@ import { officeMetrics, complexMetrics, reportMarkdown } from './metrics.js';
 import { listMeetings, getMeeting, startMeeting, cancelMeeting, interject, actionToCard, resumeMeeting, continueMeeting, markInterrupted, runningMeetings } from './meetings.js';
 import { TOOLS, callTool, resolveIdentity } from './agent.js';
 import { readTranscript } from './transcript.js';
+import { ownedTranscript } from './transcript-owner.js';
 import { transcriptArgs, openSession } from './session-open.js';
 import { blockerAction, kickBlocker, startBlockerWatch } from './blocker.js';
 import { watchStream, streamState, startStreamWatch } from './stream.js';
@@ -467,7 +468,8 @@ route('POST', '/api/sessions/:sid/label', async (req, res, p) => {
 route('POST', '/api/sessions/:sid/boss', async (req, res, p) => setSessionBoss(p.sid, (await body(req)).boss || null));
 function sessionTranscript(sid, q) {
   const s = live.get(sid);
-  const file = s?.transcript || one(globalDb(), 'SELECT transcript FROM sessions WHERE sid = ?', sid)?.transcript;
+  const row = s?.transcript ? s : one(globalDb(), 'SELECT transcript, engine FROM sessions WHERE sid = ?', sid);
+  const file = ownedTranscript(sid, row?.transcript, row?.engine);
   return readTranscript(file, ...transcriptArgs(sid, q));
 }
 route('GET', '/api/sessions/:sid/transcript', (req, res, p, q) => sessionTranscript(p.sid, q));

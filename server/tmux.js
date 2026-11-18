@@ -15,6 +15,7 @@ import { rulesBlock } from './aturan.js';
 import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, readCodexSettings } from './codex.js';
 import { agyBin, agyMode, agyArgs, agySettings, installAgyIntegration } from './antigravity.js';
 import { draftOnScreen } from './draft-prompt.js';
+import { ownedTranscript } from './transcript-owner.js';
 import { who as actorName } from './actor.js';
 import * as mx from './machines.js';
 
@@ -808,7 +809,8 @@ export function adoptRunning(sessionNames = tmuxSessionsForRecovery()) {
     expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine !== 'claude' ? r.model : null });
     const s = live.get(r.sid); s.status = 'idle'; s.startedAt = r.started_at;
     run(globalDb(), "UPDATE sessions SET status = 'idle' WHERE sid = ?", r.sid);
-    s.transcript = r.transcript || null; // tanpa ini kesehatan dan konteks sesi Claude kosong sampai hook berikutnya
+    s.transcript = ownedTranscript(r.sid, r.transcript, r.engine);
+    if (s.transcript !== r.transcript) run(globalDb(), 'UPDATE sessions SET transcript = ? WHERE sid = ?', s.transcript, r.sid);
     if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
   }
 }
@@ -858,7 +860,8 @@ function adoptRemoteNow(machineId) {
       expectSession({ sid: r.sid, office: r.office, role: r.role, room: r.room, cwd: r.cwd, tmux: r.tmux, slot, title: r.title, engine: r.engine, effort: r.effort, model: r.engine !== 'claude' ? r.model : null, machine: machineId });
       const s = live.get(r.sid); s.status = 'idle'; s.startedAt = r.started_at;
       run(globalDb(), "UPDATE sessions SET status = 'idle' WHERE sid = ?", r.sid);
-      s.transcript = r.transcript || null; // path cermin lokal (mirror/<mesin>/...), jadi pembaca transkrip jalan seperti biasa
+      s.transcript = ownedTranscript(r.sid, r.transcript, r.engine);
+      if (s.transcript !== r.transcript) run(globalDb(), 'UPDATE sessions SET transcript = ? WHERE sid = ?', s.transcript, r.sid);
       const src = s.transcript && mx.remoteOfMirror(s.transcript);
       if (src) import('./mirror.js').then(mm => (mm.mirrorLater || mm.mirrorTranscript)?.(src.machine, src.file)).catch(() => {}); // tanpa ssh sinkron: poller yang menarik
       if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
