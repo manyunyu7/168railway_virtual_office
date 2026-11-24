@@ -103,9 +103,12 @@ const text = v => ({ content: [{ type: 'text', text: typeof v === 'string' ? v :
 export function resolveIdentity({ office, role, sid, cwd, callerSid }) {
   // MCP dari Mac lain datang dengan token mesin: cwd-nya path di mesin itu, jadi jangan dicari (atau dibuatkan kantor) di Mac ini
   const a = actor(), fromMachine = a?.kind === 'machine' ? a.machine : null;
-  let s = sid ? live.get(sid) : null;
+  // Codex/clear changes the conversation ID while the MCP process still carries
+  // the launch ID. Resolve that known pane before validating the machine token.
+  let s = callerSession(sid);
   if (fromMachine && s && s.machine !== fromMachine) s = null; // token mesin hanya boleh mengaku sesi di mesinnya sendiri
   if (fromMachine && sid && !s) sid = null;
+  if (s) sid = s.sid;
   const machine = s ? (s.machine || null) : fromMachine;
   const byCwd = () => machine ? (typeof offices.roomForRemote === 'function' ? offices.roomForRemote(machine, cwd)?.office : null) : officeForCwd(cwd);
   const o = (fromMachine ? s?.office || office : office) || (cwd ? byCwd() : null) || (callerSid ? live.get(callerSid)?.office : null);
@@ -124,15 +127,17 @@ const roomMachine = (m, roomId) => { const rm = m.plan.rooms.find(x => x.id === 
 function callerSession(sid) {
   if (!sid) return null;
   const s = live.get(sid);
-  if (s) return s;
-  const row = one(globalDb(), 'SELECT tmux FROM sessions WHERE sid = ?', sid);
-  return row?.tmux ? [...live.values()].find(x => x.tmux === row.tmux && x.status !== 'ended') : null;
+  if (s && s.status !== 'ended') return s;
+  const row = one(globalDb(), 'SELECT tmux, office, machine FROM sessions WHERE sid = ?', sid);
+  return row?.tmux ? [...live.values()].find(x => x.tmux === row.tmux && x.office === row.office &&
+    (x.machine || null) === (row.machine || null) && x.status !== 'ended') : null;
 }
 /** Sesi manual tidak membawa KANTOR_SID: pakai id dari proses Claude-nya, atau satu-satunya sesi hidup di folder itu. */
 function reportingSession(ident) {
   const known = callerSession(ident.sid) || callerSession(ident.callerSid);
   if (known) return known;
-  const same = ident.cwd ? [...live.values()].filter(x => x.status !== 'ended' && x.cwd === ident.cwd) : [];
+  const same = ident.cwd ? [...live.values()].filter(x => x.status !== 'ended' && x.cwd === ident.cwd &&
+    x.office === ident.office && (x.machine || null) === (ident.machine || null)) : [];
   return same.length === 1 ? same[0] : null;
 }
 function allowMode(ident, mode) {

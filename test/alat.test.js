@@ -185,6 +185,31 @@ test('agen: identitas dari token mesin dan sessions_list menandai mesin', async 
   assert.equal(me.kamu, true);
 });
 
+test('remote MCP launch ID resolves the current conversation after its ID changes', async () => {
+  const pane = 'kcr-identity-test';
+  live.expectSession({ sid: 'remote-launch-id', office, role: null, room: roomId,
+    cwd: remote, tmux: pane, machine: 'mac-dua' });
+  await live.handleHook({ session_id: 'remote-real-id', kantor_sid: 'remote-launch-id',
+    kantor_machine: 'mac-dua', kantor_engine: 'codex', hook_event_name: 'SessionStart', cwd: remote });
+  assert.ok(!live.live.has('remote-launch-id'));
+  const ident = viaMachine(() => agent.resolveIdentity({ sid: 'remote-launch-id', cwd: remote }));
+  assert.equal(ident.sid, 'remote-real-id');
+  assert.equal(ident.machine, 'mac-dua');
+  const out = await agent.callTool(ident, 'kerjaan_set', { judul: 'Identitas pulih' });
+  assert.match(out.content[0].text, /Laporan tersimpan/);
+  const list = JSON.parse((await agent.callTool(ident, 'sessions_list', {})).content[0].text);
+  assert.equal(list.find(x => x.id === 'remote-r').kamu, true);
+  await agent.callTool(ident, 'kerjaan_set', { selesai: true });
+});
+
+test('remote identity aliases and cwd reporting cannot cross machine boundaries', async () => {
+  const wrong = actor.withActor(actor.machineActor('mac-lain', 'Mac Lain'), () =>
+    agent.resolveIdentity({ sid: 'remote-launch-id', office, cwd: remote }));
+  assert.equal(wrong.sid, null);
+  assert.equal(wrong.machine, 'mac-lain');
+  await assert.rejects(agent.callTool(wrong, 'kerjaan_set', { judul: 'Bukan sesi saya' }), /tidak dikenali/);
+});
+
 test('tunjukkan: localhost dari sesi remote dijelaskan, file remote jadi path @ruangan', () => {
   assert.throws(() => shows.addShow({ office, sid: 'rs-4', machine: 'mac-dua', cwd: remote, url: 'http://localhost:5173/' }), /localhost di Mac Mac Dua.*\.local:5173/s);
   const okUrl = shows.addShow({ office, sid: 'rs-4', machine: 'mac-dua', cwd: remote, url: 'http://mac-dua.local:5173/' });
