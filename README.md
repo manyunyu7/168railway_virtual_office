@@ -149,6 +149,10 @@ flowchart LR
 
 Selain Claude Code dan Codex, role dapat memakai **Gemini (Antigravity)** melalui akun Google yang login di PC daemon. Pilih mesin dan model di **Role** atau **Mulai shift**. Panduan, izin, dan batas integrasi ada di [docs/ANTIGRAVITY.md](docs/ANTIGRAVITY.md).
 
+## OpenCode di Kantor
+
+Role juga bisa memakai **OpenCode** (`opencode` CLI) dengan login OpenCode di PC daemon, misalnya langganan OpenCode Go. Pilih mesin **OpenCode** dan modelnya (`provider/model`, kosong berarti bawaan OpenCode) di **Role** atau **Mulai shift**. Tiap shift memakai server OpenCode privat, jadi konfigurasi global dan service OpenCode milikmu tidak disentuh. Panduan ada di [docs/OPENCODE.md](docs/OPENCODE.md).
+
 ## Pengembangan
 
 ```bash
