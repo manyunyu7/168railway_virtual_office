@@ -119,14 +119,14 @@ export function mapOcEvent(ev, st) {
   const type = ev.type;
   const base = extra => ({ session_id: st.sid, cwd: st.cwd, ...(st.transcript ? { transcript_path: st.transcript } : {}), ...(st.model ? { model: st.model } : {}),
     kantor_engine: 'opencode', kantor_sid: st.sid, ...extra });
-  const sessionID = d.sessionID || d.session?.id || d.id;
+  const sessionID = d.sessionID || d.session?.id;
 
   // a subagent: a child session created under ours
-  if (type === 'session.created') {
-    const info = d.session || d.info || d;
-    if (info?.parentID === st.sid && info.id && !st.children.has(info.id)) {
-      st.children.set(info.id, { type: info.agent || 'general' });
-      out.hooks.push(base({ hook_event_name: 'SubagentStart', agent_id: info.id, agent_type: info.agent || 'general' }));
+  if (type === 'session.created') { // data: { sessionID, parentID, agent, title, ... }
+    const info = d.session || d.info || d, id = info?.sessionID || info?.id;
+    if (info?.parentID === st.sid && id && !st.children.has(id)) {
+      st.children.set(id, { type: info.agent || 'general' });
+      out.hooks.push(base({ hook_event_name: 'SubagentStart', agent_id: id, agent_type: info.agent || 'general' }));
     }
     return out;
   }
@@ -189,9 +189,10 @@ export function mapOcEvent(ev, st) {
       out.snapshot = true;
       break;
     case 'permission.asked': {
-      if (child) break; // a subagent's prompt is answered in the terminal; one inbox card per main session keeps "waiting" honest
+      // a subagent runs in the background and the TUI does not show its prompts: without the inbox it would wait forever
       const p = ocPermissionTool(d, st.cwd);
-      out.hooks.push(base({ hook_event_name: 'PermissionRequest', ...p, tool_use_id: d.source?.id || null, kantor_permission_id: d.id }));
+      out.hooks.push(base({ hook_event_name: 'PermissionRequest', ...p, tool_use_id: d.source?.id || null, kantor_permission_id: d.id,
+        kantor_permission_session: sessionID, ...(child ? { kantor_subagent: child.type } : {}) }));
       break;
     }
   }

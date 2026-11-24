@@ -15,14 +15,17 @@ import { OC_MODES, ocMode, ocPermissions, ocModelRef, parseOcModels, ocTranscrip
 export { OC_MODES, ocMode, ocPermissions, ocModelRef, parseOcModels, isOcTranscript };
 
 let BIN;
+const executable = p => { try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile(); } catch { return false; } };
+/** First executable `opencode` among config.opencode.bin, PATH and the usual install folders; null when none. */
+export function findOcBin(candidates, shell = () => execFileSync('/bin/zsh', ['-lc', 'command -v opencode'], { encoding: 'utf8', timeout: 5000 }).trim()) {
+  let bin = candidates.find(p => p && path.isAbsolute(p) && executable(p)) || null;
+  if (!bin) try { const found = shell(); bin = found && path.isAbsolute(found) && executable(found) ? found : null; } catch { bin = null; }
+  return bin;
+}
 export function opencodeBin({ fresh = false } = {}) {
   if (BIN !== undefined && !fresh) return BIN;
-  const custom = config().opencode?.bin;
-  BIN = [custom, ...String(process.env.PATH || '').split(path.delimiter).map(p => path.join(p, 'opencode')),
-    '/opt/homebrew/bin/opencode', '/usr/local/bin/opencode', path.join(os.homedir(), '.opencode/bin/opencode'), path.join(os.homedir(), '.local/bin/opencode')]
-    .find(p => p && path.isAbsolute(p) && fs.existsSync(p)) || null;
-  if (!BIN) try { BIN = execFileSync('/bin/zsh', ['-lc', 'command -v opencode'], { encoding: 'utf8', timeout: 5000 }).trim() || null; } catch { BIN = null; }
-  if (BIN && !path.isAbsolute(BIN)) BIN = null;
+  BIN = findOcBin([config().opencode?.bin, ...String(process.env.PATH || '').split(path.delimiter).map(p => path.join(p, 'opencode')),
+    '/opt/homebrew/bin/opencode', '/usr/local/bin/opencode', path.join(os.homedir(), '.opencode/bin/opencode'), path.join(os.homedir(), '.local/bin/opencode')]);
   return BIN;
 }
 /** Mode used when a shift asks for none: config.opencode.defaultMode, else ask first. */

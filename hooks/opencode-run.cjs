@@ -111,7 +111,7 @@ const pending = new Map(); // permission id → true while Kantor holds it
 const decided = new Set(); // permission ids answered from Kantor (their permission.replied needs no action)
 async function permission(payload) {
   const id = payload.kantor_permission_id;
-  pending.set(id, true);
+  pending.set(id, payload.tool_use_id || true);
   const res = await hook(payload, 600000);
   if (!pending.has(id)) return; // answered in the terminal meanwhile
   pending.delete(id);
@@ -119,7 +119,8 @@ async function permission(payload) {
   if (!dec) return; // nobody answered in Kantor: the prompt stays in the terminal
   decided.add(id);
   const reply = dec.behavior === 'allow' ? { decision: 'once' } : { decision: 'reject', message: dec.message || 'Ditolak dari kotak masuk Kantor.' };
-  try { await api('POST', `/api/session/${encodeURIComponent(spec.sid)}/permission/${encodeURIComponent(id)}/reply`, reply); } catch {}
+  const owner = payload.kantor_permission_session || spec.sid; // a subagent's request is answered on its own session
+  try { await api('POST', `/api/session/${encodeURIComponent(owner)}/permission/${encodeURIComponent(id)}/reply`, reply); } catch {}
   if (dec.behavior !== 'allow' && dec.interrupt) { try { await api('POST', `/api/session/${encodeURIComponent(spec.sid)}/interrupt`); } catch {} }
 }
 
@@ -204,9 +205,9 @@ async function stream(mod, st) {
   }
 }
 function onEvent(mod, st, ev) {
-  if (ev.type === 'permission.replied' && ev.data?.sessionID === spec.sid) {
+  if (ev.type === 'permission.replied') {
     const id = ev.data.requestID;
-    if (pending.has(id)) { pending.delete(id); send({ session_id: spec.sid, hook_event_name: 'PermissionResolved', kantor_engine: 'opencode', kantor_sid: spec.sid, kantor_permission_id: id, tool_use_id: null, reply: ev.data.reply }); }
+    if (pending.has(id)) { const tool = pending.get(id); pending.delete(id); send({ session_id: spec.sid, hook_event_name: 'PermissionResolved', kantor_engine: 'opencode', kantor_sid: spec.sid, kantor_permission_id: id, tool_use_id: typeof tool === 'string' ? tool : null, reply: ev.data.reply }); }
     decided.delete(id);
     return;
   }

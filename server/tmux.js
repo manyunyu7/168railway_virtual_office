@@ -749,7 +749,7 @@ async function openCodeAction(sid, s, name, action, text, who) {
       for (let i = 0; i < 60 && !ocState(sid) && hasTmux(name); i++) await new Promise(r => setTimeout(r, 500));
       await ocPrompt(sid, text); recordOutgoing(sid, text); return { via: 'opencode' };
     }
-    case 'compact': await ocCompact(sid); logOffice(office, who, 'merapikan konteks (kompaksi)', 'session'); return { via: 'opencode' };
+    case 'compact': await ocCompact(sid); return { via: 'opencode' }; // the PreCompact event logs it
     case 'clear': throw new Error('OpenCode tidak memakai /clear dari Kantor: sesi baru berarti id baru. Akhiri shift ini lalu mulai shift baru.');
     case 'exit': {
       const st = ocState(sid);

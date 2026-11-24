@@ -119,7 +119,12 @@ test('event stream → hook payloads: prompt, tools, permission, stop, interrupt
   assert.equal(fail.hook_event_name, 'PostToolUseFailure'); assert.equal(fail.error, 'nope');
   assert.equal(h({ type: 'session.created', data: { session: { id: 'ses_child', parentID: 'ses_A', agent: 'explore' } } })[0].hook_event_name, 'SubagentStart');
   assert.equal(h({ type: 'session.tool.called', data: { sessionID: 'ses_child', id: 'k1', name: 'grep', input: {} } })[0].agent_id, 'ses_child');
-  assert.deepEqual(h({ type: 'permission.asked', data: { id: 'per_2', sessionID: 'ses_child', action: 'shell', resources: ['x'] } }), []);
+  const childPerm = h({ type: 'permission.asked', data: { id: 'per_2', sessionID: 'ses_child', action: 'shell', resources: ['x'] } })[0];
+  assert.equal(childPerm.hook_event_name, 'PermissionRequest', 'a background subagent prompt reaches the inbox');
+  assert.equal(childPerm.kantor_permission_session, 'ses_child'); assert.equal(childPerm.kantor_subagent, 'explore'); assert.equal(childPerm.session_id, 'ses_A');
+  // the real v2 shape: data carries sessionID/parentID/agent directly
+  assert.equal(h({ type: 'session.created', data: { sessionID: 'ses_child2', parentID: 'ses_A', agent: 'general', title: 't' } })[0].agent_id, 'ses_child2');
+  assert.deepEqual(h({ type: 'session.created', data: { sessionID: 'ses_unrelated', parentID: 'ses_X' } }), []);
   assert.equal(h({ type: 'session.execution.succeeded', data: { sessionID: 'ses_child' } })[0].hook_event_name, 'SubagentStop');
   assert.equal(h({ type: 'session.execution.failed', data: { sessionID: 'ses_A', error: { message: 'region' } } })[0].kantor_error, 'region');
   assert.equal(h({ type: 'session.execution.interrupted', data: { sessionID: 'ses_A' } })[0].hook_event_name, 'Interrupt');
@@ -143,7 +148,9 @@ test('hook payloads drive session status, inbox and a terminal-answered permissi
   const held = handleHook(p);
   await new Promise(r => setTimeout(r, 50));
   assert.equal(live.get('ses_B').status, 'waiting');
-  await handleHook({ session_id: 'ses_B', hook_event_name: 'PermissionResolved', kantor_engine: 'opencode', kantor_sid: 'ses_B', kantor_permission_id: 'per_9' });
+  await handleHook({ session_id: 'ses_B', hook_event_name: 'PermissionResolved', kantor_engine: 'opencode', kantor_sid: 'ses_B', kantor_permission_id: 'per_x', tool_use_id: 'other-call' });
+  assert.equal(live.get('ses_B').status, 'waiting', 'another request being answered does not close this card');
+  await handleHook({ session_id: 'ses_B', hook_event_name: 'PermissionResolved', kantor_engine: 'opencode', kantor_sid: 'ses_B', kantor_permission_id: 'per_9', tool_use_id: 'c9' });
   assert.equal(await held, null);
   assert.equal(live.get('ses_B').waiting, null);
   assert.equal(one(globalDb(), "SELECT status FROM inbox WHERE sid = 'ses_B'").status, 'terminal');
@@ -243,4 +250,15 @@ process.on('SIGTERM', () => process.exit(0));
   assert.ok(hooks.every(h => h.session_id === sid && h.kantor_engine === 'opencode'));
   assert.deepEqual(fs.readFileSync(spec.transcript, 'utf8').trim().split('\n').map(l => JSON.parse(l).id), ['u1', 'a1']);
   assert.ok(!fs.existsSync(spec.state), 'state file removed after exit');
+});
+
+test('binary lookup: missing, not executable and a directory are all "not installed"; the first executable wins', () => {
+  const dir = path.join(tmp, 'bins'); fs.mkdirSync(dir);
+  const plain = path.join(dir, 'plain'); fs.writeFileSync(plain, 'x', { mode: 0o644 });
+  const good = path.join(dir, 'opencode'); fs.writeFileSync(good, '#!/bin/sh\n', { mode: 0o755 });
+  const none = () => { throw new Error('not found'); };
+  assert.equal(oc.findOcBin([path.join(dir, 'missing'), plain, dir, 'relative/opencode', null], none), null);
+  assert.equal(oc.findOcBin([plain, good], none), good);
+  assert.equal(oc.findOcBin([], () => 'opencode'), null, 'a relative answer from the shell is not trusted');
+  assert.equal(oc.findOcBin([], () => good), good);
 });

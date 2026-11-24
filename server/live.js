@@ -371,7 +371,7 @@ export async function handleHook(p) {
       setTimeout(() => { if (live.get(s.sid)?.status === 'ended') { live.delete(s.sid); bus.emit('msg', { t: 'session-gone', office: s.office, sid: s.sid }); } }, 20000).unref();
       break;
     case 'PermissionResolved': // OpenCode: the prompt was answered in the terminal while the inbox card was open
-      if (s.waiting) { clearWaiting(s, 'terminal'); s.status = 'working'; }
+      if (s.waiting && finishedWaitingTool(s.waiting, p)) { clearWaiting(s, 'terminal'); s.status = 'working'; } // only the request that was answered
       break;
     case 'PermissionRequest': {
       const res = await permission(s, p, who);
