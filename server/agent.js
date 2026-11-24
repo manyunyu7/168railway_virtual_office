@@ -1,4 +1,5 @@
 // Tools exposed to Claude sessions through the `kantor` MCP server.
+import { checkOcModel } from './opencode.js';
 import { officeForCwd, officeModel } from './offices.js';
 import * as offices from './offices.js';
 import * as mx from './machines.js';
@@ -305,6 +306,8 @@ async function runTool(ident, name, a = {}) {
         if (msg) await sessionAction(running.sid, 'text', msg);
         return text(`${a.role} sudah shift (tmux ${running.tmux}, ${running.status === 'working' ? 'sedang bekerja, pesan masuk antrean' : 'idle'}). ${msg ? 'Tugas dikirim ke sesi itu.' : 'Tidak ada tugas yang dikirim.'} Pakai paralel: true kalau memang perlu sesi kedua.`);
       }
+      const target = st.getRole(office, a.role);
+      if (target?.engine === 'opencode') await checkOcModel(target.model || ''); // unknown model: say so now, not on the first turn
       const r = startShift(office, a.role, { task: a.task, cardId: a.card_id, permissionMode: a.permission_mode || null });
       return text(`Shift ${a.role} dimulai (tmux ${r.tmux}${mode ? `, mode izin ${mode}` : ''}).`);
     }

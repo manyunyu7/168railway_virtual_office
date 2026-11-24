@@ -314,7 +314,8 @@ export function askOpenCode(office, role, prompt, title, state, { tools = true, 
   expectSession({ sid, office, role: role.id, room: 'meeting', cwd, title, engine: 'opencode' });
   const session = live.get(sid); session.kind = 'rapat'; session.status = 'working';
   return new Promise((resolve, reject) => {
-    const env = { ...process.env, OPENCODE_CONFIG_CONTENT: JSON.stringify(meetingOcConfig(file, tools)), KANTOR_ENGINE: '' };
+    // PWD too: OpenCode takes its project folder from PWD, not from the process cwd (the daemon's own folder otherwise)
+    const env = { ...process.env, PWD: cwd, OPENCODE_CONFIG_CONTENT: JSON.stringify(meetingOcConfig(file, tools)), KANTOR_ENGINE: '' };
     const child = spawn(bin, meetingOcArgs(role, prompt), { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
     state.child = child;
     let err = '', texts = [], failed = '';

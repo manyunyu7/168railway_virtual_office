@@ -45,7 +45,7 @@ import { officeGit, gitDiff, gitCommit } from './gitinfo.js';
 import { openForSession, selectForSession, cancelForSession } from './modelpick.js';
 import { engineCatalog } from './engines.js';
 import { agyModels } from './antigravity.js';
-import { ocModels, ocSetModel, ocSetMode } from './opencode.js';
+import { ocModels, ocSetModel, ocSetMode, checkOcModel } from './opencode.js';
 import { codexModels, codexBin, CODEX_MODES } from './codex.js';
 import { setCodexModel, setCodexMode } from './codexpick.js';
 import { listOutbox, cancelOutgoing, startOutbox } from './outbox.js';
@@ -407,11 +407,15 @@ route('POST', '/api/offices/:id/cards/:cid/split', async (req, res, p) => {
 
 /* roles + sessions */
 route('GET', '/api/offices/:id/roles', (req, res, p) => st.listRoles(O(p.id), { archived: true }));
-route('POST', '/api/offices/:id/roles', async (req, res, p) => { const r = st.createRole(O(p.id), await body(req)); invalidate(p.id); bus.emit('msg', { t: 'changed', office: p.id, what: 'plan' }); return r; });
+route('POST', '/api/offices/:id/roles', async (req, res, p) => { const b = await body(req); if (b.engine === 'opencode' && b.model) await checkOcModel(b.model); const r = st.createRole(O(p.id), b); invalidate(p.id); bus.emit('msg', { t: 'changed', office: p.id, what: 'plan' }); return r; });
 route('POST', '/api/offices/:id/roles-order', async (req, res, p) => { const r = st.orderRoles(O(p.id), (await body(req)).order); bus.emit('msg', { t: 'changed', office: p.id, what: 'roles-order', order: r.map(x => x.id) }); return r; });
-route('PATCH', '/api/offices/:id/roles/:rid', async (req, res, p) => { const r = st.updateRole(O(p.id), p.rid, await body(req)); invalidate(p.id); bus.emit('msg', { t: 'changed', office: p.id, what: 'plan' }); return r; });
+route('PATCH', '/api/offices/:id/roles/:rid', async (req, res, p) => { const b = await body(req); if (b.model && (b.engine || st.getRole(O(p.id), p.rid)?.engine) === 'opencode') await checkOcModel(b.model); const r = st.updateRole(O(p.id), p.rid, b); invalidate(p.id); bus.emit('msg', { t: 'changed', office: p.id, what: 'plan' }); return r; });
 route('POST', '/api/offices/:id/roles/:rid/start', async (req, res, p) => {
   const b = await body(req);
+  if (!b.resumeSid) { // OpenCode: an unknown model would only fail on the first turn, inside the terminal
+    const role = st.getRole(O(p.id), p.rid), eng = b.engine || role?.engine;
+    if (eng === 'opencode') await checkOcModel(b.model || (role?.engine === 'opencode' ? role.model : '') || '');
+  } else if (b.model && live.get(b.resumeSid)?.engine === 'opencode') await checkOcModel(b.model);
   const r = startShift(O(p.id), p.rid, { task: b.task, cardId: b.cardId, worktree: !!b.worktree, resumeSid: b.resumeSid, permissionMode: b.permissionMode, engine: b.engine, model: b.model, effort: b.effort });
   if (b.task) audit.markTyping(r.tmux, actor());
   if (b.cardId) { const c = st.getCard(p.id, b.cardId); if (c.colKind !== 'dikerjakan') st.updateCard(p.id, b.cardId, { col: 'dikerjakan' }, who()); }

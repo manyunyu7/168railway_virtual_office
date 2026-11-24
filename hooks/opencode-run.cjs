@@ -47,7 +47,8 @@ function api(method, p, body, { timeout = 30000, raw = false } = {}) {
 function startServer() {
   return new Promise((resolve, reject) => {
     const log = fs.openSync(spec.log, 'a', 0o600);
-    const env = { ...process.env, OPENCODE_CONFIG_CONTENT: JSON.stringify(spec.config), OPENCODE_SERVER_PASSWORD: spec.password };
+    // PWD: OpenCode resolves its project folder from PWD rather than the process cwd
+    const env = { ...process.env, PWD: spec.cwd, OPENCODE_CONFIG_CONTENT: JSON.stringify(spec.config), OPENCODE_SERVER_PASSWORD: spec.password };
     delete env.OPENCODE_PASSWORD;
     server = spawn(spec.bin, ['serve', '--hostname', '127.0.0.1', '--port', '0'], { cwd: spec.cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
     let buf = '';
@@ -270,7 +271,7 @@ for (const sig of ['SIGHUP', 'SIGTERM', 'SIGINT']) process.on(sig, () => { try {
     await sleep(60000);
     return finish(1);
   }
-  const env = { ...process.env, OPENCODE_PASSWORD: spec.password };
+  const env = { ...process.env, PWD: spec.cwd, OPENCODE_PASSWORD: spec.password };
   delete env.OPENCODE_CONFIG_CONTENT; delete env.OPENCODE_SERVER_PASSWORD;
   tui = spawn(spec.bin, ['--server', url, '--session', spec.sid, spec.cwd], { cwd: spec.cwd, env, stdio: 'inherit' });
   tui.on('exit', code => finish(code || 0));

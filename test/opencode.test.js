@@ -198,8 +198,8 @@ test('supervisor: private server, session prepared with permissions, first task 
   fs.writeFileSync(fake, `#!${process.execPath}
 const http = require('http'), fs = require('fs');
 const log = m => fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(m) + '\\n');
-if (process.argv[2] !== 'serve') { log({ tui: process.argv.slice(2), pw: process.env.OPENCODE_PASSWORD, cfg: !!process.env.OPENCODE_CONFIG_CONTENT }); setTimeout(() => process.exit(0), 1500); return; }
-log({ serve: true, cfg: JSON.parse(process.env.OPENCODE_CONFIG_CONTENT), pw: process.env.OPENCODE_SERVER_PASSWORD });
+if (process.argv[2] !== 'serve') { log({ tui: process.argv.slice(2), pw: process.env.OPENCODE_PASSWORD, cfg: !!process.env.OPENCODE_CONFIG_CONTENT, pwd: process.env.PWD }); setTimeout(() => process.exit(0), 1500); return; }
+log({ serve: true, cfg: JSON.parse(process.env.OPENCODE_CONFIG_CONTENT), pw: process.env.OPENCODE_SERVER_PASSWORD, pwd: process.env.PWD });
 const subs = [];
 const emit = e => subs.forEach(s => s.write('data: ' + JSON.stringify(e) + '\\n\\n'));
 const srv = http.createServer((req, res) => {
@@ -230,13 +230,13 @@ process.on('SIGTERM', () => process.exit(0));
   assert.equal(code, 0);
   const lines = fs.readFileSync(log, 'utf8').trim().split('\n').map(l => JSON.parse(l));
   const serve = lines.find(l => l.serve);
-  assert.equal(serve.pw, spec.password); assert.equal(serve.cfg.mcp.servers.kantor.environment.KANTOR_SID, sid);
+  assert.equal(serve.pw, spec.password); assert.equal(serve.pwd, dir, 'OpenCode reads its project folder from PWD'); assert.equal(serve.cfg.mcp.servers.kantor.environment.KANTOR_SID, sid);
   const create = lines.find(l => l.m === 'POST' && l.u === '/api/session');
   assert.equal(create.b.id, sid); assert.deepEqual(create.b.permissions, spec.permissions); assert.deepEqual(create.b.model, { providerID: 'opencode-go', id: 'glm-5.3' });
   assert.equal(create.dir, dir);
   assert.equal(lines.find(l => l.u?.endsWith('/prompt')).b.text, task);
   const tui = lines.find(l => l.tui);
-  assert.deepEqual(tui.tui.slice(2, 4), ['--session', sid]); assert.equal(tui.pw, spec.password); assert.equal(tui.cfg, false);
+  assert.deepEqual(tui.tui.slice(2, 4), ['--session', sid]); assert.equal(tui.pw, spec.password); assert.equal(tui.cfg, false); assert.equal(tui.pwd, dir);
   const names = hooks.map(h => h.hook_event_name);
   for (const n of ['SessionStart', 'UserPromptSubmit', 'Stop', 'SessionEnd']) assert.ok(names.includes(n), n);
   assert.equal(hooks.find(h => h.prompt)?.prompt, task);

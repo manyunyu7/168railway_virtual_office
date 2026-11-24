@@ -36,7 +36,7 @@ export function ocModels({ fresh = false } = {}) {
   const bin = opencodeBin();
   if (!bin) return Promise.resolve({ available: false, models: [], modes: OC_MODES });
   if (!fresh && modelsCache && Date.now() - modelsCache.at < 600e3) return Promise.resolve(modelsCache.value);
-  return new Promise(resolve => execFile(bin, ['models', '--standalone'], { timeout: 30000, maxBuffer: 4 << 20, cwd: os.homedir() }, (err, stdout) => {
+  return new Promise(resolve => execFile(bin, ['models', '--standalone'], { timeout: 30000, maxBuffer: 4 << 20, cwd: os.homedir(), env: { ...process.env, PWD: os.homedir() } }, (err, stdout) => {
     const models = parseOcModels(stdout);
     const value = { available: true, models, modes: OC_MODES,
       ...(models.length ? {} : { error: 'Daftar model OpenCode belum terbaca. Jalankan `opencode` sekali di Mac ini dan login (opencode auth).' }) };

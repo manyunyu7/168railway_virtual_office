@@ -744,8 +744,10 @@ async function openCodeAction(sid, s, name, action, text, who) {
     }
     case 'text': {
       if (!text) return { via: 'opencode' };
-      if (ocState(sid)) { await ocPrompt(sid, text); recordOutgoing(sid, text); return { via: 'opencode' }; }
-      const sent = sendText(name, text); recordOutgoing(sid, text); await sent; return { via: 'tmux' }; // server not up yet: type it
+      // just started or resumed: the private server comes up within seconds. Never type into the pane instead,
+      // it may still show the supervisor's startup output rather than the TUI's input box.
+      for (let i = 0; i < 60 && !ocState(sid) && hasTmux(name); i++) await new Promise(r => setTimeout(r, 500));
+      await ocPrompt(sid, text); recordOutgoing(sid, text); return { via: 'opencode' };
     }
     case 'compact': await ocCompact(sid); logOffice(office, who, 'merapikan konteks (kompaksi)', 'session'); return { via: 'opencode' };
     case 'clear': throw new Error('OpenCode tidak memakai /clear dari Kantor: sesi baru berarti id baru. Akhiri shift ini lalu mulai shift baru.');

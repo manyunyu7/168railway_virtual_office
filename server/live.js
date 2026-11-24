@@ -124,6 +124,7 @@ function restoreFromDb(sid) {
   const s = blank(sid);
   Object.assign(s, { office: row.office, room: row.room, role: row.role, cwd: row.cwd, kind: row.source || 'manual', tmux: row.tmux, title: row.title, model: row.model, startedAt: row.started_at, tty: row.tty, transcript: row.transcript, boss: row.boss || null, engine: engineOf(row.engine), effort: row.effort || null, machine: row.machine || null });
   s.transcript = ownedTranscript(s.sid, s.transcript, s.engine);
+  if (s.engine === 'opencode') s.permMode = ocSavedMode(s.sid); // not in the sessions table; kept in the shift's spec
   if (s.tmux) setTmuxMachine(s.tmux, s.machine);
   return s;
 }
