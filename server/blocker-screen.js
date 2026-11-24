@@ -13,22 +13,28 @@ const NORMAL_FOOTER = /\? for shortcuts|esc to interrupt|shift\+tab to cycle|for
 function normalScreen(all) {
   if (NORMAL_FOOTER.test(all.slice(-4).join('\n'))) return true;
   const low = all.slice(-8);
-  if (low.some(l => /^\s*─{20,}\s*$/.test(l)) && low.some(l => /^\s*❯(?!\s*(?:[✔✓]\s*)?\d+\.)/.test(l))) return true;
+  if (low.some(l => /^\s*─{20,}\s*$/.test(l)) && low.some(l => /^\s*❯(?!\s*(?:(?:[✔✓]\s*)?\d+\.|(?:Yes|No),))/i.test(l))) return true;
   return all.slice(-6).some(l => /^\s*›(?!\s*\d+\.)/.test(l));
 }
 
 /** Baris pilihan bernomor: "> 1. Sign in with ChatGPT", "❯ 1. Claude account · …", "  2. No, quit". */
 const ROW = /^\s*([›>❯▶])?\s*(?:[✔✓]\s*)?(\d+)\.\s+(.+?)\s*$/;
+// Claude 2.1.330: no numbers, reversed order, default "No, exit".
+const TRUST_ROW = /^\s*([›>❯▶])?\s*((?:Yes|No),\s+.+?)\s*$/i;
 export function parseRows(text, anchorRe = null) {
   const lines = String(text || '').replace(/\r/g, '').split('\n');
   let at = -1;
   // judul dialog terakhir di layar (baris pilihan yang kebetulan cocok, mis. "1. Yes, allow Codex to work in this folder", bukan judul)
-  if (anchorRe) { lines.forEach((l, i) => { if (anchorRe.test(l) && !ROW.test(l)) at = i; }); if (at < 0) return []; }
+  if (anchorRe) { lines.forEach((l, i) => {
+    if (anchorRe.test(l) && !ROW.test(l) && !(anchorRe === TRUST_RE && TRUST_ROW.test(l))) at = i;
+  }); if (at < 0) return []; }
   const rows = [];
   for (const l of lines.slice(at + 1)) {
     const m = ROW.exec(l);
-    if (!m) continue;
-    rows.push({ index: +m[2], label: m[3].split(/\s+·\s+|\s{2,}/)[0].trim(), cursor: !!m[1] });
+    const trust = !m && anchorRe === TRUST_RE ? TRUST_ROW.exec(l) : null;
+    if (!m && !trust) continue;
+    rows.push({ index: m ? +m[2] : rows.length + 1,
+      label: (m ? m[3] : trust[2]).split(/\s+·\s+|\s{2,}/)[0].trim(), cursor: !!(m || trust)[1] });
   }
   // nomor yang berulang berarti daftar lain di bawahnya (mis. langkah 1./2. layar kode): ambil daftar pertama saja
   const out = [];
@@ -160,6 +166,11 @@ export function sameBlocker(a, b) {
 
 /* ---------------- callback login Codex (anti-SSRF) ---------------- */
 const bad = (msg, code = 400) => Object.assign(new Error(msg), { code });
+/** Chat must never answer a login/trust dialog by typing text and pressing Enter. */
+export function assertChatInput(screen) {
+  const blocker = parseBlocker(screen);
+  if (blocker) throw bad(`${blocker.title}. Jawab kartu konfirmasi di chat atau buka tab Terminal, lalu kirim ulang pesan.`, 409);
+}
 /**
  * Alamat yang ditempel pemilik setelah login lewat browser → URL yang boleh di-GET di mesin agen.
  * Hanya http://127.0.0.1|localhost:<port redirect_uri>/auth/callback?code=…&state=<state URL authorize di layar>.

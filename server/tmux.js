@@ -15,6 +15,7 @@ import { rulesBlock } from './aturan.js';
 import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, readCodexSettings } from './codex.js';
 import { agyBin, agyMode, agyArgs, agySettings, installAgyIntegration } from './antigravity.js';
 import { draftOnScreen } from './draft-prompt.js';
+import { assertChatInput, parseBlocker } from './blocker-screen.js';
 import { ownedTranscript } from './transcript-owner.js';
 import { who as actorName } from './actor.js';
 import * as mx from './machines.js';
@@ -543,6 +544,7 @@ export function pendingInput(screen, text) {
 export const paneScreen = name => capture(name, 40).trimEnd().split('\n').slice(-22).join('\n'); // hanya dasar layar: teks yang sekadar menyebut prompt ini di percakapan tidak ikut terbaca
 export const pressKey = (name, key) => tmux(['send-keys', '-t', name, key]);
 export function sendText(name, text) {
+  assertChatInput(visible(name));
   // saat draf laporan tampil, tombol 0/1/2 berarti pilihan: tempel supaya pesan yang diawali angka tidak ikut menekannya
   if (usePaste(text) || draftOnScreen(paneScreen(name))) {
     const buf = `kc-${process.pid}-${Date.now()}`;
@@ -554,10 +556,14 @@ export function sendText(name, text) {
 // Enter, then check a moment later that the input box emptied; press Enter again (at most twice) if the text is still there.
 async function submit(name, text) {
   await wait(enterDelay(text));
+  // A startup dialog can appear after the first screen check. Do not confirm it.
+  if (parseBlocker(visible(name))) return;
   tmux(['send-keys', '-t', name, 'Enter']);
   for (let r = 0; r < 2; r++) {
     await wait(750);
-    if (!hasTmux(name) || !pendingInput(visible(name), text)) return;
+    if (!hasTmux(name)) return;
+    const screen = visible(name);
+    if (parseBlocker(screen) || !pendingInput(screen, text)) return;
     tmux(['send-keys', '-t', name, 'Enter']);
   }
 }

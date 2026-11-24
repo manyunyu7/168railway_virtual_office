@@ -8,7 +8,7 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kantor-blocker-'));
 process.env.KANTOR_HOME = path.join(tmp, 'home');
 fs.mkdirSync(process.env.KANTOR_HOME, { recursive: true });
 fs.writeFileSync(path.join(process.env.KANTOR_HOME, 'config.json'), JSON.stringify({ roots: [tmp], token: 'x' }));
-const { parseBlocker, parseRows, joinedUrl, checkCallback, checkCode, runAction, sameBlocker, wantsScan, ACTIONS } = await import('../server/blocker-screen.js');
+const { parseBlocker, parseRows, joinedUrl, checkCallback, checkCode, runAction, sameBlocker, wantsScan, assertChatInput, ACTIONS } = await import('../server/blocker-screen.js');
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 const NOW = Date.parse('2026-11-17T10:00:00Z');
@@ -148,6 +148,53 @@ const CLAUDE_IDLE = `⏺ Selesai. Ketik "Press enter to continue" kalau mau lanj
 ────────────────────────────────────────────────────────────────────────────────
   ⏵⏵ auto mode on (shift+tab to cycle)
 `;
+const CLAUDE_TRUST_UNNUMBERED = `
+────────────────────────────────────────────────────────────────────────────────
+ Accessing workspace:
+
+ /Users/henry/Developer/buddget
+
+ Quick safety check: Is this a project you created or one you trust?
+ Claude Code'll be able to read, edit, and execute files here.
+
+ Security guide
+
+ ❯ No, exit
+   Yes, I trust this folder
+
+ Enter to confirm · Esc to cancel
+`;
+
+test('Claude trust without numbers is a blocker, including a short terminal', () => {
+  for (const screen of [CLAUDE_TRUST_UNNUMBERED,
+    '────────────────────────────────────────\nIs this a project you created or one you trust?\n❯ No, exit\n  Yes, I trust this folder\nEnter to confirm · Esc to cancel']) {
+    const b = P(screen, { engine: 'claude' });
+    assert.equal(b.kind, 'prompt');
+    assert.deepEqual(b.actions.map(a => a.id), ['yes', 'no']);
+    assert.throws(() => assertChatInput(screen), e => e.code === 409);
+  }
+  assert.doesNotThrow(() => assertChatInput(CLAUDE_IDLE));
+  assert.throws(() => assertChatInput(CODEX_MENU), e => e.code === 409);
+});
+
+test('Claude reversed trust menu moves from No to Yes before confirming', async () => {
+  let sent;
+  const screen = () => sent.includes('Down')
+    ? CLAUDE_TRUST_UNNUMBERED.replace('❯ No, exit', '  No, exit').replace('  Yes, I trust', '❯ Yes, I trust')
+    : CLAUDE_TRUST_UNNUMBERED;
+  const p = fakePane([screen]); sent = p.sent;
+  await runAction(P(CLAUDE_TRUST_UNNUMBERED, { engine: 'claude' }), 'yes', undefined, p.io);
+  assert.deepEqual(sent, ['Down', 'Enter']);
+  const no = fakePane([CLAUDE_TRUST_UNNUMBERED]);
+  await runAction(P(CLAUDE_TRUST_UNNUMBERED, { engine: 'claude' }), 'no', undefined, no.io);
+  assert.deepEqual(no.sent, ['Enter']);
+});
+
+test('Claude trust refuses to confirm when the cursor cannot move', async () => {
+  const p = fakePane([CLAUDE_TRUST_UNNUMBERED]);
+  await assert.rejects(runAction(P(CLAUDE_TRUST_UNNUMBERED), 'yes', undefined, p.io), e => e.code === 409);
+  assert.ok(!p.sent.includes('Enter'));
+});
 
 test('menu login Codex (v0.163 dan v0.167)', () => {
   for (const t of [CODEX_MENU, CODEX_MENU_167]) {
