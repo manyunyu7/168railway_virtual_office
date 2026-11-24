@@ -11,7 +11,7 @@ import { globalDb, officeDb, all, one, run, closeAll } from './db.js';
 import { listOffices, officeModel, registerOffice, candidateFolders, invalidate, addRoom, updateRoom, scanRoot, browseFolder, previewRoom, roomForCwd, saveLayout, resetLayout, layoutProblems, getFurniture, saveFurniture } from './offices.js';
 import { catalog as furnitureCatalog } from './furniture.js';
 import { prayerTimes } from './prayer.js';
-import { bus, handleHook, decide, answerAsk, dismissInbox, openInbox, liveFor, live, serialize, whoOf, emitSessionNow } from './live.js';
+import { bus, handleHook, decide, answerAsk, dismissInbox, openInbox, liveFor, live, serialize, whoOf, emitSessionNow, restoreRemoteSessions } from './live.js';
 import * as st from './store.js';
 import * as bd from './boards.js';
 import { startShift, sessionAction, adoptSession, setSessionBoss, setPermMode, paneMode, paneModeAsync, adoptRunning, adoptManual, reapGoneTmux, ensureShell, tmux, bins, hasTmux, capture, globalHooksInstalled, hookSettings } from './tmux.js';
@@ -1142,7 +1142,7 @@ function listenTls() {
 
 // KANTOR_DEMO=1: a showroom daemon (screenshots, demos) that never touches real sessions or transcripts
 const DEMO = process.env.KANTOR_DEMO === '1';
-if (!DEMO) { adoptRunning(); adoptManual(); }
+if (!DEMO) { restoreRemoteSessions(); adoptRunning(); adoptManual(); }
 listen();
 startNotify();
 if (!DEMO) sysmon.startSysmon();

@@ -151,6 +151,29 @@ test('event mesin: sesi milik mesin itu dikabarkan ulang hanya saat status offli
   mx._setOnlineForTests('mac-dua', true);
 });
 
+test('restart while remote is offline retains its conversations, IDs and history', () => {
+  const saved = new Map(live.live);
+  const sid = 'offline-restore-real', pane = 'kcr-offline-restore';
+  live.expectSession({ sid, office, role: null, room: null, cwd: remote, tmux: pane,
+    machine: 'mac-dua', engine: 'codex', model: 'gpt-test' });
+  const before = db.one(db.globalDb(), 'SELECT * FROM sessions WHERE sid = ?', sid);
+  live.live.clear();
+  mx._setOnlineForTests('mac-dua', false);
+  const snapshot = JSON.stringify(db.all(db.globalDb(), 'SELECT * FROM sessions ORDER BY sid'));
+  assert.ok(live.restoreRemoteSessions() >= 1);
+  const s = live.live.get(sid);
+  assert.equal(s.tmux, pane);
+  assert.equal(s.startedAt, before.started_at);
+  assert.equal(s.lastSeen, before.last_seen);
+  assert.equal(live.serialize(s).machineOffline, true);
+  assert.equal(live.restoreRemoteSessions(), 0, 'repeated restoration cannot duplicate sessions');
+  assert.equal(JSON.stringify(db.all(db.globalDb(), 'SELECT * FROM sessions ORDER BY sid')), snapshot,
+    'restoration cannot end or alter stored conversations');
+  live.live.clear();
+  for (const [id, session] of saved) live.live.set(id, session);
+  mx._setOnlineForTests('mac-dua', true);
+});
+
 test('sesi lokal tidak berubah: tanpa kantor_machine tetap lewat officeForCwd/roomForCwd', async () => {
   await live.handleHook({ session_id: 'l-1', hook_event_name: 'SessionStart', source: 'startup', cwd: path.join(root, 'shop/api'), transcript_path: '/tmp/l1.jsonl' });
   const s = live.live.get('l-1');

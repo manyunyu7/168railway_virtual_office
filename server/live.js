@@ -10,7 +10,7 @@ import { subagentTokens, fileTokens, codexSubagentFile } from './subtokens.js';
 import * as gitinfo from './gitinfo.js';
 import { codexHealth, normalizeHook, engineOf, readCodexSettings } from './codex.js';
 import { who as actorName } from './actor.js';
-import { setTmuxMachine, isOffline, LOCAL as LOCAL_MACHINE, events as machineEvents } from './machines.js';
+import { setTmuxMachine, isOffline, getMachine, LOCAL as LOCAL_MACHINE, events as machineEvents } from './machines.js';
 import { mirrorTranscript } from './mirror.js';
 import { ownedTranscript } from './transcript-owner.js';
 
@@ -123,6 +123,34 @@ function restoreFromDb(sid) {
   s.transcript = ownedTranscript(s.sid, s.transcript, s.engine);
   if (s.tmux) setTmuxMachine(s.tmux, s.machine);
   return s;
+}
+
+/** Restore known remote conversations before probing machines. Offline is not ended.
+ * Read-only: keep IDs/history/timestamps and let remote adoption verify the pane
+ * when its machine is reachable. Never replay a task or start another process.
+ */
+export function restoreRemoteSessions() {
+  const rows = all(globalDb(), `SELECT * FROM sessions WHERE machine IS NOT NULL
+    AND tmux IS NOT NULL AND ended_at IS NULL AND status != 'ended'`);
+  rows.sort((a, b) => Number(a.sid.startsWith('pane-')) - Number(b.sid.startsWith('pane-')) ||
+    Date.parse(b.last_seen || b.started_at) - Date.parse(a.last_seen || a.started_at));
+  const taken = new Set([...live.values()].filter(s => s.status !== 'ended' && s.machine && s.tmux)
+    .map(s => `${s.machine}\0${s.tmux}`));
+  let restored = 0;
+  for (const row of rows) {
+    const key = `${row.machine}\0${row.tmux}`;
+    if (!getMachine(row.machine) || taken.has(key) || live.has(row.sid)) continue;
+    taken.add(key);
+    const s = restoreFromDb(row.sid);
+    const base = `${row.tmux.startsWith('kcr-') ? 'kcr' : 'kc'}-${row.office}-${row.role}`;
+    s.slot = row.tmux.startsWith(base + '-') ? Math.max(0, Number(row.tmux.slice(base.length + 1)) - 1 || 0) : 0;
+    s.status = 'idle'; // no stale "working" while the process is unverified
+    s.lastSeen = row.last_seen || row.started_at;
+    if (s.engine === 'codex') s.permMode = readCodexSettings(s.transcript)?.mode || null;
+    live.set(s.sid, s);
+    restored++;
+  }
+  return restored;
 }
 
 function persist(s) {
