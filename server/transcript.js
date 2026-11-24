@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { toolLabel } from './live.js';
 import { isAgyTranscript, readAgyTranscript } from './antigravity.js';
 import { isRollout, readRollout } from './codex.js';
+import { isOcTranscript, readOcTranscript } from './opencode.js';
 import { scanAppended } from './jsonl.js';
 
 // Keep normalized conversation items, not a byte window filled by screenshots.
@@ -18,6 +19,7 @@ export function readTranscript(file, n = 120, options) {
   if (!file || !fs.existsSync(file)) return { items: [], missing: true };
   if (isAgyTranscript(file)) return readAgyTranscript(file, n, options);
   if (isRollout(file)) return readRollout(file, n, toolLabel, options); // OpenAI Codex rollout, same items
+  if (isOcTranscript(file)) return readOcTranscript(file, n, options, toolLabel); // OpenCode message snapshot (hooks/opencode-run.cjs)
   const c = cache.get(file) || { ino: null, offset: 0, items: [] };
   const st = scanAppended(file, c, null, d => {
     appendTranscript(c, claudeItems(d), KEEP);

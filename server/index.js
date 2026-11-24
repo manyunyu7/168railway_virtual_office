@@ -11,7 +11,7 @@ import { globalDb, officeDb, all, one, run, closeAll } from './db.js';
 import { listOffices, officeModel, registerOffice, candidateFolders, invalidate, addRoom, updateRoom, scanRoot, browseFolder, previewRoom, roomForCwd, saveLayout, resetLayout, layoutProblems, getFurniture, saveFurniture } from './offices.js';
 import { catalog as furnitureCatalog } from './furniture.js';
 import { prayerTimes } from './prayer.js';
-import { bus, handleHook, decide, answerAsk, dismissInbox, openInbox, liveFor, live, serialize, whoOf, emitSessionNow, restoreRemoteSessions } from './live.js';
+import { bus, handleHook, decide, answerAsk, dismissInbox, openInbox, liveFor, live, serialize, whoOf, emitSessionNow, restoreRemoteSessions, persistSession } from './live.js';
 import * as st from './store.js';
 import * as bd from './boards.js';
 import { startShift, sessionAction, adoptSession, setSessionBoss, setPermMode, paneMode, paneModeAsync, adoptRunning, adoptManual, reapGoneTmux, ensureShell, tmux, bins, hasTmux, capture, globalHooksInstalled, hookSettings } from './tmux.js';
@@ -45,6 +45,7 @@ import { officeGit, gitDiff, gitCommit } from './gitinfo.js';
 import { openForSession, selectForSession, cancelForSession } from './modelpick.js';
 import { engineCatalog } from './engines.js';
 import { agyModels } from './antigravity.js';
+import { ocModels, ocSetModel, ocSetMode } from './opencode.js';
 import { codexModels, codexBin, CODEX_MODES } from './codex.js';
 import { setCodexModel, setCodexMode } from './codexpick.js';
 import { listOutbox, cancelOutgoing, startOutbox } from './outbox.js';
@@ -447,6 +448,17 @@ route('POST', '/api/sessions/:sid/model/cancel', (req, res, p) => cancelForSessi
 // OpenAI Codex as the second engine (docs/CODEX.md): what can be picked, and changing it mid-shift through Codex's own menus
 route('GET', '/api/engines', async () => engineCatalog());
 route('GET', '/api/antigravity/models', async () => agyModels());
+// OpenCode (docs/OPENCODE.md): model list of this Mac's OpenCode login, and model/mode of a running shift through its private server
+route('GET', '/api/opencode/models', async (req, res, p, q) => ocModels({ fresh: q.get('fresh') === '1' }));
+route('POST', '/api/sessions/:sid/opencode/settings', async (req, res, p) => {
+  const b = await body(req), s = live.get(p.sid);
+  if (!s || s.engine !== 'opencode') throw new Error('Ini bukan sesi OpenCode');
+  const out = { ok: true };
+  if (b.model) { s.model = await ocSetModel(p.sid, String(b.model)); out.model = s.model; }
+  if (b.mode) { s.permMode = await ocSetMode(p.sid, String(b.mode)); out.mode = s.permMode; }
+  persistSession(s);
+  return out;
+});
 route('GET', '/api/codex/models', async () => ({ available: !!codexBin(), ...(await codexModels()), modes: CODEX_MODES }));
 route('POST', '/api/sessions/:sid/codex/settings', async (req, res, p) => {
   const b = await body(req);
@@ -1174,7 +1186,7 @@ setInterval(async () => {
   modeBusy = true;
   try {
     for (const s of [...live.values()]) {
-      if (!s.tmux || s.status === 'ended' || s.engine === 'antigravity') continue;
+      if (!s.tmux || s.status === 'ended' || s.engine === 'antigravity' || s.engine === 'opencode') continue; // their mode is not on screen
       if (termMx.isOffline(termMx.tmuxMachineOf(s.tmux))) continue; // mesin offline: mode terakhir dibiarkan, tanpa menunggu ssh
       const m = await paneModeAsync(s.tmux);
       if (m && m !== s.permMode) { s.permMode = m; bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) }); }

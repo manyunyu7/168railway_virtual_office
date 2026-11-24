@@ -39,7 +39,7 @@ export function startHookContext() {
     return `[Kantor Claude] Pemilik memberi label untuk sesi ini: "${l.text}". Itu ringkasan pekerjaan yang dia harapkan darimu di sesi ini. Tidak perlu dibalas.`;
   });
   addHookContext((s, ev, p) => {
-    if (!s.office || (s.engine === 'codex' && ev === 'PreToolUse')) return null; // Codex takes context from PostToolUse / UserPromptSubmit only
+    if (!s.office || ((s.engine === 'codex' || s.engine === 'opencode') && ev === 'PreToolUse')) return null; // Codex and OpenCode take context from PostToolUse / UserPromptSubmit only
     const parts = takeNotices(s.sid).map(t => `[Kantor Claude] ${t}`);
     if (ev === 'PreToolUse' && localFs(s)) { const w = warnBefore(s, p, { nameOf }); if (w) parts.push(w); }
     return parts.length ? parts.join('\n') : null;

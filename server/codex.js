@@ -8,7 +8,7 @@ import path from 'node:path';
 import { execFile, execFileSync } from 'node:child_process';
 import { config, ROOT_DIR } from './config.js';
 
-export const ENGINES = ['claude', 'codex', 'antigravity'];
+export const ENGINES = ['claude', 'codex', 'antigravity', 'opencode'];
 export const engineOf = v => ENGINES.includes(v) ? v : 'claude';
 
 /* ---------------- binary ---------------- */

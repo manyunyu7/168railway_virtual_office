@@ -6,7 +6,7 @@ import { config, RUN_DIR, ROOT_DIR, CLAUDE_DIR } from './config.js';
 import { officeDb, globalDb, one, all, run, nowIso, j } from './db.js';
 import { officeModel } from './offices.js';
 import * as offices from './offices.js';
-import { expectSession, live, logOffice, whoOf, bus, serialize, stopHeld } from './live.js';
+import { expectSession, live, logOffice, whoOf, bus, serialize, stopHeld, persistSession } from './live.js';
 import { createRole, listPlaybooks } from './store.js';
 import { statusLineSettings } from './usage.js';
 import { typeInto, claudePid } from './termapp.js';
@@ -14,6 +14,7 @@ import { recordOutgoing } from './outbox.js';
 import { rulesBlock } from './aturan.js';
 import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, readCodexSettings } from './codex.js';
 import { agyBin, agyMode, agyArgs, agySettings, installAgyIntegration } from './antigravity.js';
+import { opencodeBin, ocShiftMode, ocSpec, ocFiles, newOcSessionId, isOcSessionId, ocPrompt, ocInterrupt, ocCompact, ocSetMode, ocState, reapOcServer, ocSavedMode, ocMode } from './opencode.js';
 import { draftOnScreen } from './draft-prompt.js';
 import { assertChatInput, parseBlocker } from './blocker-screen.js';
 import { ownedTranscript } from './transcript-owner.js';
@@ -136,6 +137,7 @@ export function rolePrompt(officeId, role, extra = '', engine = 'claude') {
     '- Laporkan pekerjaanmu dengan `kerjaan_set` (judul singkat, langkah sekarang) saat mulai pekerjaan baru atau pindah tahap besar, supaya pemilik tahu kamu lagi apa tanpa membaca chat.',
     '- Sebelum berhenti, atau saat ada keputusan penting, perbarui buku catatanmu dengan role_notes_write supaya shift berikutnya tahu posisi terakhir.',
     engine === 'antigravity' ? '- Ikuti AGENTS.md, GEMINI.md, dan CLAUDE.md bila ada, serta wiki Aturan Kantor. Jawab dan tulis dalam Bahasa Indonesia. Gunakan tool pada server MCP kantor (misalnya sessions_list, board_list).'
+      : engine === 'opencode' ? '- Ikuti AGENTS.md dan CLAUDE.md bila ada, serta wiki Aturan Kantor. Jawab dan tulis dalam Bahasa Indonesia. Tool MCP kantor muncul dengan awalan `kantor_` (misalnya kantor_sessions_list, kantor_board_list).'
       : engine !== 'claude' ? '- Ikuti AGENTS.md (dan CLAUDE.md bila ada) di repo dan halaman wiki "Aturan Kantor". Jawab dan tulis dalam Bahasa Indonesia. Tool MCP kantor muncul dengan awalan `mcp__kantor__`.'
       : '- Ikuti CLAUDE.md di repo dan halaman wiki "Aturan Kantor". Jawab dan tulis dalam Bahasa Indonesia.',
     engine !== 'claude' ? '- Kerjakan sampai tuntas dalam satu giliran: jangan berhenti di tengah untuk bertanya "lanjut?" atau menunggu konfirmasi, kecuali hal berisiko (menghapus data, kirim keluar, uang, produksi). Kalau ada beberapa cara, pilih yang paling wajar, lanjutkan, lalu laporkan hasilnya. Jangan mengirim Ctrl+C atau input ke terminal latar kecuali perlu; perintah yang lama jalankan dengan batas waktu sendiri.' : '',
@@ -206,6 +208,7 @@ export async function setPermMode(sid, target) {
   const s = live.get(sid), name = s?.tmux;
   if (!name || !hasTmux(name)) throw new Error('Mode izin hanya bisa diganti dari sini untuk sesi yang jalan di terminal kantor. Untuk sesi lain, tekan Shift+Tab di jendelanya.');
   if (s.engine === 'antigravity') throw new Error('Ganti izin Gemini lewat /permissions di tab Terminal sesi ini.');
+  if (s.engine === 'opencode') { s.permMode = await ocSetMode(sid, ocMode(target)); persistSession(s); return { mode: s.permMode }; } // aturan izin sesi lewat API server OpenCode-nya
   if (s.engine === 'codex') return (await import('./codexpick.js')).setCodexMode(sid, target); // /permissions menu instead of Shift+Tab
   if (!MODES.includes(target)) throw new Error('Mode tidak dikenal');
   const start = paneMode(name);
@@ -354,11 +357,14 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
   }
   if (machine) {
     if (eng === 'antigravity') throw new Error(`Antigravity belum bisa jalan di Mac lain. Pakai Claude atau Codex untuk role di ruangan ${room?.name || ''} (Mac ${machineName(machine)}).`);
+    if (eng === 'opencode') throw new Error(`OpenCode belum bisa jalan di Mac lain. Pakai Claude atau Codex untuk role di ruangan ${room?.name || ''} (Mac ${machineName(machine)}), atau pindahkan ruangannya ke Mac kantor.`);
     rm = remoteReady(machine, { cwd, need: [eng] });
   } else {
     ({ claude } = bins());
     if (eng === 'claude' && !claude) throw new Error('Perintah claude tidak ditemukan. Atur "claudeBin" di ~/.kantor-claude/config.json');
     if (eng === 'antigravity' && !agyBin()) throw new Error('Antigravity CLI belum terpasang. Pasang dari https://antigravity.google/cli lalu login Google dengan agy.');
+    if (eng === 'opencode' && !opencodeBin({ fresh: true })) throw new Error('Perintah opencode tidak ditemukan. Pasang OpenCode (brew install opencode), login sekali, atau atur "opencode.bin" di ~/.kantor-claude/config.json');
+    if (eng === 'opencode' && resumeSid && !isOcSessionId(resumeSid)) throw new Error('Sesi ini bukan sesi OpenCode');
     if (eng === 'codex' && !codexBin()) throw new Error('Perintah codex tidak ditemukan. Pasang Codex CLI (brew install codex) atau atur "codex.bin" di ~/.kantor-claude/config.json');
   }
 
@@ -368,13 +374,15 @@ export function startShift(officeId, roleId, { task = '', cardId = null, resumeS
   if (worktree && slot > 0 && machine) cwd = addRemoteWorktree(machine, cwd, roleId, slot);
   else if (worktree && slot > 0 && fs.existsSync(path.join(cwd, '.git'))) cwd = addWorktree(cwd, roleId, slot);
 
-  const sid = resumeSid || crypto.randomUUID();
+  // OpenCode lets us choose its session id up front (ses_…), so the Kantor sid never has to change
+  const sid = resumeSid || (eng === 'opencode' ? newOcSessionId() : crypto.randomUUID());
   // shift di Mac lain berawalan kcr-: kalau Mac itu juga menjalankan kantornya sendiri, pane ini tidak tertukar dengan shift miliknya (procscan, adoptRunning)
   const name = `${machine ? 'kcr' : process.env.KANTOR_TMUX_PREFIX || 'kc'}-${officeId}-${roleId}${slot ? '-' + (slot + 1) : ''}`.replace(/[^A-Za-z0-9_-]/g, '-');
   mx.setTmuxMachine(name, machine); // hasTmux dan set-option di bawah harus bertanya ke server tmux mesin yang benar
   if (hasTmux(name)) throw new Error(`Sesi tmux ${name} masih ada`);
 
   const card = cardId ? one(db, 'SELECT id, title, desc FROM cards WHERE id = ?', cardId) : null;
+  if (eng === 'opencode') return launchOpenCode({ officeId, role, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model });
   if (eng === 'antigravity') return launchAntigravity({ officeId, role, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort });
   if (eng === 'codex') return launchCodex({ officeId, role, m, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model, effort, machine, rm });
   // file run: di Mac lain ditulis ke machineRunDir lewat mx.writeFile
@@ -476,6 +484,36 @@ function launchAntigravity({ officeId, role, cwd, slot, sid, name, card, task, r
   logOffice(officeId, role.name, resumeSid ? 'melanjutkan sesi Gemini (Antigravity)' : 'mulai shift Gemini (Antigravity)', 'session');
   return { sid, tmux: name, slot, engine: 'antigravity' };
 }
+
+/**
+ * The OpenCode half of startShift. The pane runs hooks/opencode-run.cjs: a private `opencode serve` for this shift
+ * (config injected through its environment, nothing written to ~/.config/opencode), the event bridge to /api/hook,
+ * and the TUI attached to that server. Session id = Kantor sid, so resume is `--session <sid>` on the same id.
+ */
+function launchOpenCode({ officeId, role, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model }) {
+  const own = role.engine === 'opencode';
+  const mdl = model || (own ? role.model : '') || '';
+  const mode = ocShiftMode(permissionMode);
+  const first = task || (card && !resumeSid ? `Kerjakan kartu ${card.id}: ${card.title}` : '');
+  const f = ocFiles(sid);
+  if (ocState(sid)) reapOcServer(sid); // a previous supervisor of this id that never cleaned up
+  fs.writeFileSync(f.prompt, rolePrompt(officeId, role, card ? `\n## Kartu shift ini\n${card.id}: ${card.title}\n${card.desc || ''}` : '', 'opencode'), { mode: 0o600 });
+  const spec = ocSpec({ sid, cwd, officeId, roleId: role.id, task: first, model: mdl, mode, resume: !!resumeSid, title: first ? shortTitle(first) : `${role.name} · shift` });
+  fs.writeFileSync(f.spec, JSON.stringify(spec), { mode: 0o600 });
+  const script = path.join(RUN_DIR, `${sid}.opencode.sh`);
+  fs.writeFileSync(script, codexScript({ bin: process.execPath, args: [path.join(ROOT_DIR, 'hooks', 'opencode-run.cjs'), f.spec],
+    env: { KANTOR_SID: sid, KANTOR_ENGINE: 'opencode', KANTOR_HOME: process.env.KANTOR_HOME } }), { mode: 0o700 });
+  tmux(['new-session', '-d', '-s', name, '-c', cwd, '-x', '200', '-y', '50', '-e', `KANTOR_SID=${sid}`, '-e', 'KANTOR_ENGINE=opencode', '/bin/zsh', '-lc', `exec ${q(script)}`]);
+  try { tmux(['set-option', '-t', name, 'status', 'off']); tmux(['set-option', '-t', name, 'mouse', 'on']); tmux(['set-option', '-t', name, 'history-limit', '20000']); } catch {}
+  expectSession({ sid, office: officeId, role: role.id, room: role.room, cwd, tmux: name, slot, title: first || card?.title || null, engine: 'opencode', model: mdl || null, permMode: mode });
+  const s = live.get(sid); if (s) { s.transcript = f.transcript; persistSession(s); }
+  run(officeDb(officeId), `INSERT INTO shifts (sid, role, title, card, started_at, cwd, tmux, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'aktif')
+    ON CONFLICT(sid) DO UPDATE SET started_at = excluded.started_at, ended_at = NULL, tmux = excluded.tmux, status = 'aktif'`,
+    sid, role.id, first || card?.title || '', card?.id || null, nowIso(), cwd, name);
+  logOffice(officeId, role.name, resumeSid ? 'melanjutkan sesi OpenCode' : `mulai shift OpenCode${slot ? ` ke-${slot + 1}` : ''}`, 'session');
+  return { sid, tmux: name, slot, engine: 'opencode' };
+}
+const shortTitle = t => String(t).replace(/\s+/g, ' ').trim().slice(0, 80);
 
 /** Model dan effort bawaan Codex di Mac lain (config.toml di sana). */
 function remoteCodexDefaults(machine) {
@@ -624,6 +662,7 @@ export async function sessionAction(sid, action, text) {
   const machine = isRemoteId(s?.machine || row?.machine) ? (s?.machine || row?.machine) : null;
   if (machine && name && mx.tmuxMachineOf(name) !== machine) mx.setTmuxMachine(name, machine); // sesi yang belum dimuat ke live
   if (machine) assertOnline(machine);
+  if (name && hasTmux(name) && (s?.engine === 'opencode' || (!s && isOcSessionId(sid) && ocState(sid)))) return openCodeAction(sid, s, name, action, text, who);
   if (name && hasTmux(name)) {
     switch (action) {
       case 'esc': {
@@ -687,6 +726,39 @@ export async function sessionAction(sid, action, text) {
     case 'kill': { const pid = claudePid(tty, topt); if (!pid) throw new Error('Proses Claude di terminal itu tidak ditemukan'); process.kill(pid, 'SIGTERM'); markEnded(sid); logOffice(s?.office, who, 'dipulangkan paksa', 'session'); return { via: 'signal' }; }
     case 'stop-all': case 'kill-agents': throw new Error('Subagent latar hanya bisa dihentikan untuk sesi di tmux kantor. Pindahkan sesi ini ke kantor, atau tekan Ctrl+X Ctrl+K dua kali di jendelanya.');
     case 'esc': throw new Error('Esc tidak bisa dikirim ke Terminal dari sini. Pindahkan sesi ini ke kantor supaya bisa dihentikan, atau tekan Esc di jendelanya.');
+    default: throw new Error('Aksi tidak dikenal');
+  }
+}
+
+/** sessionAction for an OpenCode shift: everything goes through the shift's private server API, never Claude's keys. */
+async function openCodeAction(sid, s, name, action, text, who) {
+  const office = s?.office;
+  switch (action) {
+    case 'esc': case 'stop-all': case 'kill-agents': {
+      const released = stopHeld(sid); // a held permission is rejected (the supervisor also interrupts)
+      let stopped = false;
+      try { stopped = await ocInterrupt(sid); } catch (e) { if (!released) throw e; }
+      if (released || stopped) logOffice(office, who, 'dihentikan', 'session');
+      return action === 'esc' ? { via: 'opencode', released: !!released, sent: stopped, idle: !released && !stopped }
+        : { via: 'opencode', stoppedMain: stopped || !!released, agentsBefore: 0, agentsAfter: 0 };
+    }
+    case 'text': {
+      if (!text) return { via: 'opencode' };
+      if (ocState(sid)) { await ocPrompt(sid, text); recordOutgoing(sid, text); return { via: 'opencode' }; }
+      const sent = sendText(name, text); recordOutgoing(sid, text); await sent; return { via: 'tmux' }; // server not up yet: type it
+    }
+    case 'compact': await ocCompact(sid); logOffice(office, who, 'merapikan konteks (kompaksi)', 'session'); return { via: 'opencode' };
+    case 'clear': throw new Error('OpenCode tidak memakai /clear dari Kantor: sesi baru berarti id baru. Akhiri shift ini lalu mulai shift baru.');
+    case 'exit': {
+      const st = ocState(sid);
+      try { if (st?.supervisor) process.kill(st.supervisor, 'SIGTERM'); } catch {}
+      setTimeout(() => { if (hasTmux(name)) try { tmux(['kill-session', '-t', name]); } catch {} }, 8000);
+      return { via: 'opencode' };
+    }
+    case 'kill':
+      try { tmux(['kill-session', '-t', name]); } catch {}
+      reapOcServer(sid); markEnded(sid); logOffice(office, who, 'dipulangkan paksa', 'session');
+      return { via: 'tmux' };
     default: throw new Error('Aksi tidak dikenal');
   }
 }
@@ -818,6 +890,7 @@ export function adoptRunning(sessionNames = tmuxSessionsForRecovery()) {
     s.transcript = ownedTranscript(r.sid, r.transcript, r.engine);
     if (s.transcript !== r.transcript) run(globalDb(), 'UPDATE sessions SET transcript = ? WHERE sid = ?', s.transcript, r.sid);
     if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
+    if (r.engine === 'opencode') s.permMode = ocSavedMode(r.sid) || s.permMode;
   }
 }
 
@@ -871,6 +944,7 @@ function adoptRemoteNow(machineId) {
       const src = s.transcript && mx.remoteOfMirror(s.transcript);
       if (src) import('./mirror.js').then(mm => (mm.mirrorLater || mm.mirrorTranscript)?.(src.machine, src.file)).catch(() => {}); // tanpa ssh sinkron: poller yang menarik
       if (r.engine === 'codex') { const cs = readCodexSettings(s.transcript); if (cs?.mode) s.permMode = cs.mode; }
+    if (r.engine === 'opencode') s.permMode = ocSavedMode(r.sid) || s.permMode;
       bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) });
       adopted++;
       continue;

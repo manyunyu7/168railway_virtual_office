@@ -5,6 +5,7 @@ import { loadPlaybooks, newPlaybookFor } from './playbooks.js';
 import { createStage } from './office-canvas.js';
 import { isCodex, codexBadge, mountCodexFields, codexValues, codexModels, codexFieldsHTML, CODEX_MODES } from './codex.js';
 import { isAntigravity, mountAgyFields, agyValues, AGY_MODES } from './antigravity.js';
+import { isOpenCode, mountOcFields, ocValues, OC_MODES } from './opencode.js';
 import { HAIR_STYLES, OUTFITS, ACCS, HIJABS, TEMPLATES, templateOf, applyLook, randomLook } from './chars.js';
 import { mountRoomMachine, baseName } from './mesin.js';
 import { roomBadge } from './lencana.js';
@@ -264,14 +265,15 @@ export function openRoleEditor(ctx, roleId) {
         <p class="hint">Teks ini menjadi system prompt role: Agen membacanya setiap kali shift dimulai.</p></div>
       <div class="field"><label for="rf-skill">Skills</label><div class="skill-box"><div class="chips" id="rfSkills"></div><input id="rf-skill" placeholder="Ketik lalu Enter" autocomplete="off"></div>
         <div class="sugs">${SKILL_SUGS.map(s => `<button type="button" data-act="rl-skill-sug" data-skill="${s}">+ ${s}</button>`).join('')}</div></div>
-      <div class="field"><label for="rf-engine">Mesin</label><select id="rf-engine">${sel([['claude', 'Claude Code'], ['codex', 'OpenAI Codex'], ['antigravity', 'Gemini (Antigravity)']], cur?.engine || 'claude')}</select></div>
+      <div class="field"><label for="rf-engine">Mesin</label><select id="rf-engine">${sel([['claude', 'Claude Code'], ['codex', 'OpenAI Codex'], ['antigravity', 'Gemini (Antigravity)'], ['opencode', 'OpenCode']], cur?.engine || 'claude')}</select></div>
       <div id="rf-agy"${isAntigravity(cur) ? '' : ' hidden'}></div>
+      <div id="rf-oc"${isOpenCode(cur) ? '' : ' hidden'}></div>
       <div id="rf-cx"${cur?.engine === 'codex' ? '' : ' hidden'}></div>
       <div class="grid2"><div class="field" id="rf-claude-model"${cur?.engine && cur.engine !== 'claude' ? ' hidden' : ''}><label for="rf-model">Model</label><select id="rf-model">${sel(MODEL_OPTS, cur?.engine && cur.engine !== 'claude' ? 'sonnet' : cur?.model || 'sonnet')}</select></div>
         <div class="field"><label for="rf-room">Ruangan</label><select id="rf-room">${sel(rooms.map(r => [r.id, r.name + (r.path ? ' · ' + r.path : '')]), cur?.room || rooms.find(r => r.kind === 'kode')?.id || rooms[0]?.id)}</select></div></div>
       ${cur?.isMgr ? '' : `<div class="field"><label for="rf-boss">Atasan</label><select id="rf-boss"><option value="">Langsung di bawah manager</option>${(M.roles.length ? M.roles : ctx.office.roles).filter(r => !r.archived && !r.isMgr && r.id !== roleId).map(r => `<option value="${esc(r.id)}"${cur?.reportsTo === r.id ? ' selected' : ''}>${esc(r.name)} · ${esc(r.title)}</option>`).join('')}</select></div>`}
       <div class="field"><label for="rf-budget">Anggaran harian</label><input id="rf-budget" type="number" min="0" step="any" value="${cur?.budget || ''}" placeholder="kosong = tanpa batas" inputmode="decimal">
-        <p class="hint">Role Claude: dolar per hari (setara tarif API). Role Codex: jumlah token per hari. Di 80% agen diingatkan, di 100% diminta menyimpan pekerjaan dan berhenti. Pemakaian Gemini belum diimpor; cek /usage di terminal.</p></div>
+        <p class="hint">Role Claude: dolar per hari (setara tarif API). Role Codex: jumlah token per hari. Di 80% agen diingatkan, di 100% diminta menyimpan pekerjaan dan berhenti. Pemakaian Gemini dan OpenCode belum diimpor; cek di CLI masing-masing.</p></div>
       <div class="field"><label>Template karakter</label><div class="tpl-grid" id="rfTpl">${TEMPLATES.map(t => `<button type="button" class="tpl" data-act="rl-tpl" data-id="${t.id}" title="${esc(t.name)}">${sprite(t.look, 2)}<span>${esc(t.name)}</span></button>`).join('')}</div>
         <button type="button" class="btn sm" data-act="rl-rand" style="margin-top:8px">🎲 Acak</button></div>
       <div class="field"><label>Warna seragam</label><div class="swatches" id="rfColors">${swatch(SWATCHES, 'rl-sw-color', rf.color)}</div></div>
@@ -288,6 +290,7 @@ export function openRoleEditor(ctx, roleId) {
   refreshSkills(); refreshPreview();
   rf.cx = { model: cur?.model, effort: cur?.effort, engine: cur?.engine };
   if (isAntigravity(cur)) mountAgyFields($('#rf-agy'), 'ragy', cur);
+  if (isOpenCode(cur)) mountOcFields($('#rf-oc'), 'roc', cur);
   if (cur?.engine === 'codex') mountCodexFields($('#rf-cx'), 'rcx', rf.cx);
 }
 const rfLook = () => ({ color: rf.color, hair: rf.hair, skin: rf.skin, hairStyle: $('#rf-style')?.value || rf.hairStyle, outfit: $('#rf-outfit')?.value || rf.outfit, acc: $('#rf-acc')?.value ?? rf.acc, hijab: rf.hijab, tie: rf.tie });
@@ -314,15 +317,17 @@ function pressSwatch(box, c) { $$('.sw', $(box)).forEach(b => b.setAttribute('ar
 
 function roleEngineBody() {
   if ($('#rf-engine')?.value === 'antigravity') return agyValues('ragy');
+  if ($('#rf-engine')?.value === 'opencode') return ocValues('roc');
   if ($('#rf-engine')?.value !== 'codex') return { engine: 'claude', model: $('#rf-model').value };
   const v = codexValues('rcx');
   return { engine: 'codex', model: v.model, effort: v.effort };
 }
 function toggleEngine() {
   const cx = $('#rf-engine').value === 'codex';
-  const agy = $('#rf-engine').value === 'antigravity';
-  $('#rf-cx').hidden = !cx; $('#rf-agy').hidden = !agy; $('#rf-claude-model').hidden = cx || agy;
+  const agy = $('#rf-engine').value === 'antigravity', oc = $('#rf-engine').value === 'opencode';
+  $('#rf-cx').hidden = !cx; $('#rf-agy').hidden = !agy; $('#rf-oc').hidden = !oc; $('#rf-claude-model').hidden = cx || agy || oc;
   if (agy && !$('#ragy-model')) mountAgyFields($('#rf-agy'), 'ragy', isAntigravity(rf.cx) ? rf.cx : {});
+  if (oc && !$('#roc-model')) mountOcFields($('#rf-oc'), 'roc', isOpenCode(rf.cx) ? rf.cx : {});
   if (cx && !$('#rcx-model')) mountCodexFields($('#rf-cx'), 'rcx', isCodex(rf.cx) ? rf.cx : {});
 }
 async function saveRole() {
@@ -353,8 +358,8 @@ export async function startShiftDialog(ctx, roleId, opts = {}) {
   shift = { ctx, cards };
   modal({ title: 'Mulai shift', html: `<div class="rf-fields">
       <div class="field"><label for="sh-role">Role</label><select id="sh-role">${roles.map(r => `<option value="${esc(r.id)}"${r.id === pick ? ' selected' : ''}>${esc(r.name)} · ${esc(r.title)}${opts.room && r.room === opts.room ? ' (ruangan ini)' : ''}</option>`).join('')}</select></div>
-      <div class="field"><label for="sh-engine">Mesin</label><select id="sh-engine"><option value="claude">Claude Code</option><option value="codex">OpenAI Codex</option><option value="antigravity">Gemini (Antigravity)</option></select></div>
-      <div id="sh-cx" hidden></div><div id="sh-agy" hidden></div>
+      <div class="field"><label for="sh-engine">Mesin</label><select id="sh-engine"><option value="claude">Claude Code</option><option value="codex">OpenAI Codex</option><option value="antigravity">Gemini (Antigravity)</option><option value="opencode">OpenCode</option></select></div>
+      <div id="sh-cx" hidden></div><div id="sh-agy" hidden></div><div id="sh-oc" hidden></div>
       <div id="sh-par"></div>
       <div class="field"><label for="sh-task">Tugas pertama (opsional)</label><textarea id="sh-task" rows="3" placeholder="mis. perbaiki bug login lalu jalankan tes"></textarea></div>
       <div class="field"><label for="sh-card">Kartu (opsional)</label><select id="sh-card"></select></div>
@@ -373,11 +378,12 @@ function refreshShift() {
 }
 async function syncShiftEngine() {
   const cx = $('#sh-engine').value === 'codex', box = $('#sh-cx'), perm = $('#sh-perm');
-  const agy = $('#sh-engine').value === 'antigravity';
-  box.hidden = !cx; $('#sh-agy').hidden = !agy;
+  const agy = $('#sh-engine').value === 'antigravity', oc = $('#sh-engine').value === 'opencode';
+  box.hidden = !cx; $('#sh-agy').hidden = !agy; $('#sh-oc').hidden = !oc;
   if (agy) mountAgyFields($('#sh-agy'), 'sagy', isAntigravity(shift.role) ? shift.role : {});
+  if (oc) mountOcFields($('#sh-oc'), 'soc', isOpenCode(shift.role) ? shift.role : {});
   const old = perm.value;
-  perm.innerHTML = agy ? AGY_MODES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('') : cx ? CODEX_MODES.map(([v, l]) => `<option value="${v}"${v === 'default' ? ' selected' : ''}>${esc(l)}</option>`).join('')
+  perm.innerHTML = oc ? OC_MODES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('') : agy ? AGY_MODES.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('') : cx ? CODEX_MODES.map(([v, l]) => `<option value="${v}"${v === 'default' ? ' selected' : ''}>${esc(l)}</option>`).join('')
     : PERMS.map(([v, l]) => `<option value="${v}"${v === lastPerm() ? ' selected' : ''}>${esc(l)}</option>`).join('');
   const w = $('#sh-perm-warn'); if (w) w.hidden = perm.value !== 'bypassPermissions';
   if (cx) { const r = shift.role; await mountCodexFields(box, 'scx', isCodex(r) ? { model: r.model, effort: r.effort } : {}); }
@@ -390,6 +396,7 @@ async function submitShift() {
   if (!cx && $('#sh-engine').value === 'claude') try { localStorage.setItem('kc.perm', perm); } catch {}
   if (cx) { const v = codexValues('scx'); body.engine = 'codex'; if (v.model) body.model = v.model; if (v.effort) body.effort = v.effort; }
   else if ($('#sh-engine').value === 'antigravity') Object.assign(body, agyValues('sagy'));
+  else if ($('#sh-engine').value === 'opencode') Object.assign(body, ocValues('soc'));
   else body.engine = 'claude';
   if (task) body.task = task;
   if (card) body.cardId = card;

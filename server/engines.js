@@ -3,6 +3,7 @@
 import { bins } from './tmux.js';
 import { codexBin, codexModels, CODEX_MODES } from './codex.js';
 import { agyModels, AGY_MODES } from './antigravity.js';
+import { opencodeBin, ocModels, OC_MODES } from './opencode.js';
 
 const permissionLabels = {
   '': 'Default kantor', ikut: 'Ikuti pengaturan CLI', default: 'Tanya dulu',
@@ -12,7 +13,7 @@ const permissionLabels = {
 const permissions = ids => ids.map(id => ({ id, name: permissionLabels[id] || id,
   ...(id === 'bypassPermissions' ? { warning: 'Agen dapat menjalankan perintah tanpa meminta izin.' } : {}) }));
 
-export function buildEngineCatalog({ claudeAvailable, codex, antigravity }) {
+export function buildEngineCatalog({ claudeAvailable, codex, antigravity, opencode = { available: false, models: [] } }) {
   return { version: 1, defaultEngine: 'claude', engines: [
     { id: 'claude', name: 'Claude Code', available: !!claudeAvailable,
       defaultModel: 'sonnet', defaultEffort: '', defaultPermissionMode: '',
@@ -30,11 +31,15 @@ export function buildEngineCatalog({ claudeAvailable, codex, antigravity }) {
       models: (antigravity.models || []).filter(m => m.slug.startsWith('gemini-')),
       allowDefaultModel: true, supportsEffort: false, permissionModes: permissions(AGY_MODES),
       ...(antigravity.error ? { error: antigravity.error } : {}) },
+    { id: 'opencode', name: 'OpenCode', available: !!opencode.available,
+      defaultModel: '', defaultEffort: '', defaultPermissionMode: 'default',
+      models: opencode.models || [], allowDefaultModel: true, supportsEffort: false, permissionModes: permissions(OC_MODES),
+      ...(opencode.error ? { error: opencode.error } : {}) },
   ] };
 }
 
 export async function engineCatalog() {
-  const [codex, antigravity] = await Promise.all([codexModels(), agyModels()]);
+  const [codex, antigravity, opencode] = await Promise.all([codexModels(), agyModels(), ocModels()]);
   return buildEngineCatalog({ claudeAvailable: !!bins().claude,
-    codex: { ...codex, available: !!codexBin() }, antigravity });
+    codex: { ...codex, available: !!codexBin() }, antigravity, opencode: { ...opencode, available: !!opencodeBin() } });
 }

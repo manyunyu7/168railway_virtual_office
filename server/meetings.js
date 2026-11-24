@@ -12,6 +12,7 @@ import { boardForRole } from './boards.js';
 import { RUN_DIR } from './config.js';
 import { agyBin, agySettings } from './antigravity.js';
 import { codexBin, tomlStr } from './codex.js';
+import { opencodeBin, ocModelRef } from './opencode.js';
 import { createLineParser, createClaudeStream, createTyper, getTyping } from './meeting-stream.js';
 import { who } from './actor.js';
 
@@ -291,7 +292,56 @@ export function askAntigravity(office, role, prompt, title, state, { tools = tru
   });
 }
 
+// Rapat OpenCode: headless `opencode run` on a private (--standalone) server, so the per-run config below applies and the
+// owner's background service is not involved. Everything is denied except reading files (research turns only); the
+// session is created archived so it stays out of the owner's OpenCode session list.
+export function meetingOcConfig(instructionsFile, tools) {
+  const r = (action, effect) => ({ action, resource: '*', effect });
+  return { instructions: [instructionsFile], update: 'disable', share: 'disabled', mcp: { servers: {} },
+    permissions: [r('*', 'deny'), ...(tools ? ['read', 'grep', 'glob', 'list'].map(a => r(a, 'allow')) : [])] };
+}
+export function meetingOcArgs(role, text) {
+  const args = ['run', '--standalone', '--format', 'json', '--archived', '--title', `Rapat Kantor · ${role.name}`];
+  if (role.model && ocModelRef(role.model)) args.push('-m', role.model);
+  return [...args, text];
+}
+export function askOpenCode(office, role, prompt, title, state, { tools = true, typing = false } = {}) {
+  const bin = opencodeBin(); if (!bin) throw new Error('Perintah opencode tidak ditemukan');
+  const m = officeModel(office);
+  const { cwd, remote } = meetingCwd(m, role);
+  const sid = crypto.randomUUID(), file = path.join(RUN_DIR, `${sid}.meeting-oc.md`);
+  fs.writeFileSync(file, `Kamu ${role.name}, ${role.title} di kantor ${m.name}. Kepribadian: ${role.persona || '-'}.\n${role.notes ? `Buku catatanmu:\n${role.notes.slice(0, 3000)}\n` : ''}Ini rapat: jawab pendapatmu dalam Bahasa Indonesia. Jangan mengubah file, menjalankan perintah, atau memakai MCP.${tools ? ' Boleh membaca file untuk riset.' : ' Jawab langsung tanpa memakai tool.'}${remote}`, { mode: 0o600 });
+  expectSession({ sid, office, role: role.id, room: 'meeting', cwd, title, engine: 'opencode' });
+  const session = live.get(sid); session.kind = 'rapat'; session.status = 'working';
+  return new Promise((resolve, reject) => {
+    const env = { ...process.env, OPENCODE_CONFIG_CONTENT: JSON.stringify(meetingOcConfig(file, tools)), KANTOR_ENGINE: '' };
+    const child = spawn(bin, meetingOcArgs(role, prompt), { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    state.child = child;
+    let err = '', texts = [], failed = '';
+    const typer = typing ? createTyper(office, state.meetingId, role) : null; typer?.start();
+    const lines = createLineParser(o => {
+      if (o.type === 'tool_use') texts = []; // only the answer after the last research step
+      else if (o.type === 'text' && o.part?.text) { texts.push(o.part.text); typer?.text(texts.join('\n\n')); }
+      else if (o.type === 'error') failed = String(o.error?.message || o.error?.type || 'error');
+    });
+    const timer = setTimeout(() => child.kill('SIGTERM'), 245000);
+    let finished = false;
+    const finish = error => {
+      if (finished) return; finished = true;
+      clearTimeout(timer); state.child = null; fs.rmSync(file, { force: true });
+      live.delete(sid); bus.emit('msg', { t: 'session-gone', office, sid });
+      if (error) { typer?.end(); reject(error); }
+      else resolve({ text: texts.join('\n\n'), cost: 0, done: () => typer?.end() });
+    };
+    child.stdout.on('data', d => lines.feed(String(d)));
+    child.stderr.on('data', d => { err = (err + d).slice(-1000); });
+    child.on('error', finish);
+    child.on('close', code => { lines.flush(); finish(state.cancelled ? new Error('dibatalkan') : !texts.length ? new Error(`${role.name} tidak menjawab (${(failed || err).trim().slice(-200) || 'exit ' + code})`) : null); });
+  });
+}
+
 function ask(office, role, prompt, title, state, { tools = true, typing = false } = {}) {
+  if (role.engine === 'opencode') return askOpenCode(office, role, prompt, title, state, { tools, typing });
   if (role.engine === 'antigravity') return askAntigravity(office, role, prompt, title, state, { tools, typing });
   if (role.engine === 'codex') return askCodex(office, role, prompt, title, state, { tools, typing });
   const { claude } = bins();

@@ -5,6 +5,7 @@ import { mountPanel } from './konteks.js';
 import { openViewPrefs } from './view-prefs.js';
 import { isCodex, codexBadge, modeOptions, pickCodexSettings, codexSessSub } from './codex.js';
 import { isAntigravity } from './antigravity.js';
+import { isOpenCode, ocModeOptions, ocSessSub, pickOcSettings } from './opencode.js';
 import { pickModel, MODE_LABEL, HOSTS, stopFlow, bgCount, mountSessionTerm, keybarHTML, bindKeybar } from './drawer.js';
 import { startShiftDialog } from './roles.js';
 import { drawerState, closeDrawer } from './panel.js';
@@ -45,6 +46,7 @@ function nameOf(s) {
 function subOf(s) {
   const r = roleOf(s.role), model = s.model ? modelName(s.model) : '';
   if (isAntigravity(s)) return [r?.title, s.model || 'Gemini bawaan'].filter(Boolean).join(' · ');
+  if (isOpenCode(s)) return [r?.title || 'Tanpa role', 'OpenCode', ocSessSub(s)].filter(Boolean).join(' · ');
   if (isCodex(s)) return [r?.title || 'Tanpa role', codexSessSub(s), r ? '' : roomName(s.room)].filter(Boolean).join(' · ');
   if (r) return [r.title, modelName(r.model)].filter(Boolean).join(' · ');
   return ['Tanpa role', model, roomName(s.room)].filter(Boolean).join(' · ');
@@ -229,6 +231,7 @@ function modeSelect(s) {
   // mesin offline: kontrol tetap terlihat tapi nonaktif, dengan alasan di tooltip
   const why = blockReason(s), dis = why ? ' disabled' : '', t = title => ` title="${esc(why || title)}"`;
   if (isAntigravity(s)) return `<button class="btn sm" data-act="cm-term"${t('Gunakan /model atau /permissions di terminal')}${dis}>Model & izin Gemini</button>`;
+  if (isOpenCode(s)) return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}"${t('Mode izin OpenCode (aturan izin sesi).')}><select data-act="cm-mode" aria-label="Mode izin"${dis}>${s.permMode ? '' : '<option value="">…</option>'}${ocModeOptions(s.permMode)}</select></label><button class="btn sm" data-act="cm-model"${t('Ganti model OpenCode sesi ini')}${dis}>Model: ${esc(ocSessSub(s))}</button>`;
   if (isCodex(s)) return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}"${t('Mode izin Codex.')}><select data-act="cm-mode" aria-label="Mode izin"${dis}>${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label><button class="btn sm" data-act="cm-model"${t('Ganti model dan effort Codex (sesi harus diam)')}${dis}>Model: ${esc(codexSessSub(s))}</button>`;
   return `<label class="cm-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}"${t('Mode izin. Sama dengan menekan Shift+Tab di terminalnya.')}><select data-act="cm-mode" aria-label="Mode izin"${dis}>${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label><button class="btn sm" data-act="cm-model"${t('Ganti model sesi ini (/model)')}${dis}>Ganti model</button>`;
 }
@@ -275,7 +278,7 @@ function doAction(a) {
 async function onClick(e) {
   const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
   const act = b.dataset.act;
-  if (act === 'cm-model') { const cs = findSess(M.sid); if (sessOffline(cs)) toast(blockReason(cs), 'warn'); else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(M.sid); }
+  if (act === 'cm-model') { const cs = findSess(M.sid); if (sessOffline(cs)) toast(blockReason(cs), 'warn'); else if (isOpenCode(cs)) pickOcSettings(cs); else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(M.sid); }
   else if (act === 'cm-pick') { M.focusNext = false; go(b.dataset.sid); }
   else if (act === 'cm-back') go(null);
   else if (act === 'cm-action' || act === 'dr-action') doAction(b.dataset.a);

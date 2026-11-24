@@ -38,7 +38,7 @@ function rowHTML(s, i) {
   return `<li class="ag-li${i === cursor ? ' cur' : ''}${sessOffline(s) ? ' mx-dim' : ''}" data-i="${i}">
     <button class="ag-open" type="button" data-ag="open" data-office="${esc(s.office.id)}" data-sid="${esc(s.sid)}">
       <span class="ag-ava">${sprite(look, 2)}</span>
-      <span class="ag-b"><span class="ag-n"><b>${esc(nameOf(s))}</b><i class="ag-eng${isCodex(s) ? ' cx' : ''}">${s.engine === 'antigravity' ? 'Gemini' : isCodex(s) ? 'Codex' : 'Claude'}</i>${s.model ? `<i class="ag-mod">${esc(modelName(s.model))}</i>` : ''}${s.bgAgents ? `<i class="ag-sub" title="${s.bgAgents} subagent bekerja">⛓ ${s.bgAgents}</i>` : ''}${sessBadge(s)}</span>
+      <span class="ag-b"><span class="ag-n"><b>${esc(nameOf(s))}</b><i class="ag-eng${isCodex(s) ? ' cx' : ''}">${s.engine === 'antigravity' ? 'Gemini' : s.engine === 'opencode' ? 'OpenCode' : isCodex(s) ? 'Codex' : 'Claude'}</i>${s.model ? `<i class="ag-mod">${esc(modelName(s.model))}</i>` : ''}${s.bgAgents ? `<i class="ag-sub" title="${s.bgAgents} subagent bekerja">⛓ ${s.bgAgents}</i>` : ''}${sessBadge(s)}</span>
       ${topicOf(s) ? `${topicHTML(s, 'ag-tp')}<span class="ag-w">${subHTML(s, whatOf(s), 70)}</span>` : `<span class="ag-w">${esc(whatOf(s))}</span>`}<span class="ag-m">${meta}</span></span>
       <i class="ag-dot s${st}" title="${['menunggu izin', 'bekerja', 'idle'][st]}"></i>
     </button>

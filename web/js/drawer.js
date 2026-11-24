@@ -7,6 +7,7 @@ import { onTermPrefs, termPrefs, setTermPref, openViewPrefs } from './view-prefs
 import { topicHTML, subHTML, topicOf } from './konteks.js';
 import { mountDm } from './dm.js';
 import { isAntigravity } from './antigravity.js';
+import { isOpenCode, ocModeOptions, ocSessSub, pickOcSettings } from './opencode.js';
 import { isCodex, codexBadge, modeOptions, pickCodexSettings, codexSessSub } from './codex.js';
 import { startShiftDialog, openRoleEditor, roleState, PERMS } from './roles.js';
 import { sessBadge, sessOffline, offlineBanner, blockReason, roomBadge, roomBlockReason } from './lencana.js';
@@ -33,6 +34,7 @@ function sessSub(ctx, s) {
   const r = roleOf(ctx, s.role);
   const model = s.model ? modelName(s.model) : '';
   if (isAntigravity(s)) return [r?.title, s.model || 'Gemini bawaan'].filter(Boolean).join(' · ');
+  if (isOpenCode(s)) return [r?.title || 'Tanpa role', 'OpenCode', ocSessSub(s)].filter(Boolean).join(' · ');
   if (isCodex(s)) return [r?.title || 'Tanpa role', codexSessSub(s), r ? '' : roomName(ctx, s.room)].filter(Boolean).join(' · ');
   if (r) return [r.title, modelName(r.model)].join(' · ');
   return ['Tanpa role', model, roomName(ctx, s.room)].filter(Boolean).join(' · ');
@@ -302,7 +304,7 @@ function termTab(body, ctx, s) {
   if (tools) tools.innerHTML = `<span data-slot="mode">${modeSelect(s)}</span>
     <button class="btn sm halt" data-act="dr-action" data-a="esc" title="Hentikan pekerjaan yang sedang jalan (Esc)">■<span class="halt-l"> Hentikan</span></button>${bgCount(s) > 0 ? `<span class="st working" data-slot="bg" title="Subagent masih jalan di latar">${bgCount(s)} latar</span>` : ''}
     <details class="more"><summary class="btn sm" title="Kontrol lainnya" aria-label="Kontrol lainnya">⋯</summary><div class="more-menu">
-      <button data-act="dr-model">${isCodex(s) ? `Ganti model (${esc(codexSessSub(s))})…` : 'Ganti model…'}</button>
+      <button data-act="dr-model">${isOpenCode(s) ? `Ganti model (${esc(ocSessSub(s))})…` : isCodex(s) ? `Ganti model (${esc(codexSessSub(s))})…` : 'Ganti model…'}</button>
       <button data-act="dr-action" data-a="compact">Ringkas (/compact)</button>
       <button data-act="dr-action" data-a="clear">Reset (/clear)</button>
       <div class="mm-fs">Ukuran huruf <span class="fs"><button data-act="dr-fs" data-d="-1" aria-label="Perkecil huruf">−</button><span data-slot="fs">${termFont()}</span><button data-act="dr-fs" data-d="1" aria-label="Perbesar huruf">+</button></span></div>
@@ -325,7 +327,7 @@ function chatTab(body, ctx, s) {
 }
 
 export const MODE_LABEL = { readOnly: 'Hanya baca', default: 'Selalu tanya', acceptEdits: 'Edit otomatis', auto: 'Auto', plan: 'Plan', dontAsk: 'Tanpa tanya', bypassPermissions: 'Bypass' };
-const modeSelect = s => isAntigravity(s) ? '<span class="hint">Gemini · /permissions di terminal</span>' : isCodex(s) ? `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label>` : `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label>`;
+const modeSelect = s => isAntigravity(s) ? '<span class="hint">Gemini · /permissions di terminal</span>' : isOpenCode(s) ? `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin OpenCode (aturan izin sesi)."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${ocModeOptions(s.permMode)}</select></label>` : isCodex(s) ? `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin Codex."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${modeOptions(s.permMode)}</select></label>` : `<label class="tb-mode${s.permMode === 'bypassPermissions' ? ' danger' : ''}" title="Mode izin. Sama dengan menekan Shift+Tab di terminalnya."><select data-act="dr-mode" aria-label="Mode izin">${s.permMode ? '' : '<option value="">…</option>'}${['default', 'acceptEdits', 'auto', 'plan', 'bypassPermissions'].map(m => `<option value="${m}"${s.permMode === m ? ' selected' : ''}>Izin: ${MODE_LABEL[m]}</option>`).join('')}</select></label>`;
 /** Ganti model sesi lewat pemilih /model milik Claude Code sendiri; daftarnya diambil dari layar, bukan buatan kita. */
 let pmOff = null;
 export async function pickModel(sid) {
@@ -568,7 +570,7 @@ function onClick(e) {
   else if (act === 'dr-action') doAction(b.dataset.a);
   else if (act === 'dr-copy') copyText(b.dataset.text);
   else if (act === 'dr-adopt') adoptDialog();
-  else if (act === 'dr-model') { const cs = findSess(ctx, D.sid); if (sessOffline(cs)) toast(blockReason(cs), 'warn'); else if (isAntigravity(cs)) { switchTab('term'); toast('Ketik /model atau /permissions di terminal Gemini'); } else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(D.sid); }
+  else if (act === 'dr-model') { const cs = findSess(ctx, D.sid); if (sessOffline(cs)) toast(blockReason(cs), 'warn'); else if (isAntigravity(cs)) { switchTab('term'); toast('Ketik /model atau /permissions di terminal Gemini'); } else if (isOpenCode(cs)) pickOcSettings(cs); else if (isCodex(cs)) pickCodexSettings(cs); else pickModel(D.sid); }
   else if (act === 'dr-full') toggleFull();
   else if (act === 'dr-sw') toggleSwitcher();
   else if (act === 'dr-fs') setTermFont(Number(b.dataset.d));

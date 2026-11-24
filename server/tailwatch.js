@@ -122,7 +122,7 @@ function unwatch(file) {
 
 function maybeFollow(s, w) {
   const now = Date.now();
-  if (isRollout(s.transcript) || s.engine === 'codex' || s.engine === 'antigravity') return;
+  if (isRollout(s.transcript) || s.engine === 'codex' || s.engine === 'antigravity' || s.engine === 'opencode') return;
   // ~/.claude/sessions here describes this Mac's processes, not the other machine's; its hooks report a new transcript
   if (s.machine || remoteOfMirror(s.transcript)) return;
   if (now - w.changedAt < STALE_MS || now - (w.lastSucc || 0) < SUCCESSOR_EVERY) return;

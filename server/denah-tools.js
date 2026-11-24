@@ -30,8 +30,8 @@ const roleProps = {
   kepribadian: { type: 'string', description: 'persona / cara kerja, dipakai sebagai instruksi sesinya (maks 4000 huruf)' },
   skills: { type: 'array', items: { type: 'string' }, description: 'daftar keahlian singkat' },
   ruangan: { type: 'string', description: 'id atau nama ruangan tempat mejanya; harus masih punya meja kosong' },
-  model: { type: 'string', description: 'claude: opus | sonnet | haiku | fable; codex: nama model Codex; antigravity: slug Gemini dari agy models' },
-  mesin: { type: 'string', enum: ['claude', 'codex', 'antigravity'] },
+  model: { type: 'string', description: 'claude: opus | sonnet | haiku | fable; codex: nama model Codex; antigravity: slug Gemini dari agy models; opencode: provider/model dari opencode models (kosong = bawaan)' },
+  mesin: { type: 'string', enum: ['claude', 'codex', 'antigravity', 'opencode'] },
   effort: { type: 'string', description: 'codex/antigravity: low | medium | high (xhigh khusus codex)' },
   atasan: { type: 'string', description: 'id role atasannya (kosongkan untuk melepas)' },
   tampilan: lookSchema,
@@ -388,16 +388,17 @@ function roleFields(office, a, cur) {
     f.skills = a.skills.map(s => clean(s, 60, 'skill')).filter(Boolean);
   }
   const engine = a.mesin ?? (cur ? undefined : 'claude');
-  if (engine !== undefined) { if (!['claude', 'codex', 'antigravity'].includes(engine)) throw new Error('mesin harus claude, codex, atau antigravity'); f.engine = engine; }
+  if (engine !== undefined) { if (!['claude', 'codex', 'antigravity', 'opencode'].includes(engine)) throw new Error('mesin harus claude, codex, antigravity, atau opencode'); f.engine = engine; }
   const eng = f.engine ?? cur?.engine ?? 'claude';
   if (a.model !== undefined) {
     const m = clean(a.model, 60, 'model');
     if (eng === 'claude' && !MODELS.includes(m) && !/^claude-[a-z0-9.-]+$/.test(m)) throw new Error(`model claude: ${MODELS.join(', ')} atau id claude-…`);
-    if (eng !== 'claude' && m && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,59}$/.test(m)) throw new Error('nama model mesin tidak valid');
+    if (eng === 'opencode' && m && !/^[A-Za-z0-9][\w.-]{0,39}\/[A-Za-z0-9][\w.:-]{0,79}(?:#[\w.-]{1,30})?$/.test(m)) throw new Error('model opencode: provider/model, mis. opencode-go/glm-5.3 (lihat opencode models)');
+    if (eng !== 'claude' && eng !== 'opencode' && m && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,59}$/.test(m)) throw new Error('nama model mesin tidak valid');
     f.model = m;
   } else if (cur && f.engine && f.engine !== cur.engine) f.model = f.engine !== 'claude' ? '' : 'sonnet';
   if (a.effort !== undefined) {
-    if (eng === 'claude' && a.effort) throw new Error('effort hanya untuk mesin codex atau antigravity');
+    if ((eng === 'claude' || eng === 'opencode') && a.effort) throw new Error('effort hanya untuk mesin codex atau antigravity');
     if (a.effort && !['low', 'medium', 'high', 'xhigh'].includes(a.effort)) throw new Error('effort: low, medium, high, atau xhigh');
     f.effort = a.effort || null;
   }

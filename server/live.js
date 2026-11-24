@@ -13,6 +13,7 @@ import { who as actorName } from './actor.js';
 import { setTmuxMachine, isOffline, getMachine, LOCAL as LOCAL_MACHINE, events as machineEvents } from './machines.js';
 import { mirrorTranscript } from './mirror.js';
 import { ownedTranscript } from './transcript-owner.js';
+import { ocSavedMode } from './opencode.js';
 
 export const bus = new EventEmitter();
 bus.setMaxListeners(100);
@@ -52,11 +53,13 @@ export function serialize(s) {
     tunggu: s.tunggu || null, anggaran: s.anggaran || null, konteks: sessionKonteks(s), blocker: s.blocker || null, // layar login/konfirmasi yang menahan agen (server/blocker.js)
     subs: [...s.subs.values()].map(x => ({ id: x.id, type: x.type, desc: x.desc, status: x.status, tool: x.tool, started: x.started, ended: x.ended || null, tokens: s.engine === 'codex' ? fileTokens(x.transcript || codexSubagentFile(x.id, x.started)) : subagentTokens(s.transcript, x.id) })),
     bgAgents: [...s.subs.values()].filter(x => x.status !== 'done').length,
-    ...(s.engine === 'codex' ? codexHealth(s.transcript) : s.engine === 'antigravity' ? { ctx: null, health: null, errStreak: 0, compactions: 0 } : sessionHealth(s.transcript, s.model)),
+    ...(s.engine === 'codex' ? codexHealth(s.transcript) : s.engine === 'antigravity' || s.engine === 'opencode' ? { ctx: null, health: null, errStreak: 0, compactions: 0 } : sessionHealth(s.transcript, s.model)),
   };
 }
 
 export function emitSessionNow(s) { emitSession(s); }
+/** Save a session row after an adapter changed it outside a hook (OpenCode: transcript path, permission mode). */
+export function persistSession(s) { persist(s); emitSession(s); }
 function emitSession(s) { bus.emit('msg', { t: 'session', office: s.office, session: serialize(s) }); }
 /** Transcript bertambah: kabarkan sesi hanya kalau ringkasannya berubah, supaya klien tidak dibanjiri event. */
 export function emitIfKonteksChanged(s) {
@@ -147,6 +150,7 @@ export function restoreRemoteSessions() {
     s.status = 'idle'; // no stale "working" while the process is unverified
     s.lastSeen = row.last_seen || row.started_at;
     if (s.engine === 'codex') s.permMode = readCodexSettings(s.transcript)?.mode || null;
+    if (s.engine === 'opencode') s.permMode = ocSavedMode(s.sid);
     live.set(s.sid, s);
     restored++;
   }
@@ -348,6 +352,7 @@ export async function handleHook(p) {
       if (s.waiting) clearWaiting(s, 'terminal');
       break;
     case 'Stop':
+      if (p.kantor_error) logOffice(s.office, who, `giliran gagal: ${shortStr(p.kantor_error, 120)}`, 'session'); // OpenCode: provider/model error
       s.status = 'idle'; s.tool = null;
       if (s.waiting) clearWaiting(s, 'terminal');
       if (s.office && s.room) gitinfo.touch(s.office, s.room);
@@ -363,6 +368,9 @@ export async function handleHook(p) {
         logOffice(s.office, who, 'sesi selesai', 'session');
       }
       setTimeout(() => { if (live.get(s.sid)?.status === 'ended') { live.delete(s.sid); bus.emit('msg', { t: 'session-gone', office: s.office, sid: s.sid }); } }, 20000).unref();
+      break;
+    case 'PermissionResolved': // OpenCode: the prompt was answered in the terminal while the inbox card was open
+      if (s.waiting) { clearWaiting(s, 'terminal'); s.status = 'working'; }
       break;
     case 'PermissionRequest': {
       const res = await permission(s, p, who);

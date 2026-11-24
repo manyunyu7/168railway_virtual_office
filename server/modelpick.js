@@ -138,6 +138,7 @@ function paneOf(sid) {
   if (!s) throw err('Sesi tidak ditemukan', 404);
   if (s.engine === 'antigravity') throw err('Ganti model Gemini lewat /model di tab Terminal sesi ini.', 400);
   if (s.engine === 'codex') throw err('Sesi Codex: ganti model lewat POST /api/sessions/:sid/codex/settings', 400);
+  if (s.engine === 'opencode') throw err('Sesi OpenCode: ganti model lewat POST /api/sessions/:sid/opencode/settings', 400);
   if (name && mx.isOffline(mx.tmuxMachineOf(name))) throw err(`Mesin ${mx.getMachine(mx.tmuxMachineOf(name))?.name || mx.tmuxMachineOf(name)} sedang offline. Coba lagi setelah tersambung.`);
   if (!name || !hasTmux(name)) throw err('Ganti model hanya untuk sesi yang jalan di terminal kantor. Untuk sesi lain, ketik /model di jendelanya.');
   return { s, name };
