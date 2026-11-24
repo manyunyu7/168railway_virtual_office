@@ -188,7 +188,9 @@ test('meeting config denies everything but reading, and only when research is al
   assert.deepEqual(none.mcp, { servers: {} });
   const a = meetingOcArgs({ name: 'Oci', model: 'opencode-go/glm-5.3' }, 'Pendapatmu?');
   assert.ok(a.includes('--standalone') && a.includes('--archived')); assert.equal(a.at(-1), 'Pendapatmu?');
-  assert.ok(!meetingOcArgs({ name: 'Oci', model: 'sonnet' }, 'x').includes('-m'), 'a non-OpenCode model is not passed');
+  const fallback = meetingOcArgs({ name: 'Oci', model: 'sonnet' }, 'x');
+  assert.ok(!fallback.includes('sonnet'), 'a non-OpenCode model is not passed');
+  assert.equal(fallback[fallback.indexOf('-m') + 1], oc.ocDefaultModel(), 'the Kantor default model is used instead');
 });
 
 // A fake `opencode` binary: `serve` is a tiny HTTP server speaking the bits of the v2 API the supervisor uses;
@@ -261,4 +263,46 @@ test('binary lookup: missing, not executable and a directory are all "not instal
   assert.equal(oc.findOcBin([plain, good], none), good);
   assert.equal(oc.findOcBin([], () => 'opencode'), null, 'a relative answer from the shell is not trusted');
   assert.equal(oc.findOcBin([], () => good), good);
+});
+
+test('two failing turns in quick succession end idle (payloads are unique per event, so none is dropped as a duplicate)', async () => {
+  const root = path.join(tmp, 'p3'); fs.mkdirSync(root);
+  const office = offices.registerOffice(root);
+  const r = store.createRole(office, { name: 'Ryo', title: 'Dev', room: 'manager', engine: 'opencode' });
+  expectSession({ sid: 'ses_F', office, role: r.id, room: 'manager', cwd: root, engine: 'opencode', tmux: 'fixture-f' });
+  const st = ev.createOcState({ sid: 'ses_F', cwd: root, model: 'opencode-go/iceman-contributor-free' });
+  const err = { type: 'provider.invalid-request', message: 'This OpenCode Go model trains on request data.' };
+  let n = 0;
+  const turn = async text => {
+    for (const e of [
+      { type: 'session.inbox.enqueued', data: { sessionID: 'ses_F', inboxID: `i${n}`, item: { type: 'user', payload: { text } } } },
+      { type: 'session.execution.started', data: { sessionID: 'ses_F' } },
+      { type: 'session.inbox.delivered', data: { sessionID: 'ses_F', inboxID: `i${n}` } },
+      { type: 'session.execution.failed', data: { sessionID: 'ses_F', error: err } },
+    ]) for (const p of ev.mapOcEvent({ id: `evt_${n++}`, ...e }, st).hooks) await handleHook(p);
+  };
+  await turn('pertama');
+  assert.equal(live.get('ses_F').status, 'idle');
+  await turn('kedua'); // within the 3 s duplicate window
+  assert.equal(live.get('ses_F').status, 'idle', 'the second failure must not be swallowed');
+});
+
+test('default model: config value, else the paid Go default, else OpenCode default when the login lacks it; free models flagged and last', () => {
+  const list = ev.parseOcModels('opencode-go/iceman-contributor-free\nopencode-go/kimi-k3.1-pro\nopencode/big-pickle\n');
+  assert.deepEqual(list.map(m => m.slug), ['opencode-go/kimi-k3.1-pro', 'opencode/big-pickle', 'opencode-go/iceman-contributor-free']);
+  assert.equal(list.at(-1).free, true); assert.ok(!list[0].free);
+  assert.ok(ev.isFreeModel('opencode-go/hy4-flash-free#high')); assert.ok(!ev.isFreeModel('opencode-go/glm-5.3'));
+  assert.equal(oc.ocDefaultModel(list), oc.OC_DEFAULT_MODEL);
+  assert.equal(oc.ocDefaultModel([{ slug: 'opencode/big-pickle' }]), '', 'not offered by this login: leave it to OpenCode');
+  assert.equal(oc.ocDefaultModel([]), oc.OC_DEFAULT_MODEL, 'list unknown: keep the default');
+  const cfgFile = path.join(process.env.KANTOR_HOME, 'config.json');
+  const cfg = JSON.parse(fs.readFileSync(cfgFile, 'utf8'));
+  fs.writeFileSync(cfgFile, JSON.stringify({ ...cfg, opencode: { defaultModel: 'opencode/big-pickle' } }));
+  return import('../server/config.js').then(c => {
+    c.loadConfig();
+    assert.equal(oc.ocDefaultModel(list), 'opencode/big-pickle');
+    const cat = buildEngineCatalog({ claudeAvailable: true, codex: {}, antigravity: {}, opencode: { available: true, models: list, defaultModel: oc.ocDefaultModel(list) } });
+    assert.equal(cat.engines.find(e => e.id === 'opencode').defaultModel, 'opencode/big-pickle');
+    fs.writeFileSync(cfgFile, JSON.stringify(cfg)); c.loadConfig();
+  });
 });

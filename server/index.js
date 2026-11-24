@@ -414,7 +414,7 @@ route('POST', '/api/offices/:id/roles/:rid/start', async (req, res, p) => {
   const b = await body(req);
   if (!b.resumeSid) { // OpenCode: an unknown model would only fail on the first turn, inside the terminal
     const role = st.getRole(O(p.id), p.rid), eng = b.engine || role?.engine;
-    if (eng === 'opencode') await checkOcModel(b.model || (role?.engine === 'opencode' ? role.model : '') || '');
+    if (eng === 'opencode') { await ocModels(); await checkOcModel(b.model || (role?.engine === 'opencode' ? role.model : '') || ''); } // loads the list ocDefaultModel checks against
   } else if (b.model && live.get(b.resumeSid)?.engine === 'opencode') await checkOcModel(b.model);
   const r = startShift(O(p.id), p.rid, { task: b.task, cardId: b.cardId, worktree: !!b.worktree, resumeSid: b.resumeSid, permissionMode: b.permissionMode, engine: b.engine, model: b.model, effort: b.effort });
   if (b.task) audit.markTyping(r.tmux, actor());

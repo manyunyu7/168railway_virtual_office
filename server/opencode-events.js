@@ -41,15 +41,19 @@ export function ocModelRef(slug) {
 export const ocModelSlug = ref => ref && ref.providerID && ref.id ? `${ref.providerID}/${ref.id}` : null;
 
 /** Lines of `opencode models` → [{slug, name, provider}]. */
+// Free models (`*-free`) may train on request data; OpenCode Go refuses them unless the org allows that, so they are
+// flagged and listed last instead of looking like a normal choice.
+export const isFreeModel = slug => /-free$/.test(String(slug || '').replace(/#.*$/, ''));
 export function parseOcModels(text) {
   const seen = new Set();
-  return String(text || '').split('\n').flatMap(line => {
+  const list = String(text || '').split('\n').flatMap(line => {
     const slug = line.trim();
     const ref = ocModelRef(slug);
     if (!ref || seen.has(slug)) return [];
     seen.add(slug);
-    return [{ slug, name: ref.id, provider: ref.providerID }];
+    return [{ slug, name: ref.id, provider: ref.providerID, ...(isFreeModel(slug) ? { free: true, desc: 'Gratis: bisa melatih model dengan data permintaan; OpenCode Go menolaknya kecuali diizinkan di console.' } : {}) }];
   });
+  return [...list.filter(m => !m.free), ...list.filter(m => m.free)];
 }
 
 /* ---------------- tools ---------------- */
@@ -117,8 +121,10 @@ export function mapOcEvent(ev, st) {
   if (!ev || typeof ev !== 'object' || !st) return out;
   const d = ev.data && typeof ev.data === 'object' ? ev.data : {};
   const type = ev.type;
+  // kantor_event: OpenCode's event id. Kantor drops a payload identical to one from the last 3 s (duplicateHook); without
+  // the id, two quick failing turns sent identical Stop payloads and the second was dropped, leaving the session 'working'.
   const base = extra => ({ session_id: st.sid, cwd: st.cwd, ...(st.transcript ? { transcript_path: st.transcript } : {}), ...(st.model ? { model: st.model } : {}),
-    kantor_engine: 'opencode', kantor_sid: st.sid, ...extra });
+    kantor_engine: 'opencode', kantor_sid: st.sid, ...(ev.id ? { kantor_event: ev.id } : {}), ...extra });
   const sessionID = d.sessionID || d.session?.id;
 
   // a subagent: a child session created under ours

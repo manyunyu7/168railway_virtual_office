@@ -11,10 +11,11 @@ const opt = (v, l, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' :
 function fieldsHTML(data, prefix, current = {}) {
   const models = data.models || [], cur = current.model || '';
   const groups = [...new Set(models.map(m => m.provider))];
-  const select = `<select id="${prefix}-model">${opt('', 'Bawaan OpenCode', cur)}${groups.map(g => `<optgroup label="${esc(g)}">${models.filter(m => m.provider === g).map(m => opt(m.slug, m.name, cur)).join('')}</optgroup>`).join('')}${cur && !models.some(m => m.slug === cur) ? opt(cur, cur, cur) : ''}</select>`;
+  const def = data.defaultModel ? `Bawaan Kantor (${data.defaultModel})` : 'Bawaan OpenCode';
+  const select = `<select id="${prefix}-model">${opt('', def, cur)}${groups.map(g => `<optgroup label="${esc(g)}">${models.filter(m => m.provider === g).map(m => opt(m.slug, m.free ? `${m.name} (gratis, bisa ditolak Go)` : m.name, cur)).join('')}</optgroup>`).join('')}${cur && !models.some(m => m.slug === cur) ? opt(cur, cur, cur) : ''}</select>`;
   return `<div class="field"><label for="${prefix}-model">Model OpenCode</label>${models.length ? select
     : `<input id="${prefix}-model" value="${esc(cur)}" placeholder="provider/model, kosong = bawaan" autocomplete="off">`}</div>
-    <p class="hint">${data.available ? (data.error ? esc(data.error) : 'Memakai login OpenCode di PC ini. Kosong berarti model bawaan OpenCode.') : 'OpenCode belum terpasang di PC ini (brew install opencode, lalu login sekali).'}</p>`;
+    <p class="hint">${data.available ? (data.error ? esc(data.error) : `Memakai login OpenCode di PC ini. Kosong berarti ${data.defaultModel ? `model bawaan Kantor (${esc(data.defaultModel)}, atur di opencode.defaultModel)` : 'model bawaan OpenCode'}. Model gratis bisa ditolak OpenCode Go.`) : 'OpenCode belum terpasang di PC ini (brew install opencode, lalu login sekali).'}</p>`;
 }
 export async function mountOcFields(box, prefix, current = {}) {
   box.innerHTML = '<p class="hint">Memuat model OpenCode…</p>';

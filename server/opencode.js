@@ -10,9 +10,9 @@ import { execFile, execFileSync } from 'node:child_process';
 import { config, ROOT_DIR, RUN_DIR } from './config.js';
 import { scanAppended } from './jsonl.js';
 import { resetTranscript, appendTranscript, transcriptResponse } from './transcript-delta.js';
-import { OC_MODES, ocMode, ocPermissions, ocModelRef, parseOcModels, ocTranscriptItems, isOcTranscript } from './opencode-events.js';
+import { OC_MODES, ocMode, ocPermissions, ocModelRef, parseOcModels, ocTranscriptItems, isOcTranscript, isFreeModel } from './opencode-events.js';
 
-export { OC_MODES, ocMode, ocPermissions, ocModelRef, parseOcModels, isOcTranscript };
+export { OC_MODES, ocMode, ocPermissions, ocModelRef, parseOcModels, isOcTranscript, isFreeModel };
 
 let BIN;
 const executable = p => { try { fs.accessSync(p, fs.constants.X_OK); return fs.statSync(p).isFile(); } catch { return false; } };
@@ -28,6 +28,14 @@ export function opencodeBin({ fresh = false } = {}) {
     '/opt/homebrew/bin/opencode', '/usr/local/bin/opencode', path.join(os.homedir(), '.opencode/bin/opencode'), path.join(os.homedir(), '.local/bin/opencode')]);
   return BIN;
 }
+/** Model for a role/shift without one: config.opencode.defaultModel, else the owner's choice of a paid Go model.
+ *  '' (OpenCode's own default) when OpenCode is known not to offer it, e.g. a login without OpenCode Go. */
+export const OC_DEFAULT_MODEL = 'opencode-go/kimi-k3.1-pro';
+export function ocDefaultModel(models = modelsCache?.value?.models) {
+  const want = String(config().opencode?.defaultModel ?? OC_DEFAULT_MODEL).trim();
+  if (!want || !ocModelRef(want)) return '';
+  return Array.isArray(models) && models.length && !models.some(m => m.slug === want.replace(/#.*$/, '')) ? '' : want;
+}
 /** Mode used when a shift asks for none: config.opencode.defaultMode, else ask first. */
 export const ocDefaultMode = () => ocMode(config().opencode?.defaultMode, 'default');
 export const ocShiftMode = mode => ocMode(mode, ocDefaultMode());
@@ -41,7 +49,7 @@ export function ocModels({ fresh = false } = {}) {
   if (!fresh && modelsCache && Date.now() - modelsCache.at < 600e3) return Promise.resolve(modelsCache.value);
   return new Promise(resolve => execFile(bin, ['models', '--standalone'], { timeout: 30000, maxBuffer: 4 << 20, cwd: os.homedir(), env: { ...process.env, PWD: os.homedir() } }, (err, stdout) => {
     const models = parseOcModels(stdout);
-    const value = { available: true, models, modes: OC_MODES,
+    const value = { available: true, models, modes: OC_MODES, defaultModel: ocDefaultModel(models),
       ...(models.length ? {} : { error: 'Daftar model OpenCode belum terbaca. Jalankan `opencode` sekali di Mac ini dan login (opencode auth).' }) };
     if (models.length && !err) modelsCache = { at: Date.now(), value };
     resolve(value);

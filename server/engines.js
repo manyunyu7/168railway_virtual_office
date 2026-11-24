@@ -32,7 +32,7 @@ export function buildEngineCatalog({ claudeAvailable, codex, antigravity, openco
       allowDefaultModel: true, supportsEffort: false, permissionModes: permissions(AGY_MODES),
       ...(antigravity.error ? { error: antigravity.error } : {}) },
     { id: 'opencode', name: 'OpenCode', available: !!opencode.available,
-      defaultModel: '', defaultEffort: '', defaultPermissionMode: 'default',
+      defaultModel: opencode.defaultModel || '', defaultEffort: '', defaultPermissionMode: 'default',
       models: opencode.models || [], allowDefaultModel: true, supportsEffort: false, permissionModes: permissions(OC_MODES),
       ...(opencode.error ? { error: opencode.error } : {}) },
   ] };

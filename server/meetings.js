@@ -12,7 +12,7 @@ import { boardForRole } from './boards.js';
 import { RUN_DIR } from './config.js';
 import { agyBin, agySettings } from './antigravity.js';
 import { codexBin, tomlStr } from './codex.js';
-import { opencodeBin, ocModelRef } from './opencode.js';
+import { opencodeBin, ocModelRef, ocDefaultModel } from './opencode.js';
 import { createLineParser, createClaudeStream, createTyper, getTyping } from './meeting-stream.js';
 import { who } from './actor.js';
 
@@ -302,7 +302,8 @@ export function meetingOcConfig(instructionsFile, tools) {
 }
 export function meetingOcArgs(role, text) {
   const args = ['run', '--standalone', '--format', 'json', '--archived', '--title', `Rapat Kantor · ${role.name}`];
-  if (role.model && ocModelRef(role.model)) args.push('-m', role.model);
+  const model = role.model && ocModelRef(role.model) ? role.model : ocDefaultModel();
+  if (model) args.push('-m', model);
   return [...args, text];
 }
 export function askOpenCode(office, role, prompt, title, state, { tools = true, typing = false } = {}) {

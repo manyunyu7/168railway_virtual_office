@@ -14,7 +14,7 @@ import { recordOutgoing } from './outbox.js';
 import { rulesBlock } from './aturan.js';
 import { codexBin, codexArgs, codexScript, codexMode, codexDefaults, engineOf, readCodexSettings } from './codex.js';
 import { agyBin, agyMode, agyArgs, agySettings, installAgyIntegration } from './antigravity.js';
-import { opencodeBin, ocShiftMode, ocSpec, ocFiles, newOcSessionId, isOcSessionId, ocPrompt, ocInterrupt, ocCompact, ocSetMode, ocState, reapOcServer, ocSavedMode, ocMode } from './opencode.js';
+import { opencodeBin, ocShiftMode, ocSpec, ocFiles, newOcSessionId, isOcSessionId, ocPrompt, ocInterrupt, ocCompact, ocSetMode, ocState, reapOcServer, ocSavedMode, ocMode, ocDefaultModel } from './opencode.js';
 import { draftOnScreen } from './draft-prompt.js';
 import { assertChatInput, parseBlocker } from './blocker-screen.js';
 import { ownedTranscript } from './transcript-owner.js';
@@ -492,7 +492,9 @@ function launchAntigravity({ officeId, role, cwd, slot, sid, name, card, task, r
  */
 function launchOpenCode({ officeId, role, cwd, slot, sid, name, card, task, resumeSid, permissionMode, model }) {
   const own = role.engine === 'opencode';
-  const mdl = model || (own ? role.model : '') || '';
+  // no model on the shift or the role: Kantor's default (config opencode.defaultModel), not OpenCode's own pick,
+  // which may be a free model that OpenCode Go refuses
+  const mdl = model || (own ? role.model : '') || (resumeSid ? '' : ocDefaultModel());
   const mode = ocShiftMode(permissionMode);
   const first = task || (card && !resumeSid ? `Kerjakan kartu ${card.id}: ${card.title}` : '');
   const f = ocFiles(sid);

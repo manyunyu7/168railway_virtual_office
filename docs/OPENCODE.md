@@ -7,7 +7,7 @@ Diuji di macOS ARM64 dengan OpenCode 2.4.0 (Homebrew) dan langganan OpenCode Go.
 ## Pemakaian
 
 1. Pasang OpenCode (`brew install opencode`) lalu login sekali di Mac daemon (`opencode`, atau `opencode auth`).
-2. Di tab **Role**, pilih mesin **OpenCode**. Model berbentuk `provider/model` dari `opencode models`, misalnya `opencode-go/glm-5.3`. Kosong berarti model bawaan OpenCode.
+2. Di tab **Role**, pilih mesin **OpenCode**. Model berbentuk `provider/model` dari `opencode models`, misalnya `opencode-go/glm-5.3`. Kosong berarti model bawaan Kantor: `opencode.defaultModel` di `config.json`, atau `opencode-go/kimi-k3.1-pro` bila tidak diatur. Kalau login di Mac ini tidak menawarkan model itu, OpenCode memilih sendiri. Model `*-free` ditandai *gratis* dan ditaruh paling bawah, karena OpenCode Go menolaknya kecuali console org mengizinkan endpoint yang melatih model dengan data permintaan.
 3. Mulai shift seperti biasa. Tugas pertama, kartu, dan mode izin diisi di dialog yang sama.
 4. Balasan, panggilan tool, dan hasil tool tampil di tab **Chat**. Isi pemikiran (reasoning) tidak ditampilkan. Tab **Terminal** menampilkan TUI OpenCode yang asli.
 
