@@ -12,6 +12,7 @@ import * as rd from './remote-devices.js';
 import * as authMx from './machines.js';
 import * as audit from './audit.js';
 import { bus } from './live.js';
+import { sameToken } from './safe-eq.js';
 
 const err = (message, code) => Object.assign(new Error(message), { code });
 
@@ -140,8 +141,8 @@ export function remoteApi(deps) {
         if (!tok) return deny(403, 'remote host');
         if (a.kind === 'machine') { const mid = a.machine; return remote.hostUpgrade(req, sock, head, mid, { actor: a, valid: () => authMx.machineForToken(tok) === mid }), true; }
         // token config hanya dari listener HTTP lokal (bukan passthrough/tunnel ke listener TLS, lihat fromLoopback)
-        if ((a.kind === 'local' || a.kind === 'system') && tok === cfg.token && fromLoopback(req)) {
-          return remote.hostUpgrade(req, sock, head, loopMachine() || authMx.LOCAL, { loopback: true, actor: a, valid: () => tok === cfg.token }), true;
+        if ((a.kind === 'local' || a.kind === 'system') && sameToken(tok, cfg.token) && fromLoopback(req)) {
+          return remote.hostUpgrade(req, sock, head, loopMachine() || authMx.LOCAL, { loopback: true, actor: a, valid: () => sameToken(tok, cfg.token) }), true;
         }
         return deny(403, 'remote host');
       }

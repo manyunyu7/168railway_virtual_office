@@ -70,6 +70,7 @@ import * as audit from './audit.js';
 import * as akun from './akun.js';
 import { loginHtml, inviteHtml, PAGE_CSP } from './akun-pages.js';
 import { remoteApi } from './remote-api.js';
+import { sameToken } from './safe-eq.js';
 
 const cfg = loadConfig();
 const WEB = path.join(ROOT_DIR, 'web');
@@ -123,11 +124,11 @@ function identify(req) {
     if (mid) return machineActor(mid, authMx.getMachine(mid)?.name, ip);
     // akun mode: a member's app token (Ghina) acts as that member, from anywhere
     if (akunOn() && h.startsWith('Bearer ' + akun.TOKEN_PREFIX)) { const m = akun.memberForToken(h.slice(7)); return m ? { kind: 'member', ...m, via: 'token', ip } : null; }
-    if (h.slice(7) !== cfg.token) return null;
+    if (!sameToken(h.slice(7), cfg.token)) return null;
     if (!akunOn()) return { ...LOCAL, ip };
     return fromLoopback(req) ? { ...SYSTEM, ip } : null;
   }
-  if (!akunOn()) return cookieOf(req, 'kc_token') === cfg.token ? { ...LOCAL, ip } : null;
+  if (!akunOn()) return sameToken(cookieOf(req, 'kc_token'), cfg.token) ? { ...LOCAL, ip } : null;
   const m = akun.memberForCookie(cookieOf(req, 'kc_sesi'));
   return m ? { kind: 'member', ...m, ip } : null;
 }
@@ -993,7 +994,7 @@ async function handle(req, res) {
   if (url.pathname === '/' && url.searchParams.get('token')) {
     if (!allowedHosts().has(req.headers.host)) { logDenied(req, 'host'); res.writeHead(403); return res.end(); }
     if (akunOn()) { res.writeHead(302, { Location: '/masuk' }); return res.end(); }
-    if (url.searchParams.get('token').trim() !== cfg.token) { logDenied(req, 'token salah'); return loginPage(res, 403, true); }
+    if (!sameToken(url.searchParams.get('token').trim(), cfg.token)) { logDenied(req, 'token salah'); return loginPage(res, 403, true); }
     const next = url.searchParams.get('next') || '';
     res.writeHead(302, { 'Set-Cookie': `kc_token=${encodeURIComponent(cfg.token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=31536000${req.socket.encrypted ? '; Secure' : ''}`, Location: '/' + (next.startsWith('#/') ? next : '') });
     return res.end();
