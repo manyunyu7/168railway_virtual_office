@@ -47,6 +47,16 @@ export function remoteApi(deps) {
     return { kind: isOwner(a) ? 'owner' : 'other', actor: a };
   }
 
+  /** P3: app native tidak mengirim Origin. Kalau ada, harus asal kantor ini sendiri, dan bukan nama aplikasi lain
+   *  yang diproksikan di sertifikat yang sama (cfg.tls.proxy: satu site, tapi bukan kantor). */
+  function originAllowed(req) {
+    const o = req.headers.origin;
+    if (o === undefined) return true;
+    let u; try { u = new URL(String(o)); } catch { return false; }
+    if (Object.hasOwn(cfg.tls?.proxy || {}, u.hostname)) return false;
+    return allowedHosts().has(u.host);
+  }
+
   const pairOut = p => ({ id: p.id, claim: p.claim, device: p.device, expiresAt: new Date(p.expires).toISOString() });
 
   async function api(req, res, url, c) {
@@ -101,6 +111,7 @@ export function remoteApi(deps) {
     remote,
     /** HTTP /api/remote/*. */
     async http(req, res, url) {
+      if (!originAllowed(req)) { logDenied(req, 'remote origin'); return send(res, 403, { error: 'Asal permintaan ditolak.' }); }
       const c = caller(req);
       if (!c) { logDenied(req, 'remote'); return send(res, 401, { error: 'Butuh token (Bearer).' }); }
       try { const out = await api(req, res, url, c); if (!res.headersSent) send(res, 200, out); }
@@ -109,6 +120,7 @@ export function remoteApi(deps) {
     /** WS /api/remote/host dan /api/remote/ws. true = sudah ditangani (diterima atau ditolak). */
     upgrade(req, sock, head, url) {
       const deny = (code, why) => { logDenied(req, why); sock.write(`HTTP/1.1 ${code} ${code === 401 ? 'Unauthorized' : code === 429 ? 'Too Many Requests' : 'Forbidden'}\r\n\r\n`); sock.destroy(); return true; };
+      if (!originAllowed(req)) return deny(403, 'remote origin');
       if (url.pathname === '/api/remote/host') {
         const a = allowedHosts().has(req.headers.host) ? identify(req) : null;
         if (!a) return deny(401, 'remote host');

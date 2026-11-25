@@ -201,6 +201,8 @@ before(async () => {
   const home = path.join(tmp, 'home'), root = path.join(tmp, 'Developer');
   fs.mkdirSync(home, { recursive: true }); fs.mkdirSync(root, { recursive: true });
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ roots: [root], token: 'tok', port, sysmon: { enabled: false },
+    // tanpa cert: tidak ada listener TLS, tapi nama-namanya ikut allowedHosts (untuk tes Origin)
+    tls: { host: '127.0.0.1', names: ['office.test', 'aplikasi.test'], proxy: { 'aplikasi.test': 'http://127.0.0.1:9' } },
     machines: [{ id: 'mbp', name: 'MacBook', ssh: 'pemilik@mbp.test', hubUrl: `http://127.0.0.1:${port}`, token: TOKM },
       // Mac hub sendiri terdaftar sebagai mesin ssh 'local:' (seperti di Mac mini pemilik)
       { id: 'mini', name: 'Mac mini', ssh: 'local:', hubUrl: `http://127.0.0.1:${port}`, token: TOKM + 'mini' }] }));
@@ -227,7 +229,8 @@ async function pairWithCode(device) {
   assert.equal(msg.id, r.json.id); assert.equal(msg.device, device); assert.match(msg.code, /^\d{6}$/);
   const ok = await api(`/api/remote/pair/${r.json.id}/approve`, { token: 'tok', method: 'POST', body: { code: msg.code, claim: r.json.claim } });
   assert.equal(ok.status, 200, JSON.stringify(ok.json));
-  assert.equal((await H.next('pair-done')).id, r.json.id);
+  let done; do done = await H.next('pair-done'); while (done.id !== r.json.id); // pair-done dari tes sebelumnya dilewati
+  assert.equal(done.status, 'approved');
   return ok.json;
 }
 
@@ -314,6 +317,19 @@ test('remote daemon: approve dari perangkat ter-pair, daftar dan cabut perangkat
   assert.equal((await api('/api/remote/hosts', { token: hp })).status, 401, 'token dicabut');
   assert.ok(!fs.readFileSync(path.join(tmp, 'home', 'remote-devices.json'), 'utf8').includes(fold.token.slice(7)), 'hanya hash yang disimpan');
   assert.equal(fs.statSync(path.join(tmp, 'home', 'remote-devices.json')).mode & 0o777, 0o600);
+});
+
+test('remote daemon (P3): Origin browser selain kantor sendiri ditolak, app native tanpa Origin boleh', async () => {
+  const fold = await pairWithCode('Fold origin');
+  const tok = bearer(fold.token);
+  assert.equal((await api('/api/remote/hosts', { token: fold.token, headers: { Origin: 'https://evil.test' } })).status, 403);
+  assert.equal((await api('/api/remote/hosts', { token: fold.token, headers: { Origin: 'https://aplikasi.test' } })).status, 403, 'nama proxy satu sertifikat');
+  assert.equal((await api('/api/remote/hosts', { token: fold.token, headers: { Origin: 'null' } })).status, 403);
+  assert.equal((await api('/api/remote/hosts', { token: fold.token, headers: { Origin: 'https://office.test' } })).status, 200);
+  assert.equal(await wsStatus('/api/remote/ws?machine=mbp', { ...tok, Origin: 'https://evil.test' }), 403);
+  assert.equal(await wsStatus('/api/remote/ws?machine=mbp', { ...tok, Origin: 'https://aplikasi.test' }), 403);
+  assert.equal(await wsStatus('/api/remote/host', { ...bearer(TOKM), Origin: 'https://evil.test' }), 403);
+  assert.equal((await api('/api/remote/pair', { token: 'tok', method: 'POST', body: {}, headers: { Origin: 'https://aplikasi.test' } })).status, 403);
 });
 
 test('remote daemon: Mac hub lewat token config loopback memakai id mesin local:', async () => {
