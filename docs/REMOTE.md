@@ -98,6 +98,16 @@ Android Keystore dan meminta biometrik sebelum membuka sesi.
 - Catatan: token mesin juga ada di env agen di Mac itu. Aturan penggantian host (4409) dan pinning fingerprint di app yang
   mencegah token itu dipakai untuk menyamar sebagai host.
 
+## Relay publik (tanpa Tailscale)
+
+Relay mandiri (repo ravel-remote, folder `relay/`) memakai endpoint `/api/remote/*` yang sama. Untuk meminta pairing di
+relay, app butuh token owner relay (`kcowner_`). Kantor menyajikannya supaya tidak perlu diketik:
+
+`GET /api/remote/relay-owner` (Bearer token owner kantor; token perangkat/mesin 403, cookie 401) → `{url, token}` dari
+`~/.kantor-claude/remote-relay.json` (dibuat manual, **wajib mode 600**, isi `{"url":"https://…","token":"kcowner_…"}`).
+Berkas tidak ada → 404; mode longgar, url bukan https/wss, atau token tidak berawalan `kcowner_` → 409. Setiap pengambilan
+dicatat di audit. Token owner relay hanya bisa *meminta* pairing; persetujuan tetap butuh kode dari Mac atau perangkat ter-pair.
+
 ## Pekerjaan lanjutan
 
 - **Token host terpisah** (awalan mis. `kchost_`) per Mac, dibuat saat memasang ravel-host dan disimpan di Keychain Mac itu

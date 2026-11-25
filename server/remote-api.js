@@ -4,9 +4,13 @@
 // Siapa boleh apa:
 //   host   (WS /api/remote/host)  token mesin, atau token config lewat listener HTTP lokal (Mac hub)
 //   viewer (WS /api/remote/ws, GET /api/remote/hosts, approve tanpa kode)  token perangkat kcview_ saja
-//   owner  (POST /api/remote/pair, ambil hasil pairing, approve dengan kode)  token owner/admin lewat Bearer
+//   owner  (POST /api/remote/pair, ambil hasil pairing, approve dengan kode,
+//           GET /api/remote/relay-owner)  token owner/admin lewat Bearer
 // Cookie tidak pernah dipakai di /api/remote/*.
 import os from 'node:os';
+import fs from 'node:fs';
+import path from 'node:path';
+import { DATA_DIR } from './config.js';
 import { createRemote, viewerInfo } from './remote.js';
 import * as rd from './remote-devices.js';
 import * as authMx from './machines.js';
@@ -15,6 +19,18 @@ import { bus } from './live.js';
 import { sameToken } from './safe-eq.js';
 
 const err = (message, code) => Object.assign(new Error(message), { code });
+
+/** Relay signaling publik (ravel-remote/relay): { url, token owner relay } dari DATA_DIR/remote-relay.json, dibuat manual
+ *  dengan mode 600. Supaya app bisa meminta pairing ke relay tanpa mengetik token. null kalau berkas tidak ada. */
+export function readRelayOwner(file = path.join(DATA_DIR, 'remote-relay.json')) {
+  let st; try { st = fs.statSync(file); } catch { return null; }
+  if (st.mode & 0o077) throw err(`${path.basename(file)} harus mode 600 (chmod 600).`, 409);
+  let j; try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw err(`${path.basename(file)} bukan JSON yang valid.`, 409); }
+  let u; try { u = new URL(String(j.url || '')); } catch { throw err('url relay tidak valid.', 409); }
+  if (!/^(https|wss):$/.test(u.protocol)) throw err('url relay harus https:// atau wss://.', 409);
+  if (!/^kcowner_[A-Za-z0-9_-]{20,}$/.test(String(j.token || ''))) throw err('token owner relay tidak valid (awalan kcowner_).', 409);
+  return { url: u.href.replace(/\/+$/, ''), token: j.token };
+}
 
 /** deps: { cfg, identify, allowedHosts, clientIp, fromLoopback, logDenied, send(res, code, data), body(req) } */
 export function remoteApi(deps) {
@@ -103,6 +119,14 @@ export function remoteApi(deps) {
         audit.record('remote', { as: c.actor, text: `perangkat remote "${r.device.device}" dipasangkan dengan kode dari Mac`, meta: { pair: id, device: r.device.id } });
         return { id, status: 'approved', token: r.token, device: r.device };
       } catch (e) { if (e.gone) remote.pairDone(id, 'gagal'); throw e; }
+    }
+    if (m === 'GET' && p === '/relay-owner') {
+      // hanya token owner kantor (bukan token perangkat): yang boleh meminta pairing di sini juga boleh di relay
+      need('owner');
+      const r = readRelayOwner();
+      if (!r) throw err('Relay belum dikonfigurasi (remote-relay.json tidak ada).', 404);
+      audit.record('remote', { as: c.actor, text: 'mengambil token owner relay', meta: { url: r.url } });
+      return r;
     }
     if (m === 'GET' && p === '/devices') { need('owner', 'viewer'); return rd.listDevices().map(d => ({ ...d, current: c.device?.id === d.id })); }
     if (m === 'DELETE' && (mm = /^\/devices\/([^/]+)$/.exec(p))) {

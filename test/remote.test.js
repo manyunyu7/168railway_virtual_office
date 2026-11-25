@@ -335,6 +335,26 @@ test('remote daemon (P3): Origin browser selain kantor sendiri ditolak, app nati
   assert.equal((await api('/api/remote/pair', { token: 'tok', method: 'POST', body: {}, headers: { Origin: 'https://aplikasi.test' } })).status, 403);
 });
 
+test('remote daemon: GET /api/remote/relay-owner hanya untuk token owner, dari remote-relay.json mode 600', async () => {
+  const file = path.join(tmp, 'home', 'remote-relay.json');
+  assert.equal((await api('/api/remote/relay-owner', { token: 'tok' })).status, 404, 'belum dikonfigurasi');
+  const RT = 'kcowner_' + 'r'.repeat(43);
+  fs.writeFileSync(file, JSON.stringify({ url: 'https://relay.example.test/', token: RT }), { mode: 0o644 });
+  fs.chmodSync(file, 0o644);
+  assert.match((await api('/api/remote/relay-owner', { token: 'tok' })).json.error, /mode 600/);
+  fs.chmodSync(file, 0o600);
+  const ok = await api('/api/remote/relay-owner', { token: 'tok' });
+  assert.equal(ok.status, 200);
+  assert.deepEqual(ok.json, { url: 'https://relay.example.test', token: RT });
+  const view = await pairWithCode('Fold relay');
+  assert.equal((await api('/api/remote/relay-owner', { token: view.token })).status, 403, 'token perangkat tidak boleh');
+  assert.equal((await api('/api/remote/relay-owner', { headers: { Cookie: 'kc_token=tok' } })).status, 401, 'cookie tidak dipakai');
+  assert.equal((await api('/api/remote/relay-owner', { token: 'tok', headers: { Origin: 'https://evil.test' } })).status, 403);
+  fs.writeFileSync(file, JSON.stringify({ url: 'http://relay.example.test', token: RT }), { mode: 0o600 });
+  assert.equal((await api('/api/remote/relay-owner', { token: 'tok' })).status, 409, 'harus https/wss');
+  fs.rmSync(file);
+});
+
 test('remote daemon: Mac hub lewat token config loopback memakai id mesin local:', async () => {
   const loc = client(d.ws + '/api/remote/host', bearer('tok')); await loc.open();
   loc.send({ type: 'register', machine: 'local', name: 'Mac mini' });
@@ -379,3 +399,4 @@ test('remote daemon: batas laju pair, join, dan auth gagal per IP', async () => 
     assert.equal((await fetch(base + '/api/state', { headers: bearer('tok') })).status, 200, 'API kantor lain tidak terpengaruh');
   } finally { child.kill(); }
 });
+
