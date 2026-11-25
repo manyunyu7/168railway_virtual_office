@@ -96,8 +96,11 @@ function tokenOf(req) {
   return cookieOf(req, 'kc_token');
 }
 const LOOPBACK = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
-// a request relayed by a reverse proxy also arrives from loopback, so forwarded headers disqualify it
-const fromLoopback = req => LOOPBACK.has(req.socket.remoteAddress) && !req.headers['x-forwarded-for'] && !req.headers['x-real-ip'];
+// a request relayed by a reverse proxy also arrives from loopback, so forwarded headers disqualify it.
+// A TCP passthrough (tailscale serve :443 → 127.0.0.1:<tls.port>, a Cloudflare tunnel) adds no header but lands on the
+// TLS listener, so only the plain-HTTP listener on cfg.port counts as this machine (hooks and MCP use it via server.json).
+const fromLoopback = req => LOOPBACK.has(req.socket.remoteAddress) && !req.headers['x-forwarded-for'] && !req.headers['x-real-ip']
+  && !req.socket.encrypted && req.socket.localPort === cfg.port;
 function clientIp(req) {
   if (cfg.akun?.trustProxy) {
     const real = req.headers['x-real-ip'];
