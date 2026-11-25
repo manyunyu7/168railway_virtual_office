@@ -28,7 +28,7 @@ function cleanDisplays(d) {
 /**
  * Registry host online + sesi. Tidak tahu apa-apa soal auth: index.js memutuskan siapa boleh masuk dan
  * memberi id mesin (host) atau actor (viewer).
- * opts: { record(kind, info), emit(event), knownMachines() → [{id,name}], maxSessions, pingMs, maxPayload }
+ * opts: { record(kind, info), emit(event), knownMachines() → [{id,name}], maxSessions, pingMs, maxPayload, revalidateMs }
  */
 export function createRemote(opts = {}) {
   const maxSessions = opts.maxSessions ?? MAX_SESSIONS;
@@ -36,9 +36,9 @@ export function createRemote(opts = {}) {
   const emit = opts.emit || (() => {});
   const known = opts.knownMachines || (() => []);
   const wss = new WebSocketServer({ noServer: true, maxPayload: opts.maxPayload ?? MAX_MESSAGE });
-  const hosts = new Map(); // machine → { ws, machine, name, version, displays, since, sessions: Map<sid, session> }
+  const hosts = new Map(); // machine → { ws, machine, name, version, displays, since, valid(), sessions: Map<sid, session> }
   const seen = new Map(); // machine → { name, version, displays } host yang pernah register (tetap tampil saat offline)
-  const sessions = new Map(); // sid → { id, machine, host, viewer: ws, actor, device, opened }
+  const sessions = new Map(); // sid → { id, machine, host, viewer: ws, actor, deviceId, valid(), device, opened }
 
   const send = (ws, m) => { if (ws && ws.readyState === 1) try { ws.send(JSON.stringify(m)); } catch {} };
   const changed = () => { try { emit({ t: 'remote-hosts', hosts: listHosts() }); } catch {} };
@@ -70,7 +70,7 @@ export function createRemote(opts = {}) {
   }
 
   /* ---------------- host ---------------- */
-  function onHost(ws, machine, loopback) {
+  function onHost(ws, machine, loopback, valid) {
     let h = null;
     const fail = (message, code = 4400) => { send(ws, { type: 'error', message }); ws.close(code, message.slice(0, 120)); };
     ws.on('message', (data, isBinary) => {
@@ -80,7 +80,7 @@ export function createRemote(opts = {}) {
         if (m.type !== 'register') return fail('Kirim register dulu.');
         if (m.machine != null && String(m.machine) !== machine && !(m.machine === 'local' && loopback)) return fail(`Token ini untuk mesin "${machine}", bukan "${m.machine}".`, 4403);
         const old = hosts.get(machine);
-        h = { ws, machine, name: str(m.name, 80) || old?.name || machine, version: str(m.version, 40), displays: cleanDisplays(m.displays), since: Date.now(), sessions: new Map() };
+        h = { ws, machine, name: str(m.name, 80) || old?.name || machine, version: str(m.version, 40), displays: cleanDisplays(m.displays), since: Date.now(), valid, sessions: new Map() };
         if (old) { dropHost(old, 'host-diganti'); try { old.ws.close(4000, 'diganti koneksi baru'); } catch {} }
         hosts.set(machine, h);
         seen.set(machine, { name: h.name, version: h.version, displays: h.displays });
@@ -106,14 +106,14 @@ export function createRemote(opts = {}) {
   }
 
   /* ---------------- viewer ---------------- */
-  function onViewer(ws, actor, machine, info) {
+  function onViewer(ws, actor, machine, info, { deviceId = null, valid = () => true } = {}) {
     const h = hosts.get(machine);
     const refuse = message => { send(ws, { type: 'error', message }); ws.close(1000, 'error'); };
     if (!machine) return refuse('Parameter machine wajib diisi.');
     if (!h) return refuse('Host offline atau belum terpasang.');
     if (h.sessions.size >= maxSessions) return refuse(`Host sudah dipakai ${h.sessions.size} sesi (maksimal ${maxSessions}).`);
     const id = 's_' + crypto.randomBytes(12).toString('base64url');
-    const s = { id, machine, host: h, viewer: ws, actor, device: info.device, opened: Date.now() };
+    const s = { id, machine, host: h, viewer: ws, actor, deviceId, valid, device: info.device, opened: Date.now() };
     sessions.set(id, s); h.sessions.set(id, s);
     send(h.ws, { type: 'join', session: id, viewer: info });
     send(ws, { type: 'ready', session: id, machine, name: h.name, displays: h.displays });
@@ -142,14 +142,36 @@ export function createRemote(opts = {}) {
   }, opts.pingMs ?? PING_MS);
   beat.unref?.();
 
+  // token dicabut atau dirotasi (perangkat viewer, token mesin, token config) → koneksi remote yang memakainya ditutup
+  function revalidate() {
+    for (const h of [...hosts.values()]) {
+      let ok = true; try { ok = h.valid ? !!h.valid() : true; } catch { ok = false; }
+      if (!ok) { dropHost(h, 'token-dicabut'); try { h.ws.close(4401, 'token dicabut'); } catch {} }
+    }
+    for (const s of [...sessions.values()]) {
+      let ok = true; try { ok = !!s.valid(); } catch { ok = false; }
+      if (!ok) endSession(s, 'token-dicabut');
+    }
+  }
+  const recheck = setInterval(revalidate, opts.revalidateMs ?? 5000);
+  recheck.unref?.();
+
   return {
     listHosts,
+    revalidate,
+    /** Pairing perangkat: kode tampil di semua Mac yang online (status bar/notifikasi ravel-host). Jumlah host yang dikabari. */
+    notifyPair(p) { let n = 0; for (const h of hosts.values()) if (h.ws.readyState === 1) { send(h.ws, { type: 'pair', id: p.id, device: p.device, code: p.code, expiresAt: new Date(p.expires).toISOString() }); n++; } return n; },
+    /** Pairing selesai (disetujui/kedaluwarsa/dibatalkan): host menutup notifikasinya. */
+    pairDone(id, status) { for (const h of hosts.values()) send(h.ws, { type: 'pair-done', id, status }); },
+    /** Perangkat dicabut: sesi-sesinya langsung diakhiri. */
+    closeDevice(deviceId, reason = 'perangkat-dicabut') { for (const s of [...sessions.values()]) if (s.deviceId === deviceId) endSession(s, reason); },
     /** WS /api/remote/host: `machine` sudah diverifikasi dari token (mesin) atau 'local' (token config dari loopback). */
     // loopback=true: token config dari Mac ini; register boleh menyebut machine 'local' walau id-nya mesin ssh 'local:'
-    hostUpgrade(req, sock, head, machine, { loopback = false } = {}) { wss.handleUpgrade(req, sock, head, ws => { wss.emit('connection', ws, req); onHost(ws, machine, loopback); }); },
-    /** WS /api/remote/ws: actor sudah diverifikasi sebagai pemilik. */
-    viewerUpgrade(req, sock, head, actor, machine, info) { wss.handleUpgrade(req, sock, head, ws => { wss.emit('connection', ws, req); onViewer(ws, actor, machine, info); }); },
-    close() { clearInterval(beat); for (const ws of wss.clients) ws.terminate(); wss.close(); },
+    // valid(): dicek ulang tiap revalidateMs; false → host diputus (token mesin dirotasi/mesin dinonaktifkan)
+    hostUpgrade(req, sock, head, machine, { loopback = false, valid = () => true } = {}) { wss.handleUpgrade(req, sock, head, ws => { wss.emit('connection', ws, req); onHost(ws, machine, loopback, valid); }); },
+    /** WS /api/remote/ws: actor sudah diverifikasi (perangkat viewer ter-pair). opts: { deviceId, valid() } */
+    viewerUpgrade(req, sock, head, actor, machine, info, o = {}) { wss.handleUpgrade(req, sock, head, ws => { wss.emit('connection', ws, req); onViewer(ws, actor, machine, info, o); }); },
+    close() { clearInterval(beat); clearInterval(recheck); for (const ws of wss.clients) ws.terminate(); wss.close(); },
     _state: () => ({ hosts, sessions }),
   };
 }

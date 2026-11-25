@@ -69,8 +69,7 @@ import { attachArgs } from './termapp.js';
 import * as audit from './audit.js';
 import * as akun from './akun.js';
 import { loginHtml, inviteHtml, PAGE_CSP } from './akun-pages.js';
-import os from 'node:os';
-import { createRemote, viewerInfo } from './remote.js';
+import { remoteApi } from './remote-api.js';
 
 const cfg = loadConfig();
 const WEB = path.join(ROOT_DIR, 'web');
@@ -144,7 +143,7 @@ function originOk(req) {
 // in akun mode: what only the daemon's own clients may call, and what only admins may change
 const SYSTEM_ONLY = [/^POST \/api\/hook$/, /^(GET|POST) \/api\/agent\//, /^POST \/api\/usage\/limits\/claude$/];
 const ADMIN_ONLY = [
-  /^\w+ \/api\/machines(\/|$)/, /^\w+ \/api\/remote(\/|$)/,
+  /^\w+ \/api\/machines(\/|$)/,
   /^\w+ \/api\/akun\/anggota/, /^GET \/api\/audit\/verify$/,
   /^POST \/api\/wizard\//, /^GET \/api\/(wizard\/folders|candidates)$/, /^POST \/api\/offices$/, /^POST \/api\/offices\/[^/]+\/(hide|open-local|budget)$/,
   /^GET \/api\/offices\/[^/]+\/browse$/, /^(POST|PATCH) \/api\/offices\/[^/]+\/rooms(\/[^/]+)?$/,
@@ -197,23 +196,6 @@ const O = id => { if (id !== '_kompleks' && !one(globalDb(), 'SELECT 1 FROM offi
 
 /* ---------------- routes ---------------- */
 machineRoutes(route, body); // /api/machines (server/machines-api.js)
-/* Ravel Remote: signaling remote desktop (server/remote.js, docs/REMOTE.md). Hanya pemilik. */
-// Mac hub sendiri bisa terdaftar sebagai mesin ssh 'local:' (punya hub.json dan token mesin); kalau ada, itulah id Mac ini
-const loopMachine = () => authMx.listMachines().find(m => !m.disabled && String(m.ssh).startsWith('local:'))?.id || null;
-const isOwner = a => !!a && (a.kind === 'local' || a.kind === 'system' || (a.kind === 'member' && a.role === 'admin'));
-const remote = createRemote({
-  record: (kind, info) => audit.record(kind, info),
-  emit: m => bus.emit('msg', m),
-  knownMachines: () => {
-    const ms = authMx.listMachines().filter(m => !m.disabled);
-    return loopMachine() ? ms : [{ id: authMx.LOCAL, name: cfg.remote?.localName || os.hostname().split('.')[0] }, ...ms];
-  },
-  maxSessions: cfg.remote?.maxSessions,
-});
-route('GET', '/api/remote/hosts', () => {
-  if (!isOwner(actor())) throw Object.assign(new Error('Hanya pemilik yang boleh membuka remote desktop.'), { code: 403 });
-  return remote.listHosts();
-});
 /** Mesin tempat sesi tercatat: null = Mac ini, undefined = sesi tak dikenal. */
 function sessionMachine(sid) {
   if (!sid || typeof sid !== 'string') return undefined;
@@ -1038,6 +1020,8 @@ async function handle(req, res) {
     try { serveShow(req, res, url.pathname); } catch { if (!res.headersSent) { res.writeHead(500); res.end(); } }
     return;
   }
+  // Ravel Remote punya auth sendiri (token perangkat, tanpa cookie): server/remote-api.js
+  if (url.pathname.startsWith('/api/remote/')) return remoteRoutes.http(req, res, url);
   if (url.pathname.startsWith('/api/')) {
     const a = identify(req);
     if (!a) return send(res, 401, { error: akunOn() ? 'Belum masuk. Buka /masuk' : 'Butuh token. Buka alamat dari perintah: kantor open' });
@@ -1080,6 +1064,7 @@ async function handle(req, res) {
 }
 
 const wssEvents = new WebSocketServer({ noServer: true });
+const remoteRoutes = remoteApi({ cfg, identify, allowedHosts, clientIp, fromLoopback, logDenied, send, body });
 const wssTerm = new WebSocketServer({ noServer: true });
 // koneksi HP dibiarkan hidup 65 dtk (bawaan Node 5 dtk): kembali ke app setelah jeda tidak perlu jabat tangan TLS baru
 const keepAlive = s => Object.assign(s, { keepAliveTimeout: 65_000, headersTimeout: 66_000 });
@@ -1087,23 +1072,13 @@ const makeServer = () => keepAlive(http.createServer(handle).on('upgrade', onUpg
 const server = makeServer();
 function onUpgrade(req, sock, head) {
   const url = new URL(req.url, 'http://x');
+  if (url.pathname.startsWith('/api/remote/')) { if (!remoteRoutes.upgrade(req, sock, head, url)) sock.destroy(); return; }
   const a = identify(req);
   if (!a) { sock.write('HTTP/1.1 401 Unauthorized\r\n\r\n'); return sock.destroy(); }
-  // ravel-host: token mesin (Mac lain) atau token config dari loopback (Mac ini = mesin 'local')
-  if (url.pathname === '/api/remote/host') {
-    const bearer = String(req.headers.authorization || '').startsWith('Bearer ');
-    const machine = a.kind === 'machine' ? a.machine : (bearer && (a.kind === 'local' || a.kind === 'system') && fromLoopback(req) && tokenOf(req) === cfg.token) ? (loopMachine() || authMx.LOCAL) : null;
-    if (!machine) { logDenied(req, 'remote host'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
-    return remote.hostUpgrade(req, sock, head, machine, { loopback: a.kind !== 'machine' });
-  }
   // token mesin tidak pernah membuka events atau terminal
   if (a.kind === 'machine') { logDenied(req, 'token mesin'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
   if (akunOn() && !originOk(req)) { logDenied(req, 'origin'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
   req._actor = a;
-  if (url.pathname === '/api/remote/ws') {
-    if (!isOwner(a)) { logDenied(req, 'remote viewer'); sock.write('HTTP/1.1 403 Forbidden\r\n\r\n'); return sock.destroy(); }
-    return remote.viewerUpgrade(req, sock, head, a, url.searchParams.get('machine') || '', viewerInfo(url.searchParams));
-  }
   if (url.pathname === '/ws') wssEvents.handleUpgrade(req, sock, head, ws => wssEvents.emit('connection', ws, req));
   else if (url.pathname === '/ws/term') wssTerm.handleUpgrade(req, sock, head, ws => wssTerm.emit('connection', ws, req, url));
   else sock.destroy();

@@ -179,38 +179,109 @@ after(() => d?.child.kill());
 
 const wsStatus = async (p, headers) => { const c = client(d.ws + p, headers); try { await c.open(); c.close(); return 101; } catch (e) { return e.status || 0; } };
 const bearer = t => ({ Authorization: `Bearer ${t}` });
+const api = async (p, { token, method = 'GET', body, headers = {} } = {}) => {
+  const r = await fetch(d.http + p, { method, headers: { ...(token ? bearer(token) : {}), ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers }, body: body ? JSON.stringify(body) : undefined });
+  return { status: r.status, json: await r.json().catch(() => null) };
+};
+let H; // host MacBook (token mesin), tetap tersambung untuk tes berikutnya
+/** Pairing lewat kode yang dikirim ke host: hasilnya token perangkat kcview_. */
+async function pairWithCode(device) {
+  const r = await api('/api/remote/pair', { token: 'tok', method: 'POST', body: { device } });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  const msg = await H.next('pair');
+  assert.equal(msg.id, r.json.id); assert.equal(msg.device, device); assert.match(msg.code, /^\d{6}$/);
+  const ok = await api(`/api/remote/pair/${r.json.id}/approve`, { token: 'tok', method: 'POST', body: { code: msg.code, claim: r.json.claim } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.json));
+  assert.equal((await H.next('pair-done')).id, r.json.id);
+  return ok.json;
+}
 
 test('remote daemon: tanpa token ditolak, token mesin hanya untuk host', async () => {
   assert.equal(await wsStatus('/api/remote/host'), 401);
   assert.equal(await wsStatus('/api/remote/ws?machine=mbp'), 401);
-  assert.equal((await fetch(d.http + '/api/remote/hosts')).status, 401);
+  assert.equal((await api('/api/remote/hosts')).status, 401);
   assert.equal(await wsStatus('/api/remote/host', bearer('salah')), 401);
-  // token mesin tidak bisa membuka sesi viewer atau membaca daftar host
+  assert.equal(await wsStatus('/api/remote/ws?machine=mbp', bearer('kcview_palsu')), 401);
+  // token mesin tidak bisa membuka sesi viewer, membaca daftar host, atau meminta pairing
   assert.equal(await wsStatus('/api/remote/ws?machine=mbp', bearer(TOKM)), 403);
-  assert.equal((await fetch(d.http + '/api/remote/hosts', { headers: bearer(TOKM) })).status, 403);
+  assert.equal((await api('/api/remote/hosts', { token: TOKM })).status, 403);
+  assert.equal((await api('/api/remote/pair', { token: TOKM, method: 'POST', body: {} })).status, 403);
   // token config lewat cookie (bukan Bearer) tidak dipakai untuk host
   assert.equal(await wsStatus('/api/remote/host', { Cookie: 'kc_token=tok' }), 403);
-  const list = await (await fetch(d.http + '/api/remote/hosts', { headers: bearer('tok') })).json();
-  assert.deepEqual(list.map(x => [x.machine, x.online]).sort(), [['mbp', false], ['mini', false]], "tanpa entri 'local' ganda");
 });
 
-test('remote daemon: host bertoken mesin + viewer pemilik saling relay', async () => {
+test('remote daemon (K1): token owner dan cookie tidak cukup untuk viewer', async () => {
+  assert.equal(await wsStatus('/api/remote/ws?machine=mbp', bearer('tok')), 403);
+  assert.equal(await wsStatus('/api/remote/ws?machine=mbp', { Cookie: 'kc_token=tok' }), 401);
+  assert.equal((await api('/api/remote/hosts', { token: 'tok' })).status, 403);
+  assert.equal((await api('/api/remote/hosts', { headers: { Cookie: 'kc_token=tok' } })).status, 401);
+});
+
+test('remote daemon: pairing dengan kode dari Mac, lalu host bertoken mesin + viewer saling relay', async () => {
   const ev = client(d.ws + '/ws', { Cookie: 'kc_token=tok' }); await ev.open();
-  const h = client(d.ws + '/api/remote/host', bearer(TOKM)); await h.open();
-  h.send({ type: 'register', machine: 'mbp', name: 'MacBook Pro', version: '1.0.0', displays: [{ id: 1, w: 3024, h: 1964, scale: 2 }] });
-  await h.next('registered');
-  const e = await ev.next('remote-hosts', 3000);
-  assert.ok(e.hosts.some(x => x.machine === 'mbp' && x.online));
-  const list = await (await fetch(d.http + '/api/remote/hosts', { headers: bearer('tok') })).json();
-  assert.equal(list.find(x => x.machine === 'mbp').name, 'MacBook Pro');
-  const v = client(d.ws + '/api/remote/ws?machine=mbp&device=Fold%208&w=1080&h=2400&dpr=3', { Cookie: 'kc_token=tok' }); await v.open();
+  H = client(d.ws + '/api/remote/host', bearer(TOKM)); await H.open();
+  H.send({ type: 'register', machine: 'mbp', name: 'MacBook Pro', version: '1.0.0', displays: [{ id: 1, w: 3024, h: 1964, scale: 2 }] });
+  await H.next('registered');
+  assert.ok((await ev.next('remote-hosts', 3000)).hosts.some(x => x.machine === 'mbp' && x.online));
+  ev.close();
+
+  // kode salah: dibatasi 5 percobaan, claim wajib
+  const r = await api('/api/remote/pair', { token: 'tok', method: 'POST', body: { device: 'Tablet' } });
+  assert.equal(r.json.hostsNotified, 1);
+  const code = (await H.next('pair')).code;
+  assert.equal((await api(`/api/remote/pair/${r.json.id}/approve`, { token: 'tok', method: 'POST', body: { code, claim: 'bukan' } })).status, 403);
+  const wrong = String((Number(code) + 1) % 1e6).padStart(6, '0');
+  for (let i = 0; i < 4; i++) assert.match((await api(`/api/remote/pair/${r.json.id}/approve`, { token: 'tok', method: 'POST', body: { code: wrong, claim: r.json.claim } })).json.error, /Kode salah/);
+  assert.match((await api(`/api/remote/pair/${r.json.id}/approve`, { token: 'tok', method: 'POST', body: { code: wrong, claim: r.json.claim } })).json.error, /terlalu sering/);
+  assert.equal((await H.next('pair-done')).status, 'gagal');
+  assert.equal((await api(`/api/remote/pair/${r.json.id}/approve`, { token: 'tok', method: 'POST', body: { code, claim: r.json.claim } })).status, 404);
+
+  const fold = await pairWithCode('Fold 8');
+  assert.match(fold.token, /^kcview_/);
+  const list = await api('/api/remote/hosts', { token: fold.token });
+  assert.equal(list.status, 200);
+  assert.equal(list.json.find(x => x.machine === 'mbp').name, 'MacBook Pro');
+
+  const v = client(d.ws + '/api/remote/ws?machine=mbp&device=Palsu&w=1080&h=2400&dpr=3', bearer(fold.token)); await v.open();
   const sid = (await v.next('ready')).session;
-  assert.deepEqual((await h.next('join')).viewer, { device: 'Fold 8', w: 1080, h: 2400, dpr: 3 });
-  h.send({ type: 'offer', session: sid, sdp: 'o' });
+  assert.deepEqual((await H.next('join')).viewer, { device: 'Fold 8', w: 1080, h: 2400, dpr: 3 }, 'nama perangkat dari pairing, bukan query');
+  H.send({ type: 'offer', session: sid, sdp: 'o' });
   assert.equal((await v.next('offer')).sdp, 'o');
   v.close();
-  assert.equal((await h.next('bye')).reason, 'viewer-putus');
-  // Mac ini sendiri: token config dari loopback → id mesin 'local:' (mini); 'local' diterima sebagai alias
+  assert.equal((await H.next('bye')).reason, 'viewer-putus');
+});
+
+test('remote daemon: approve dari perangkat ter-pair, daftar dan cabut perangkat menutup sesinya', async () => {
+  const fold = await pairWithCode('Fold lama');
+  const r = await api('/api/remote/pair', { token: 'tok', method: 'POST', body: { device: 'HP baru' } });
+  await H.next('pair');
+  assert.equal((await api(`/api/remote/pair/${r.json.id}?claim=${r.json.claim}`, { token: 'tok' })).json.status, 'pending');
+  assert.equal((await api('/api/remote/pair', { token: 'tok' })).status, 403, 'daftar permintaan hanya untuk perangkat');
+  const pend = await api('/api/remote/pair', { token: fold.token });
+  assert.ok(pend.json.some(p => p.id === r.json.id && p.device === 'HP baru' && !('code' in p) && !('claim' in p)));
+  assert.equal((await api(`/api/remote/pair/${r.json.id}/approve`, { token: fold.token, method: 'POST' })).json.status, 'approved');
+  assert.equal((await api(`/api/remote/pair/${r.json.id}`, { token: 'tok' })).status, 403, 'tanpa claim');
+  const got = await api(`/api/remote/pair/${r.json.id}`, { token: 'tok', headers: { 'X-Pair-Claim': r.json.claim } });
+  assert.equal(got.json.status, 'approved'); assert.match(got.json.token, /^kcview_/);
+  assert.equal((await api(`/api/remote/pair/${r.json.id}?claim=${r.json.claim}`, { token: 'tok' })).json.status, 'expired', 'token hanya diberikan sekali');
+  const hp = got.json.token;
+
+  const devs = await api('/api/remote/devices', { token: hp });
+  const me = devs.json.find(x => x.current);
+  assert.equal(me.device, 'HP baru'); assert.ok(!('hash' in me));
+  assert.equal((await api('/api/remote/devices', { token: 'tok' })).status, 200);
+
+  const v = client(d.ws + '/api/remote/ws?machine=mbp', bearer(hp)); await v.open();
+  const sid = (await v.next('ready')).session; await H.next('join');
+  assert.equal((await api(`/api/remote/devices/${me.id}`, { token: fold.token, method: 'DELETE' })).status, 200);
+  assert.deepEqual(await H.next('bye'), { type: 'bye', session: sid, reason: 'perangkat-dicabut' });
+  await v.closed();
+  assert.equal((await api('/api/remote/hosts', { token: hp })).status, 401, 'token dicabut');
+  assert.ok(!fs.readFileSync(path.join(tmp, 'home', 'remote-devices.json'), 'utf8').includes(fold.token.slice(7)), 'hanya hash yang disimpan');
+  assert.equal(fs.statSync(path.join(tmp, 'home', 'remote-devices.json')).mode & 0o777, 0o600);
+});
+
+test('remote daemon: Mac hub lewat token config loopback memakai id mesin local:', async () => {
   const loc = client(d.ws + '/api/remote/host', bearer('tok')); await loc.open();
   loc.send({ type: 'register', machine: 'local', name: 'Mac mini' });
   assert.equal((await loc.next('registered')).machine, 'mini');
@@ -218,5 +289,5 @@ test('remote daemon: host bertoken mesin + viewer pemilik saling relay', async (
   const evil = client(d.ws + '/api/remote/host', bearer(TOKM)); await evil.open();
   evil.send({ type: 'register', machine: 'local' });
   assert.equal((await evil.closed()).code, 4403);
-  h.close(); loc.close(); ev.close();
+  loc.close(); H.close();
 });
