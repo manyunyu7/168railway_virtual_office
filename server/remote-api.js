@@ -20,16 +20,24 @@ import { sameToken } from './safe-eq.js';
 
 const err = (message, code) => Object.assign(new Error(message), { code });
 
-/** Relay signaling publik (ravel-remote/relay): { url, token owner relay } dari DATA_DIR/remote-relay.json, dibuat manual
- *  dengan mode 600. Supaya app bisa meminta pairing ke relay tanpa mengetik token. null kalau berkas tidak ada. */
-export function readRelayOwner(file = path.join(DATA_DIR, 'remote-relay.json')) {
+/** Relay signaling publik (ravel-remote/relay): token owner relay (kcowner_) dari DATA_DIR/remote-relay.json, dibuat manual
+ *  dengan mode 600, supaya app bisa meminta pairing ke relay tanpa mengetik token. Isi berkas: satu objek
+ *  {"url","token"} atau daftar [{"url","token"}, …]. `want` (origin relay dari app) memilih entri yang origin-nya sama;
+ *  tanpa `want` → entri pertama. null kalau berkas tidak ada atau tidak ada yang cocok. */
+export function readRelayOwner(want = null, file = path.join(DATA_DIR, 'remote-relay.json')) {
   let st; try { st = fs.statSync(file); } catch { return null; }
   if (st.mode & 0o077) throw err(`${path.basename(file)} harus mode 600 (chmod 600).`, 409);
   let j; try { j = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw err(`${path.basename(file)} bukan JSON yang valid.`, 409); }
-  let u; try { u = new URL(String(j.url || '')); } catch { throw err('url relay tidak valid.', 409); }
-  if (!/^(https|wss):$/.test(u.protocol)) throw err('url relay harus https:// atau wss://.', 409);
-  if (!/^kcowner_[A-Za-z0-9_-]{20,}$/.test(String(j.token || ''))) throw err('token owner relay tidak valid (awalan kcowner_).', 409);
-  return { url: u.href.replace(/\/+$/, ''), token: j.token };
+  const entries = (Array.isArray(j) ? j : [j]).map(e => {
+    let u; try { u = new URL(String(e?.url || '')); } catch { throw err('url relay tidak valid.', 409); }
+    if (!/^(https|wss):$/.test(u.protocol)) throw err('url relay harus https:// atau wss://.', 409);
+    if (!/^kcowner_[A-Za-z0-9_-]{20,}$/.test(String(e.token || ''))) throw err('token owner relay tidak valid (awalan kcowner_).', 409);
+    return { origin: `https://${u.host}`, token: e.token };
+  });
+  let key = null;
+  if (want) { try { const u = new URL(String(want)); key = `https://${u.host}`; } catch { return null; } }
+  const hit = key ? entries.find(e => e.origin === key) : entries[0];
+  return hit ? { url: hit.origin, token: hit.token } : null;
 }
 
 /** deps: { cfg, identify, allowedHosts, clientIp, fromLoopback, logDenied, send(res, code, data), body(req) } */
@@ -123,8 +131,8 @@ export function remoteApi(deps) {
     if (m === 'GET' && p === '/relay-owner') {
       // hanya token owner kantor (bukan token perangkat): yang boleh meminta pairing di sini juga boleh di relay
       need('owner');
-      const r = readRelayOwner();
-      if (!r) throw err('Relay belum dikonfigurasi (remote-relay.json tidak ada).', 404);
+      const r = readRelayOwner(url.searchParams.get('url'));
+      if (!r) throw err('Kantor tidak menyimpan token owner untuk relay itu.', 404);
       audit.record('remote', { as: c.actor, text: 'mengambil token owner relay', meta: { url: r.url } });
       return r;
     }

@@ -346,11 +346,19 @@ test('remote daemon: GET /api/remote/relay-owner hanya untuk token owner, dari r
   const ok = await api('/api/remote/relay-owner', { token: 'tok' });
   assert.equal(ok.status, 200);
   assert.deepEqual(ok.json, { url: 'https://relay.example.test', token: RT });
+  // app mengirim ?url=<origin relay>: harus cocok (origin, wss sama dengan https), kalau tidak 404
+  assert.deepEqual((await api('/api/remote/relay-owner?url=' + encodeURIComponent('https://relay.example.test'), { token: 'tok' })).json, { url: 'https://relay.example.test', token: RT });
+  assert.equal((await api('/api/remote/relay-owner?url=' + encodeURIComponent('wss://relay.example.test/api/remote/ws'), { token: 'tok' })).status, 200);
+  assert.equal((await api('/api/remote/relay-owner?url=' + encodeURIComponent('https://lain.example.test'), { token: 'tok' })).status, 404);
+  const RT2 = 'kcowner_' + 's'.repeat(43);
+  fs.writeFileSync(file, JSON.stringify([{ url: 'https://relay.example.test', token: RT }, { url: 'https://dua.example.test', token: RT2 }]), { mode: 0o600 });
+  assert.equal((await api('/api/remote/relay-owner?url=https://dua.example.test', { token: 'tok' })).json.token, RT2, 'daftar relay');
   const view = await pairWithCode('Fold relay');
   assert.equal((await api('/api/remote/relay-owner', { token: view.token })).status, 403, 'token perangkat tidak boleh');
   assert.equal((await api('/api/remote/relay-owner', { headers: { Cookie: 'kc_token=tok' } })).status, 401, 'cookie tidak dipakai');
   assert.equal((await api('/api/remote/relay-owner', { token: 'tok', headers: { Origin: 'https://evil.test' } })).status, 403);
   fs.writeFileSync(file, JSON.stringify({ url: 'http://relay.example.test', token: RT }), { mode: 0o600 });
+  fs.chmodSync(file, 0o600);
   assert.equal((await api('/api/remote/relay-owner', { token: 'tok' })).status, 409, 'harus https/wss');
   fs.rmSync(file);
 });

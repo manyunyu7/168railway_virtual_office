@@ -103,9 +103,10 @@ Android Keystore dan meminta biometrik sebelum membuka sesi.
 Relay mandiri (repo ravel-remote, folder `relay/`) memakai endpoint `/api/remote/*` yang sama. Untuk meminta pairing di
 relay, app butuh token owner relay (`kcowner_`). Kantor menyajikannya supaya tidak perlu diketik:
 
-`GET /api/remote/relay-owner` (Bearer token owner kantor; token perangkat/mesin 403, cookie 401) → `{url, token}` dari
-`~/.kantor-claude/remote-relay.json` (dibuat manual, **wajib mode 600**, isi `{"url":"https://…","token":"kcowner_…"}`).
-Berkas tidak ada → 404; mode longgar, url bukan https/wss, atau token tidak berawalan `kcowner_` → 409. Setiap pengambilan
+`GET /api/remote/relay-owner?url=<origin relay>` (Bearer token owner kantor; token perangkat/mesin 403, cookie 401) →
+`{url, token}` dari `~/.kantor-claude/remote-relay.json` (dibuat manual, **wajib mode 600**, isi `{"url":"https://…","token":"kcowner_…"}`
+atau daftar objek seperti itu). `url` dicocokkan per origin (`wss://` = `https://`); tanpa `url` → entri pertama.
+Berkas tidak ada atau tidak ada relay yang cocok → 404; mode longgar, url bukan https/wss, atau token tidak berawalan `kcowner_` → 409. Setiap pengambilan
 dicatat di audit. Token owner relay hanya bisa *meminta* pairing; persetujuan tetap butuh kode dari Mac atau perangkat ter-pair.
 
 ## Pekerjaan lanjutan
