@@ -30,7 +30,13 @@ export function remoteApi(deps) {
       return loopMachine() ? ms : [{ id: authMx.LOCAL, name: cfg.remote?.localName || os.hostname().split('.')[0] }, ...ms];
     },
     maxSessions: cfg.remote?.maxSessions,
+    revalidateMs: cfg.remote?.revalidateMs, // token mesin dirotasi/dinonaktifkan, perangkat dicabut → koneksi diputus
   });
+
+  // batas laju per IP: [jumlah, jendela ms], bisa diubah di config.json → remote.rate
+  const R = { join: [10, 60e3], pair: [5, 10 * 60e3], approve: [10, 60e3], authFail: [20, 10 * 60e3], ...(cfg.remote?.rate || {}) };
+  const lim = Object.fromEntries(Object.entries(R).map(([k, [n, ms]]) => [k, rd.limiter(n, ms)]));
+  const tooMany = () => err('Terlalu banyak percobaan. Coba lagi nanti.', 429);
 
   /** Pemanggil /api/remote/*: { kind: 'viewer'|'owner'|'other', actor, device? } atau null (tanpa/ salah token). */
   function caller(req) {
@@ -65,6 +71,7 @@ export function remoteApi(deps) {
     if (m === 'GET' && p === '/hosts') { need('viewer'); return remote.listHosts(); }
     if (m === 'POST' && p === '/pair') {
       need('owner');
+      if (!lim.pair(clientIp(req))) throw tooMany();
       const b = await body(req);
       const pr = rd.createPair({ device: b.device, ip: clientIp(req) });
       const hostsNotified = remote.notifyPair(pr);
@@ -81,6 +88,7 @@ export function remoteApi(deps) {
     }
     if (m === 'POST' && (mm = /^\/pair\/([^/]+)\/approve$/.exec(p))) {
       need('owner', 'viewer');
+      if (!lim.approve(clientIp(req))) throw tooMany();
       const id = mm[1];
       if (c.kind === 'viewer') {
         const r = rd.approveByDevice(id, c.device);
@@ -112,8 +120,10 @@ export function remoteApi(deps) {
     /** HTTP /api/remote/*. */
     async http(req, res, url) {
       if (!originAllowed(req)) { logDenied(req, 'remote origin'); return send(res, 403, { error: 'Asal permintaan ditolak.' }); }
+      const ip = clientIp(req);
+      if (lim.authFail.full(ip)) { logDenied(req, 'remote dibatasi'); return send(res, 429, { error: 'Terlalu banyak percobaan gagal. Coba lagi nanti.' }); }
       const c = caller(req);
-      if (!c) { logDenied(req, 'remote'); return send(res, 401, { error: 'Butuh token (Bearer).' }); }
+      if (!c) { lim.authFail(ip); logDenied(req, 'remote'); return send(res, 401, { error: 'Butuh token (Bearer).' }); }
       try { const out = await api(req, res, url, c); if (!res.headersSent) send(res, 200, out); }
       catch (e) { if (!res.headersSent) send(res, [401, 403, 404, 409, 429].includes(e.code) ? e.code : 400, { error: e.message }); }
     },
@@ -121,9 +131,11 @@ export function remoteApi(deps) {
     upgrade(req, sock, head, url) {
       const deny = (code, why) => { logDenied(req, why); sock.write(`HTTP/1.1 ${code} ${code === 401 ? 'Unauthorized' : code === 429 ? 'Too Many Requests' : 'Forbidden'}\r\n\r\n`); sock.destroy(); return true; };
       if (!originAllowed(req)) return deny(403, 'remote origin');
+      const ip = clientIp(req);
+      if (lim.authFail.full(ip)) return deny(429, 'remote dibatasi');
       if (url.pathname === '/api/remote/host') {
         const a = allowedHosts().has(req.headers.host) ? identify(req) : null;
-        if (!a) return deny(401, 'remote host');
+        if (!a) { lim.authFail(ip); return deny(401, 'remote host'); }
         const tok = String(req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.slice(7) : null;
         if (!tok) return deny(403, 'remote host');
         if (a.kind === 'machine') { const mid = a.machine; return remote.hostUpgrade(req, sock, head, mid, { actor: a, valid: () => authMx.machineForToken(tok) === mid }), true; }
@@ -134,8 +146,9 @@ export function remoteApi(deps) {
         return deny(403, 'remote host');
       }
       if (url.pathname === '/api/remote/ws') {
+        if (!lim.join(ip)) return deny(429, 'remote join dibatasi');
         const c = caller(req);
-        if (!c) return deny(401, 'remote viewer');
+        if (!c) { lim.authFail(ip); return deny(401, 'remote viewer'); }
         if (c.kind !== 'viewer') return deny(403, 'remote viewer tanpa token perangkat');
         const id = c.device.id;
         // nama perangkat dari pairing, bukan dari query (query bisa dipalsukan); ukuran layar tetap dari query

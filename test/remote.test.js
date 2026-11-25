@@ -203,6 +203,8 @@ before(async () => {
   fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ roots: [root], token: 'tok', port, sysmon: { enabled: false },
     // tanpa cert: tidak ada listener TLS, tapi nama-namanya ikut allowedHosts (untuk tes Origin)
     tls: { host: '127.0.0.1', names: ['office.test', 'aplikasi.test'], proxy: { 'aplikasi.test': 'http://127.0.0.1:9' } },
+    // batas laju dilonggarkan di sini (semua tes dari 127.0.0.1); batas aslinya dites di daemon kedua
+    remote: { revalidateMs: 200, rate: { join: [100, 60e3], pair: [100, 60e3], approve: [100, 60e3], authFail: [100, 60e3] } },
     machines: [{ id: 'mbp', name: 'MacBook', ssh: 'pemilik@mbp.test', hubUrl: `http://127.0.0.1:${port}`, token: TOKM },
       // Mac hub sendiri terdaftar sebagai mesin ssh 'local:' (seperti di Mac mini pemilik)
       { id: 'mini', name: 'Mac mini', ssh: 'local:', hubUrl: `http://127.0.0.1:${port}`, token: TOKM + 'mini' }] }));
@@ -341,4 +343,38 @@ test('remote daemon: Mac hub lewat token config loopback memakai id mesin local:
   evil.send({ type: 'register', machine: 'local' });
   assert.equal((await evil.closed()).code, 4403);
   loc.close(); H.close();
+});
+
+test('remote daemon: token mesin dirotasi → host diputus 4401, token lama tidak bisa tersambung lagi', async () => {
+  const h = client(d.ws + '/api/remote/host', bearer(TOKM)); await h.open();
+  h.send({ type: 'register', machine: 'mbp', name: 'MacBook' }); await h.next('registered');
+  const r = await api('/api/machines/mbp', { token: 'tok', method: 'PATCH', body: { rotateToken: true } });
+  assert.equal(r.status, 200, JSON.stringify(r.json));
+  assert.equal((await h.closed()).code, 4401);
+  assert.equal(await wsStatus('/api/remote/host', bearer(TOKM)), 401);
+});
+
+/* ---------------- batas laju per IP (daemon kedua, batas kecil) ---------------- */
+test('remote daemon: batas laju pair, join, dan auth gagal per IP', async () => {
+  const port = await freePort();
+  const home = path.join(tmp, 'home-rate');
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(path.join(home, 'config.json'), JSON.stringify({ roots: [tmp], token: 'tok', port, sysmon: { enabled: false },
+    remote: { rate: { pair: [1, 60e3], join: [2, 60e3], authFail: [3, 60e3] } } }));
+  const child = spawn(process.execPath, ['server/index.js'], { cwd: REPO, env: { ...process.env, KANTOR_HOME: home, KANTOR_DEMO: '1' }, stdio: 'ignore' });
+  try {
+    const base = `http://127.0.0.1:${port}`, wsb = `ws://127.0.0.1:${port}`;
+    for (let i = 0; i < 100; i++) { try { await fetch(base + '/api/state'); break; } catch { await new Promise(r => setTimeout(r, 100)); } }
+    const post = () => fetch(base + '/api/remote/pair', { method: 'POST', headers: { ...bearer('tok'), 'Content-Type': 'application/json' }, body: '{"device":"x"}' });
+    assert.equal((await post()).status, 200);
+    assert.equal((await post()).status, 429);
+    const join = async () => { const c = client(wsb + '/api/remote/ws?machine=x', bearer('kcview_salah')); try { await c.open(); c.close(); return 101; } catch (e) { return e.status; } };
+    assert.equal(await join(), 401); // auth gagal 1
+    assert.equal(await join(), 401); // auth gagal 2
+    assert.equal(await join(), 429, 'join ke-3 dalam semenit');
+    assert.equal((await fetch(base + '/api/remote/hosts', { headers: bearer('kcview_salah') })).status, 401); // auth gagal 3
+    assert.equal((await fetch(base + '/api/remote/hosts', { headers: bearer('kcview_salah') })).status, 429);
+    assert.equal((await post()).status, 429, 'IP yang terlalu sering gagal ditahan untuk semua rute remote');
+    assert.equal((await fetch(base + '/api/state', { headers: bearer('tok') })).status, 200, 'API kantor lain tidak terpengaruh');
+  } finally { child.kill(); }
 });

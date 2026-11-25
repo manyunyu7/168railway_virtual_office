@@ -116,13 +116,14 @@ export function cancelPair(id) { return pairs.delete(id); }
 /* ---------------- batas laju sederhana (jendela geser per kunci) ---------------- */
 export function limiter(max, windowMs) {
   const hits = new Map();
-  return key => {
+  const fresh = key => (hits.get(key) || []).filter(t => Date.now() - t < windowMs);
+  return Object.assign(key => {
     const now = Date.now(), arr = (hits.get(key) || []).filter(t => now - t < windowMs);
     if (arr.length >= max) { hits.set(key, arr); return false; }
     arr.push(now); hits.set(key, arr);
     if (hits.size > 5000) for (const [k, v] of hits) if (!v.some(t => now - t < windowMs)) hits.delete(k);
     return true;
-  };
+  }, { /** true kalau kunci ini sudah mencapai batas (tanpa mencatat hit). */ full: key => fresh(key).length >= max });
 }
 
 export function _resetForTests() { cache = null; pairs.clear(); }
