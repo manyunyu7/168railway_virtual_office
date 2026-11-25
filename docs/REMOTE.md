@@ -78,7 +78,7 @@ Android Keystore dan meminta biometrik sebelum membuka sesi.
 
 ### Batas
 - Maks **2 sesi per host** (`config.json` → `remote.maxSessions`).
-- Pesan maks **256 KB** (lebih besar → close 1009). Binary ditolak. Ping WS tiap **20 dtk**.
+- Pesan maks **64 KB** (lebih besar → close 1009). Binary ditolak. Ping WS tiap **20 dtk**.
 - Laju per IP (`remote.rate`, `[jumlah, ms]`): join viewer 10/menit, pair 5/10 menit, approve 10/menit, auth gagal
   20/10 menit (setelahnya semua `/api/remote/*` dari IP itu 429).
 - Koneksi dicek ulang tiap `remote.revalidateMs` (bawaan 5000). Token owner hanya berubah lewat restart daemon, yang menutup semua WS.
@@ -96,4 +96,10 @@ Android Keystore dan meminta biometrik sebelum membuka sesi.
   config dari `~/.kantor-claude/server.json` ke `ws://127.0.0.1:<port>/api/remote/host` (bukan lewat listener TLS).
   Keduanya memetakan ke id mesin `local:` itu.
 - Catatan: token mesin juga ada di env agen di Mac itu. Aturan penggantian host (4409) dan pinning fingerprint di app yang
-  mencegah token itu dipakai untuk menyamar sebagai host; token host terpisah di Keychain masih rencana.
+  mencegah token itu dipakai untuk menyamar sebagai host.
+
+## Pekerjaan lanjutan
+
+- **Token host terpisah** (awalan mis. `kchost_`) per Mac, dibuat saat memasang ravel-host dan disimpan di Keychain Mac itu
+  (bukan `hub.json`, bukan env agen), hanya berlaku untuk `/api/remote/host` dan bisa dicabut per mesin. Setelah ada,
+  token mesin dan token config tidak lagi diterima di `/api/remote/host`.

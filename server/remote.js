@@ -6,7 +6,7 @@ import crypto from 'node:crypto';
 import { WebSocketServer } from 'ws';
 
 export const MAX_SESSIONS = 2;
-export const MAX_MESSAGE = 256 * 1024;
+export const MAX_MESSAGE = 64 * 1024; // SDP biasanya < 16 KB
 export const PING_MS = 20_000;
 
 const HOST_TYPES = new Set(['offer', 'ice', 'bye', 'error']);

@@ -178,7 +178,7 @@ test('remote (P1): tanpa sesi, ganti hanya kalau fingerprint/instance sama atau 
   v.close(); fresh.close(); await fresh.closed();
 });
 
-test('remote: register harus pertama, mesin harus cocok dengan token, pesan > 256 KB diputus', async () => {
+test('remote: register harus pertama, mesin harus cocok dengan token, pesan > 64 KB diputus', async () => {
   const a = client(`${base}/host?as=m5`); await a.open();
   a.send({ type: 'offer', session: 'x' });
   assert.match((await a.next('error')).message, /register/);
@@ -188,7 +188,8 @@ test('remote: register harus pertama, mesin harus cocok dengan token, pesan > 25
   assert.match((await b.next('error')).message, /mesin-lain/);
   assert.equal((await b.closed()).code, 4403);
   const h = await host('m5');
-  h.send({ type: 'register', machine: 'm5', pad: 'x'.repeat(300 * 1024) });
+  h.send({ type: 'register', machine: 'm5', pad: 'x'.repeat(60 * 1024) }); // di bawah 64 KB: masih diterima
+  h.send({ type: 'register', machine: 'm5', pad: 'x'.repeat(70 * 1024) });
   assert.equal((await h.closed()).code, 1009);
 });
 
