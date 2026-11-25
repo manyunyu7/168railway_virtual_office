@@ -1,5 +1,5 @@
 // fromLoopback: hanya listener HTTP lokal (cfg.port) yang dianggap "Mac ini". Koneksi ke listener TLS juga datang dari
-// 127.0.0.1 kalau lewat tailscale serve (TCP passthrough) atau Cloudflare tunnel, jadi tidak boleh dihitung loopback.
+// 127.0.0.1 kalau lewat TCP passthrough atau tunnel, jadi tidak boleh dihitung loopback.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -57,7 +57,7 @@ const B = { Authorization: 'Bearer tok' };
 
 test('loopback: host remote dengan token config hanya lewat listener HTTP lokal', async () => {
   assert.equal(await upgrade(single, false, '/api/remote/host', B), 101);
-  assert.equal(await upgrade(single, true, '/api/remote/host', B), 403, 'TLS dari 127.0.0.1 = tailscale serve / tunnel');
+  assert.equal(await upgrade(single, true, '/api/remote/host', B), 403, 'TLS dari 127.0.0.1 = passthrough / tunnel');
   assert.equal(await upgrade(single, false, '/api/remote/host', { ...B, 'X-Forwarded-For': '100.64.0.9' }), 403);
   // di luar remote, mode tunggal tidak berubah: token config berlaku dari mana pun
   assert.equal(await call(single, true, '/api/state', B), 200);
