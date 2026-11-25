@@ -15,8 +15,8 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kantor-remote-'));
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
 /** Klien WS palsu: antrean pesan JSON, tunggu pesan berikutnya (opsional dengan tipe tertentu), tunggu close. */
-function client(url, headers = {}) {
-  const ws = new WebSocket(url, { headers });
+function client(url, headers = {}, wsOpts = {}) {
+  const ws = new WebSocket(url, { headers, ...wsOpts });
   const q = [], waiters = [];
   let closed = null; const closeWaiters = [];
   ws.on('message', d => { const m = JSON.parse(String(d)); const i = waiters.findIndex(w => !w.type || w.type === (m.type ?? m.t)); if (i >= 0) waiters.splice(i, 1)[0].resolve(m); else q.push(m); });
@@ -40,7 +40,7 @@ function client(url, headers = {}) {
 let srv, base, remote;
 const audits = [], events = [];
 before(async () => {
-  remote = createRemote({ record: (k, i) => audits.push({ k, ...i }), emit: e => events.push(e), knownMachines: () => [{ id: 'local', name: 'Mac mini' }, { id: 'mbp', name: 'MacBook' }], pingMs: 60_000 });
+  remote = createRemote({ record: (k, i) => audits.push({ k, ...i }), emit: e => events.push(e), knownMachines: () => [{ id: 'local', name: 'Mac mini' }, { id: 'mbp', name: 'MacBook' }], pingMs: 60_000, replaceProbeMs: 150 });
   srv = http.createServer((q, r) => r.end());
   srv.on('upgrade', (req, sock, head) => {
     const u = new URL(req.url, 'http://x');
@@ -52,9 +52,9 @@ before(async () => {
 });
 after(() => { remote.close(); srv.close(); });
 
-async function host(machine, name = 'Mac') {
-  const h = client(`${base}/host?as=${machine}`); await h.open();
-  h.send({ type: 'register', machine, name, version: '1.0.0', displays: [{ id: 1, name: 'Built-in', w: 3024, h: 1964, scale: 2 }] });
+async function host(machine, name = 'Mac', extra = {}, wsOpts = {}) {
+  const h = client(`${base}/host?as=${machine}`, {}, wsOpts); await h.open();
+  h.send({ type: 'register', machine, name, version: '1.0.0', displays: [{ id: 1, name: 'Built-in', w: 3024, h: 1964, scale: 2 }], ...extra });
   assert.equal((await h.next('registered')).machine, machine);
   return h;
 }
@@ -130,17 +130,52 @@ test('remote: batas 2 sesi per host', async () => {
   b.close(); d.close(); h.close(); await h.closed();
 });
 
-test('remote: host register ulang menggantikan koneksi lama', async () => {
-  const old = await host('m4', 'Lama');
-  const v = await viewer('m4'); await v.next('ready'); await old.next('join');
-  const neu = await host('m4', 'Baru');
-  assert.equal((await old.closed()).code, 4000);
-  assert.equal((await v.next('bye')).reason, 'host-diganti');
-  const h = remote.listHosts().find(x => x.machine === 'm4');
-  assert.equal(h.online, true); assert.equal(h.name, 'Baru');
-  const v2 = await viewer('m4'); await v2.next('ready');
-  assert.ok((await neu.next('join')).session);
-  v2.close(); neu.close(); await neu.closed();
+test('remote (P1): host baru ditolak 4409 selama host lama punya sesi aktif', async () => {
+  const old = await host('m4', 'Lama', { fingerprint: 'sha-256 AA' });
+  const v = await viewer('m4'); const sid = (await v.next('ready')).session; await old.next('join');
+  const neu = client(`${base}/host?as=m4`); await neu.open();
+  neu.send({ type: 'register', machine: 'm4', name: 'Baru', fingerprint: 'sha-256 AA' }); // fingerprint sama pun tidak boleh merebut sesi
+  assert.match((await neu.next('error')).message, /sesi aktif/);
+  assert.equal((await neu.closed()).code, 4409);
+  assert.equal(remote.listHosts().find(x => x.machine === 'm4').name, 'Lama');
+  old.send({ type: 'offer', session: sid, sdp: 'masih' });
+  assert.equal((await v.next('offer')).sdp, 'masih', 'sesi lama tidak terganggu');
+  v.close(); await old.next('bye'); old.close(); await old.closed();
+});
+
+test('remote (P1): tanpa sesi, ganti hanya kalau fingerprint/instance sama atau host lama mati', async () => {
+  // fingerprint sama → langsung diganti
+  const a = await host('m6', 'A', { fingerprint: 'sha-256 11', instance: 'i-1' });
+  const b = await host('m6', 'B', { fingerprint: 'sha-256 11', instance: 'i-9' });
+  assert.equal((await a.closed()).code, 4000);
+  // instance sama (fingerprint baru, mis. sertifikat diganti) → diganti
+  const c = await host('m6', 'C', { instance: 'i-9', fingerprint: 'sha-256 22' });
+  assert.equal((await b.closed()).code, 4000);
+  assert.equal(remote.listHosts().find(x => x.machine === 'm6').name, 'C');
+  // host lama hidup, identitas berbeda → 4409 setelah ping dijawab
+  const d2 = client(`${base}/host?as=m6`); await d2.open();
+  d2.send({ type: 'register', machine: 'm6', name: 'D', fingerprint: 'sha-256 33' });
+  assert.match((await d2.next('error')).message, /masih hidup/);
+  assert.equal((await d2.closed()).code, 4409);
+  assert.equal(remote.listHosts().find(x => x.machine === 'm6').name, 'C');
+  c.close(); await c.closed();
+  // host lama tidak menjawab ping (macet/hilang jaringan) → diganti
+  const dead = await host('m7', 'Macet', { fingerprint: 'sha-256 44' }, { autoPong: false });
+  const fresh = await host('m7', 'Segar', { fingerprint: 'sha-256 55' });
+  await dead.closed();
+  const listed = remote.listHosts().find(x => x.machine === 'm7');
+  assert.equal(listed.name, 'Segar'); assert.equal(listed.fingerprint, 'sha-256 55');
+  assert.ok(audits.some(x => /fingerprint host Segar berubah/.test(x.text)));
+  // fingerprint diteruskan ke viewer di ready; field asing tidak ikut di-relay
+  const v = await viewer('m7');
+  const ready = await v.next('ready');
+  assert.equal(ready.fingerprint, 'sha-256 55');
+  await fresh.next('join');
+  fresh.send({ type: 'offer', session: ready.session, sdp: 'o', extra: 'sisipan', type2: 'x' });
+  assert.deepEqual(await v.next('offer'), { type: 'offer', session: ready.session, sdp: 'o' });
+  v.send({ type: 'ice', candidate: 'c', sdpMid: '0', sdpMLineIndex: 0, evil: 1 });
+  assert.deepEqual(await fresh.next('ice'), { type: 'ice', session: ready.session, candidate: 'c', sdpMid: '0', sdpMLineIndex: 0 });
+  v.close(); fresh.close(); await fresh.closed();
 });
 
 test('remote: register harus pertama, mesin harus cocok dengan token, pesan > 256 KB diputus', async () => {

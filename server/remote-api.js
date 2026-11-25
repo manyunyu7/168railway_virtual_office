@@ -114,10 +114,10 @@ export function remoteApi(deps) {
         if (!a) return deny(401, 'remote host');
         const tok = String(req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.slice(7) : null;
         if (!tok) return deny(403, 'remote host');
-        if (a.kind === 'machine') { const mid = a.machine; return remote.hostUpgrade(req, sock, head, mid, { valid: () => authMx.machineForToken(tok) === mid }), true; }
+        if (a.kind === 'machine') { const mid = a.machine; return remote.hostUpgrade(req, sock, head, mid, { actor: a, valid: () => authMx.machineForToken(tok) === mid }), true; }
         // token config hanya dari listener HTTP lokal (bukan passthrough/tunnel ke listener TLS, lihat fromLoopback)
         if ((a.kind === 'local' || a.kind === 'system') && tok === cfg.token && fromLoopback(req)) {
-          return remote.hostUpgrade(req, sock, head, loopMachine() || authMx.LOCAL, { loopback: true, valid: () => tok === cfg.token }), true;
+          return remote.hostUpgrade(req, sock, head, loopMachine() || authMx.LOCAL, { loopback: true, actor: a, valid: () => tok === cfg.token }), true;
         }
         return deny(403, 'remote host');
       }
