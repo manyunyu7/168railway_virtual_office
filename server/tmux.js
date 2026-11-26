@@ -20,6 +20,7 @@ import { assertChatInput, parseBlocker } from './blocker-screen.js';
 import { ownedTranscript } from './transcript-owner.js';
 import { who as actorName } from './actor.js';
 import * as mx from './machines.js';
+import { leaveModeFirst } from './tmux-keys.js';
 
 const which = bin => {
   for (const p of ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin', path.join(process.env.HOME, '.local/bin'), path.join(process.env.HOME, '.claude/local')]) {
@@ -40,19 +41,23 @@ export function bins() {
 // (lihat machines.setTmuxMachine), atau dari opts.machine untuk perintah tanpa target (new-session, set-buffer).
 const targetOf = args => { const i = args.indexOf('-t'); return i >= 0 ? String(args[i + 1] || '') : null; };
 export const machineOfTmuxArgs = args => { const t = targetOf(args); return t ? mx.tmuxMachineOf(t) : mx.LOCAL; };
+// Batas tunggu perintah tmux lokal. Semua panggilan tmux() sinkron, jadi satu klien tmux yang tidak selesai
+// membekukan seluruh daemon (HTTP, board, MCP). Remote sudah dibatasi 15 s di machines.execSync.
+export const LOCAL_TMUX_TIMEOUT = 10000;
 export function tmux(args, opts = {}) {
   const { machine: wanted, ...rest } = opts;
   const machine = wanted || machineOfTmuxArgs(args);
+  const run = leaveModeFirst(args); // pane di copy-mode: keluar dulu, lihat server/tmux-keys.js
   if (mx.isRemote(machine)) {
     mx.ensureProbed(machine);
-    const out = mx.execSync(machine, 'tmux', args, rest);
+    const out = mx.execSync(machine, 'tmux', run, rest);
     if (args[0] === 'new-session' || args[0] === 'kill-session') mx.invalidateTmuxList(machine);
     return out;
   }
   opts = rest;
   const { tmux: t } = bins();
   if (!t) throw new Error('tmux belum terpasang. Jalankan: brew install tmux');
-  return execFileSync(t, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], ...opts });
+  return execFileSync(t, run, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: LOCAL_TMUX_TIMEOUT, ...opts });
 }
 export function tmuxSessions() {
   try { return tmux(['list-sessions', '-F', '#{session_name}']).split('\n').filter(Boolean); } catch { return []; }

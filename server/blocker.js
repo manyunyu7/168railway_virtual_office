@@ -10,6 +10,7 @@ import http from 'node:http';
 import { execFile } from 'node:child_process';
 import { live, bus, serialize, whoOf, logOffice } from './live.js';
 import { bins } from './tmux.js';
+import { leaveModeFirst } from './tmux-keys.js';
 import { who as actorName } from './actor.js';
 import * as mx from './machines.js';
 import { parseBlocker, runAction, sameBlocker, wantsScan, ACTIONS } from './blocker-screen.js';
@@ -22,7 +23,8 @@ export const machineOf = s => { const m = s.tmux ? mx.tmuxMachineOf(s.tmux) : s.
 const machineName = id => mx.getMachine(id)?.name || id;
 
 /** tmux di mesin sesi itu, async: { code, stdout, stderr }. */
-export function tmuxAsync(machine, args, timeout = 5000) {
+export function tmuxAsync(machine, rawArgs, timeout = 5000) {
+  const args = leaveModeFirst(rawArgs); // pane di copy-mode: keluar dulu, lihat server/tmux-keys.js
   if (machine !== mx.LOCAL) return mx.execAsync(machine, 'tmux', args, { timeout });
   const { tmux: t } = bins();
   if (!t) return Promise.resolve({ code: -1, stdout: '', stderr: 'tmux belum terpasang' });

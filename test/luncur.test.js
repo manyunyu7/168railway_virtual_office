@@ -154,7 +154,8 @@ test('sessionAction ke sesi remote lewat tmux mesin itu; adoptSession ditolak', 
   const s = [...live.values()].find(x => x.role === be.id && x.slot === 0);
   fs.rmSync(LOG, { force: true });
   await T.sessionAction(s.sid, 'text', 'halo');
-  assert.ok(tmuxCalls().some(a => a[0] === 'send-keys' && a.includes(s.tmux) && a.includes('halo')));
+  // pane yang sedang di copy-mode dikeluarkan dulu dalam panggilan yang sama (server/tmux-keys.js)
+  assert.ok(tmuxCalls().some(a => a.slice(0, 5).join(' ') === `copy-mode -q -t ${s.tmux} ;` && a[5] === 'send-keys' && a.includes('halo')));
   await assert.rejects(T.adoptSession(s.sid), /jalan di Mac Mac Dua/);
   // tmux-nya hilang di mesin yang online: aksi teks memberi pesan jelas, bukan jalur Terminal
   setTmux(fs.readFileSync(STATE, 'utf8').split('\n').filter(n => n && n !== s.tmux));
