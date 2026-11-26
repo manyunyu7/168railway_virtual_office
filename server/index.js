@@ -22,7 +22,7 @@ import { payroll, scanUsage, setBudget, monthCost, currentMonth } from './payrol
 import { officeMetrics, complexMetrics, reportMarkdown } from './metrics.js';
 import { listMeetings, getMeeting, startMeeting, cancelMeeting, interject, actionToCard, resumeMeeting, continueMeeting, markInterrupted, runningMeetings } from './meetings.js';
 import { TOOLS, callTool, resolveIdentity } from './agent.js';
-import { readTranscript } from './transcript.js';
+import { readTranscript, warmTranscript } from './transcript.js';
 import { ownedTranscript } from './transcript-owner.js';
 import { transcriptArgs, openSession } from './session-open.js';
 import { blockerAction, kickBlocker, startBlockerWatch } from './blocker.js';
@@ -487,18 +487,19 @@ route('POST', '/api/sessions/:sid/label', async (req, res, p) => {
   return { ok: true, label };
 });
 route('POST', '/api/sessions/:sid/boss', async (req, res, p) => setSessionBoss(p.sid, (await body(req)).boss || null));
-function sessionTranscript(sid, q) {
+function transcriptFile(sid) {
   const s = live.get(sid);
   const row = s?.transcript ? s : one(globalDb(), 'SELECT transcript, engine FROM sessions WHERE sid = ?', sid);
-  const file = ownedTranscript(sid, row?.transcript, row?.engine);
-  return readTranscript(file, ...transcriptArgs(sid, q));
+  return ownedTranscript(sid, row?.transcript, row?.engine);
 }
-route('GET', '/api/sessions/:sid/transcript', (req, res, p, q) => sessionTranscript(p.sid, q));
+function sessionTranscript(sid, q) { return readTranscript(transcriptFile(sid), ...transcriptArgs(sid, q)); }
+// chat yang belum di cache dibaca bertahap dulu (server/transcript.js warmTranscript) supaya daemon tidak tertahan
+route('GET', '/api/sessions/:sid/transcript', async (req, res, p, q) => { await warmTranscript(transcriptFile(p.sid)); return sessionTranscript(p.sid, q); });
 // app HP membuka chat: transcript delta + lampiran + sesi live dalam satu permintaan (server/session-open.js)
-route('GET', '/api/sessions/:sid/open', (req, res, p, q) => openSession(p.sid, q, {
+route('GET', '/api/sessions/:sid/open', async (req, res, p, q) => (await warmTranscript(transcriptFile(p.sid)), openSession(p.sid, q, {
   transcript: sessionTranscript, attachments: sessionAttachments,
   session: sid => { const s = live.get(sid); if (s?.tmux) kickBlocker(sid); return s && s.status !== 'ended' ? serialize(s) : null; },
-}));
+})));
 // app HP menjawab layar yang menahan agen (login Codex/Claude, percayai folder, Enter): server/blocker.js
 route('POST', '/api/sessions/:sid/blocker', async (req, res, p) => { if (foreignSid(actor(), p.sid)) throw DENY_FOREIGN(); const b = await body(req); return blockerAction(p.sid, b?.action, b?.value); });
 // jawaban agen yang sedang ditulis, dibaca dari layar pane selama chat dibuka (server/stream.js)

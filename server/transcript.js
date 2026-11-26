@@ -3,7 +3,7 @@ import { resetTranscript, appendTranscript, transcriptResponse } from './transcr
 import fs from 'node:fs';
 import { toolLabel } from './live.js';
 import { isAgyTranscript, readAgyTranscript } from './antigravity.js';
-import { isRollout, readRollout } from './codex.js';
+import { isRollout, readRollout, stepRollout } from './codex.js';
 import { isOcTranscript, readOcTranscript } from './opencode.js';
 import { scanAppended } from './jsonl.js';
 
@@ -20,13 +20,30 @@ export function readTranscript(file, n = 120, options) {
   if (isAgyTranscript(file)) return readAgyTranscript(file, n, options);
   if (isRollout(file)) return readRollout(file, n, toolLabel, options); // OpenAI Codex rollout, same items
   if (isOcTranscript(file)) return readOcTranscript(file, n, options, toolLabel); // OpenCode message snapshot (hooks/opencode-run.cjs)
+  const { c, st } = scanClaude(file);
+  return transcriptResponse(c, st, n, options);
+}
+
+function scanClaude(file, budget = 0) {
   const c = cache.get(file) || { ino: null, offset: 0, items: [] };
   const st = scanAppended(file, c, null, d => {
     appendTranscript(c, claudeItems(d), KEEP);
-  }, () => { resetTranscript(c); }, true);
-  cache.set(file, c);
+  }, () => { resetTranscript(c); }, true, budget);
+  cache.delete(file); cache.set(file, c); // paling baru dipakai di belakang: yang dibuang yang paling lama tidak dibuka
   if (cache.size > 100) cache.delete(cache.keys().next().value);
-  return transcriptResponse(c, st, n, options);
+  return { c, st };
+}
+
+// Membaca transcript yang belum ada di cache (sesudah restart, atau chat yang lama tidak dibuka) bisa berarti
+// 150-300 MB JSONL penuh screenshot. Sekali jalan itu menahan event loop 0,15 dtk di Mac yang santai, dan 2+ dtk
+// saat load tinggi dan swap, sehingga semua chat dan board ikut macet. Route chat memanggil ini dulu: bacaan dicicil
+// per WARM_SLICE dan event loop sempat jalan di antaranya; readTranscript sesudahnya tinggal membaca dari cache.
+const WARM_SLICE = 4 << 20;
+const tick = () => new Promise(r => setImmediate(r));
+export async function warmTranscript(file) {
+  if (!file || !fs.existsSync(file) || isAgyTranscript(file) || isOcTranscript(file)) return;
+  const step = isRollout(file) ? () => stepRollout(file, toolLabel, WARM_SLICE) : () => scanClaude(file, WARM_SLICE).c.more;
+  for (let i = 0; i < 1e5 && step(); i++) await tick();
 }
 
 function claudeItems(d) {

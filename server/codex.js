@@ -346,14 +346,20 @@ const capCache = m => { if (m.size > 100) m.delete(m.keys().next().value); };
 
 const chatCache = new Map(); // file -> { ino, offset, items }
 const CHAT_KEEP = 2000;
+function scanRollout(file, toolLabel, budget = 0) {
+  const c = chatCache.get(file) || { ino: null, offset: 0, items: [] };
+  const st = scanAppended(file, c, ['item_completed'], d => { appendTranscript(c, rolloutItems(d, toolLabel), CHAT_KEEP); }, () => { resetTranscript(c); }, false, budget);
+  if (c.items.length > CHAT_KEEP) c.items = c.items.slice(-CHAT_KEEP);
+  chatCache.delete(file); chatCache.set(file, c); capCache(chatCache);
+  return { c, st };
+}
 export function readRollout(file, n, toolLabel, options) {
   if (!file || !fs.existsSync(file)) return { items: [], missing: true };
-  const c = chatCache.get(file) || { ino: null, offset: 0, items: [] };
-  const st = scanAppended(file, c, ['item_completed'], d => { appendTranscript(c, rolloutItems(d, toolLabel), CHAT_KEEP); }, () => { resetTranscript(c); });
-  if (c.items.length > CHAT_KEEP) c.items = c.items.slice(-CHAT_KEEP);
-  chatCache.set(file, c); capCache(chatCache);
+  const { c, st } = scanRollout(file, toolLabel);
   return transcriptResponse(c, st, n, options);
 }
+/** Satu potongan bacaan rollout ke cache (lihat warmTranscript); true bila masih ada sisa. */
+export function stepRollout(file, toolLabel, budget) { return !!scanRollout(file, toolLabel, budget).c.more; }
 
 /** True for a Codex rollout (first line is session_meta). */
 export function isRollout(file) {

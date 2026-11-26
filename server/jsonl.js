@@ -8,9 +8,11 @@ const parse = l => { try { return JSON.parse(l); } catch { return null; } };
  * screenshots can be several MB per line, and a tail window of the file used to fill up with them (the chat then showed
  * only the last few messages). The first call reads the whole file once; later calls only what was appended.
  * `reset()` runs first when the file was replaced or truncated. The last, unfinished line is read again next time.
+ * `budget` (bytes, 0 = no limit) stops after the first complete line past that many bytes and sets `state.more`, so a
+ * caller can read a cold 150 MB transcript in slices and let the event loop run in between.
  */
 const HEAD = 320, CHUNK = 4 << 20;
-export function scanAppended(file, state, marks, onLine, reset, includeFinal = false) {
+export function scanAppended(file, state, marks, onLine, reset, includeFinal = false, budget = 0) {
   const st = fs.statSync(file);
   // A truncate+rewrite can already have regrown past the old offset between
   // polls. Check the immutable prefix too, instead of silently mixing sessions.
@@ -22,6 +24,7 @@ export function scanAppended(file, state, marks, onLine, reset, includeFinal = f
   }
   if (replaced) { state.ino = st.ino; state.offset = 0; state.prefix = null; reset(); }
   state.lastSize = st.size; state.lastMtime = st.mtimeMs;
+  state.more = false;
   if (st.size === state.offset) return st;
   const fd = fs.openSync(file, 'r');
   try {
@@ -29,7 +32,8 @@ export function scanAppended(file, state, marks, onLine, reset, includeFinal = f
       state.prefix = Buffer.alloc(Math.min(256, st.size));
       fs.readSync(fd, state.prefix, 0, state.prefix.length, 0);
     }
-    let pos = state.offset, lineStart = pos, parts = [], keep = marks ? null : true, head = '';
+    let pos = state.offset, lineStart = pos, parts = [], keep = marks ? null : true, head = '', stopped = false;
+    const start = pos;
     const buf = Buffer.alloc(Math.min(CHUNK, st.size - pos));
     while (pos < st.size) {
       const got = fs.readSync(fd, buf, 0, Math.min(buf.length, st.size - pos), pos);
@@ -45,16 +49,19 @@ export function scanAppended(file, state, marks, onLine, reset, includeFinal = f
         if (end === got) break;
         if (keep) { const d = parse(Buffer.concat(parts).toString('utf8')); if (d) onLine(d); }
         parts = []; keep = marks ? null : true; head = ''; from = nl + 1; lineStart = pos + from;
+        if (budget && lineStart - start >= budget) { stopped = true; break; }
       }
+      if (stopped) break;
       pos += got;
     }
     // Native transcripts can end with a complete JSON record before its newline.
     // Only advance when it parses, so a half-written record is retried next time.
-    if (includeFinal && keep && parts.length) {
+    if (!stopped && includeFinal && keep && parts.length) {
       const d = parse(Buffer.concat(parts).toString('utf8'));
       if (d) { onLine(d); lineStart = pos; }
     }
     state.offset = lineStart;
+    state.more = stopped;
   } finally { fs.closeSync(fd); }
   return st;
 }

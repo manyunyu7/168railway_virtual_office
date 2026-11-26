@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'kantor-claude-chat-'));
 process.env.KANTOR_HOME = path.join(tmp, 'home');
-const { readTranscript } = await import('../server/transcript.js');
+const { readTranscript, warmTranscript } = await import('../server/transcript.js');
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 const row = (type, text) => JSON.stringify({ message: { content: [{ type: 'text', text }] }, type, timestamp: '2026-10-31T09:00:00Z' });
 const texts = file => readTranscript(file, 200).items.filter(x => ['user','text'].includes(x.k)).map(x => x.s);
@@ -85,4 +85,21 @@ test('complete final JSON without newline is shown once when later appends add t
   assert.deepEqual(texts(file),['Tanpa newline','Baru']);
   fs.appendFileSync(file,'\n');
   assert.deepEqual(texts(file),['Tanpa newline','Baru']);
+});
+
+test('chat yang belum di cache dibaca bertahap: event loop tetap jalan, hasilnya sama dengan bacaan penuh', async () => {
+  const file = path.join(tmp, 'cold.jsonl'), ref = path.join(tmp, 'cold-ref.jsonl');
+  const shot = { type: 'user', message: { content: [{ type: 'tool_result', content: [{ type: 'image', source: { type: 'base64', data: 'B'.repeat(3 << 20) } }, { type: 'text', text: 'shot' }] }] } };
+  const lines = [];
+  for (let i = 0; i < 8; i++) lines.push(row('user', `tanya ${i}`), JSON.stringify(shot), row('assistant', `jawab ${i}`));
+  fs.writeFileSync(file, lines.join('\n') + '\n' + row('assistant', 'akhir tanpa newline'));
+  fs.copyFileSync(file, ref);
+  let ticks = 0; const iv = setInterval(() => ticks++, 0);
+  await warmTranscript(file);
+  clearInterval(iv);
+  assert.ok(ticks >= 2, `event loop sempat jalan di antara potongan (ticks=${ticks})`);
+  assert.deepEqual(readTranscript(file, 200).items, readTranscript(ref, 200).items);
+  assert.equal(readTranscript(file, 1).items[0].s, 'akhir tanpa newline');
+  fs.appendFileSync(file, '\n' + row('user', 'baru'));
+  assert.equal(readTranscript(file, 1).items[0].s, 'baru');
 });
