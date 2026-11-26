@@ -146,6 +146,31 @@ test('gambar transkrip dari sesi remote disajikan lewat salinan', async () => {
   await assert.rejects(att.sendSessionImage('rs-3', path.join(tmp, 'mac2', 'rahasia', 'x.png'), false, { method: 'GET', headers: {} }, res), /tidak ada|luar/i);
 });
 
+test('gambar chat sesi remote: resolve async, di-cache, dan tidak menahan event loop', async () => {
+  files.clearResolveCache();
+  const imgs = Array.from({ length: 12 }, (_, i) => path.join(remote, `banyak-${i}.png`));
+  for (const f of imgs) fs.writeFileSync(f, Buffer.from('89504e470d0a1a0a', 'hex'));
+  // hasilnya sama dengan versi sinkron
+  const sync = files.remoteResolve('mac-dua', remote, imgs[0]);
+  const viaAsync = await files.remoteResolveAsync('mac-dua', remote, imgs[0]);
+  assert.deepEqual(viaAsync, sync);
+  assert.equal(viaAsync.exists, true);
+  // permintaan berikutnya untuk gambar yang sama memakai cache, tanpa proses baru
+  assert.equal(files.remoteResolveAsync('mac-dua', remote, imgs[0]), files.remoteResolveAsync('mac-dua', remote, imgs[0]));
+  // banyak gambar sekaligus: timer tetap berdetak selama resolve berjalan
+  let ticks = 0;
+  const iv = setInterval(() => ticks++, 1);
+  const all = Promise.all(imgs.map(f => files.remoteResolveAsync('mac-dua', remote, f, { now: Date.now() + 61e3 })));
+  await new Promise(r => setImmediate(r));
+  const during = ticks;
+  const infos = await all;
+  clearInterval(iv);
+  assert.ok(infos.every(i => i.exists && i.type === 'file'));
+  assert.ok(ticks > during, 'event loop tertahan selama resolve');
+  // file yang tidak ada tetap dilaporkan tidak ada (dan kegagalan tidak dikunci di cache)
+  assert.equal((await files.remoteResolveAsync('mac-dua', remote, path.join(remote, 'tidak-ada.png'))).exists, false);
+});
+
 test('git: status, diff, dan commit ruangan remote jalan di mesin itu', async () => {
   fs.writeFileSync(path.join(remote, 'README.md'), 'halo\ndunia\n');
   fs.writeFileSync(path.join(remote, 'baru.txt'), 'a\nb\nc');

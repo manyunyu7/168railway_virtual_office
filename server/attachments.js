@@ -16,7 +16,7 @@ import { officeModel } from './offices.js';
 import { live, bus } from './live.js';
 import { sessionAction } from './tmux.js';
 import * as mx from './machines.js';
-import { remoteResolve, pullFile, pushFile, remoteFreeName, rshAsync, machineLabel } from './files.js';
+import { remoteResolve, remoteResolveAsync, pullFile, pushFile, remoteFreeName, rshAsync, machineLabel } from './files.js';
 
 const execFileP = promisify(execFile);
 const UPLOADS = path.join(DATA_DIR, 'uploads');
@@ -626,7 +626,7 @@ async function pullSessionImage({ machine, base }, p) {
   if (s.startsWith('file://')) { try { s = decodeURIComponent(new URL(s).pathname); } catch { throw err(400, 'path tidak valid'); } }
   if (!s.startsWith('/') || s.includes('\0')) throw err(400, 'path harus absolut');
   if (!IMG_EXT.has(extOf(s))) throw err(400, 'Hanya berkas gambar');
-  const info = remoteResolve(machine, base, s);
+  const info = await remoteResolveAsync(machine, base, s); // async + cache: chat bisa berisi ratusan gambar
   if (!info.exists || !info.real) throw err(404, 'Gambar sudah tidak ada di disk');
   if (!IMG_EXT.has(extOf(info.real))) throw err(400, 'Hanya berkas gambar');
   const roots = [info.rootReal, base, info.tmp, '/tmp', '/private/tmp', info.home ? `${info.home}/.codex/generated_images` : null].filter(Boolean);

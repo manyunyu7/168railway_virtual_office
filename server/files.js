@@ -201,20 +201,54 @@ const typeOf = t => /^dir/i.test(t) ? 'dir' : /regular/i.test(t) ? 'file' : t ? 
  * Resolusi path di mesin lain dalam satu panggilan ssh: path asli (symlink diikuti), jenis, ukuran, mtime,
  * plus folder sementara dan HOME mesin itu. p relatif terhadap root. Tidak melempar bila file tidak ada (exists: false).
  */
-export function remoteResolve(machine, root, p = '') {
-  const abs = PX.resolve(root, String(p || ''));
-  const out = rsh(machine, `${RP}
+const resolveLine = (root, abs) => `${RP}
 R=$(rp ${q(root)}) || R=
 A=${q(abs)}
 if X=$(rp "$A"); then E=1; else E=0; D=$(rp "$(dirname "$A")") && X="\${D%/}/$(basename "$A")" || X=; fi
 printf 'R=%s\\nX=%s\\nT=%s\\nH=%s\\n' "$R" "$X" "$(rp "\${TMPDIR:-/tmp}")" "$HOME"
 if [ $E = 1 ]; then printf 'S=%s\\n' "$(${STAT1('"$X"')})"; fi
-exit 0`);
+exit 0`;
+function parseResolve(root, abs, out) {
   const kv = {};
   for (const l of String(out).split('\n')) { const i = l.indexOf('='); if (i > 0) kv[l.slice(0, i)] = l.slice(i + 1); }
   const [t, size, mt] = String(kv.S || '').split('|');
   return { root, rootReal: kv.R || null, abs, real: kv.X || null, exists: !!kv.S, type: typeOf(t), size: Number(size) || 0, mtimeMs: (Number(mt) || 0) * 1000, tmp: kv.T || null, home: kv.H || null };
 }
+export function remoteResolve(machine, root, p = '') {
+  const abs = PX.resolve(root, String(p || ''));
+  return parseResolve(root, abs, rsh(machine, resolveLine(root, abs)));
+}
+
+// Versi async untuk jalur yang dipanggil beruntun dari browser (gambar di chat sesi Mac lain: satu permintaan per
+// gambar, bisa ratusan). remoteResolve sinkron menahan event loop sekitar 40 ms sampai ratusan ms per gambar, jadi
+// membuka chat yang penuh gambar membuat seluruh daemon lag. Hasil disimpan sebentar dan paling banyak
+// RESOLVE_PARALLEL proses berjalan bersamaan.
+const RESOLVE_TTL_MS = 60e3, RESOLVE_PARALLEL = 4, RESOLVE_CACHE_MAX = 2000;
+const resolveCache = new Map(); // `${machine}\0${root}\0${abs}` → { at, info | promise }
+let resolveActive = 0;
+const resolveWaiters = [];
+async function resolveSlot(fn) {
+  if (resolveActive >= RESOLVE_PARALLEL) await new Promise(r => resolveWaiters.push(r));
+  resolveActive++;
+  try { return await fn(); } finally { resolveActive--; resolveWaiters.shift()?.(); }
+}
+export function remoteResolveAsync(machine, root, p = '', { now = Date.now() } = {}) {
+  const abs = PX.resolve(root, String(p || ''));
+  const key = `${machine}\0${root}\0${abs}`;
+  const hit = resolveCache.get(key);
+  if (hit && now - hit.at < RESOLVE_TTL_MS) return hit.promise;
+  const promise = resolveSlot(async () => {
+    const r = await rshAsync(machine, resolveLine(root, abs), { timeout: 20000 });
+    if (r.code !== 0) throw errC(502, `Gagal memeriksa ${PX.basename(abs)} di ${machineLabel(machine)}`);
+    return parseResolve(root, abs, r.stdout);
+  });
+  resolveCache.set(key, { at: now, promise });
+  promise.catch(() => { if (resolveCache.get(key)?.promise === promise) resolveCache.delete(key); }); // gagal: jangan disimpan
+  if (resolveCache.size > RESOLVE_CACHE_MAX) for (const [k, v] of resolveCache) { if (now - v.at >= RESOLVE_TTL_MS || resolveCache.size > RESOLVE_CACHE_MAX) resolveCache.delete(k); else break; }
+  return promise;
+}
+/** Untuk tes. */
+export const clearResolveCache = () => resolveCache.clear();
 
 /** Tarik file dari mesin itu ke `local`, bertahap (4 MB per panggilan). Ukuran harus cocok, kalau tidak dibuang. */
 export async function pullFile(machine, remote, local, { size = null, max = Infinity, chunk = 4 << 20 } = {}) {
