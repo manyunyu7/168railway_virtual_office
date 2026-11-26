@@ -16,6 +16,13 @@ export function agyBin() {
     .find(p => p && path.isAbsolute(p) && fs.existsSync(p)) || null;
 }
 const q = s => `'${String(s).replace(/'/g, `'\\''`)}'`;
+// process.execPath resolves Homebrew's symlink to a versioned Cellar path that
+// vanishes on `brew upgrade node`; prefer the stable <prefix>/bin/node.
+export function stableNode(exec = process.execPath) {
+  const m = exec.match(/^(.*)[/\\]Cellar[/\\]node[^/\\]*[/\\][^/\\]+[/\\]bin[/\\]node$/);
+  const stable = m && path.join(m[1], 'bin', 'node');
+  return stable && fs.existsSync(stable) ? stable : exec;
+}
 const readJSON = file => {
   const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim() : '';
   const value = text ? JSON.parse(text) : {};
@@ -36,7 +43,7 @@ function saveJSON(file, value) {
 // preserving other integrations. Hooks are inert outside a Kantor-started shift.
 export function installAgyIntegration(dir = path.join(os.homedir(), '.gemini/config')) {
   const file = path.join(dir, 'hooks.json'), hooks = readJSON(file);
-  const command = `${q(process.execPath)} ${q(path.join(ROOT_DIR, 'hooks/antigravity-hook.cjs'))}`;
+  const command = `${q(stableNode())} ${q(path.join(ROOT_DIR, 'hooks/antigravity-hook.cjs'))}`;
   hooks['kantor-claude'] = Object.fromEntries(['SessionStart', 'PreInvocation', 'PreToolUse', 'PostToolUse', 'Stop'].map(ev => [ev,
     ['PreToolUse', 'PostToolUse'].includes(ev)
       ? [{ matcher: '.*', hooks: [{ type: 'command', command: `${command} ${ev}`, timeout: 5 }] }]
@@ -46,7 +53,7 @@ export function installAgyIntegration(dir = path.join(os.homedir(), '.gemini/con
   const entry = mcp.mcpServers.kantor;
   if (entry && !entry.args?.some(x => /[/\\]server[/\\]mcp-stdio\.js$/.test(x)))
     throw new Error('MCP bernama kantor sudah dipakai integrasi lain di Antigravity. Ganti nama integrasi itu dulu.');
-  mcp.mcpServers.kantor = { command: process.execPath, args: [path.join(ROOT_DIR, 'server/mcp-stdio.js')], timeoutSeconds: 960 };
+  mcp.mcpServers.kantor = { command: stableNode(), args: [path.join(ROOT_DIR, 'server/mcp-stdio.js')], timeoutSeconds: 960 };
   saveJSON(file, hooks); saveJSON(mcpFile, mcp);
 }
 
